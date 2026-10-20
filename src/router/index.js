@@ -9,6 +9,11 @@ import ForgeView from '../views/ForgeView.vue'
 import CommsView from '../views/CommsView.vue'
 import CharacterView from '../views/CharacterView.vue'
 import BattleView from '../views/BattleView.vue'
+import NpcView from '../views/NpcView.vue'
+import NpcLoreView from '../views/NpcLoreView.vue'
+import NpcMemoryView from '../views/NpcMemoryView.vue'
+import NpcGiftView from '../views/NpcGiftView.vue'
+import NpcChatView from '../views/NpcChatView.vue'
 import { useGameStore } from '../stores/game.js'
 
 const router = createRouter({
@@ -29,7 +34,17 @@ const router = createRouter({
         { path: 'battle/:nodeId', name: 'battle', component: BattleView },
         { path: 'inventory', name: 'inventory', component: InventoryView },
         { path: 'forge', name: 'forge', component: ForgeView },
-        { path: 'comms', name: 'comms', component: CommsView },
+        {
+          path: 'comms',
+          name: 'comms',
+          redirect: (to) => ({ name: 'comms-section', params: { runId: to.params.runId, section: 'roster' } }),
+        },
+        { path: 'comms/:section', name: 'comms-section', component: CommsView },
+        { path: 'npc/:npcId', name: 'npc', component: NpcView },
+        { path: 'npc/:npcId/lore', name: 'npc-lore', component: NpcLoreView },
+        { path: 'npc/:npcId/memory', name: 'npc-memory', component: NpcMemoryView },
+        { path: 'npc/:npcId/gift', name: 'npc-gift', component: NpcGiftView },
+        { path: 'npc/:npcId/chat', name: 'npc-chat', component: NpcChatView },
         { path: 'character', name: 'character', component: CharacterView },
       ],
     },

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { REGIONS, ITEMS } from '../game-core/data.js'
 import {
   AXES,
@@ -16,6 +16,7 @@ import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
 const router = useRouter()
+const route = useRoute()
 
 const run = computed(() => game.run)
 const npcs = computed(() => (run.value ? npcList(run.value) : []))
@@ -25,7 +26,7 @@ const pendingInboxCount = computed(() => inbox.value.length)
 const weeklySummary = computed(() => run.value?.weekly?.summary || '')
 const activeQuests = computed(() => (run.value?.quests || []).filter((quest) => quest.status === 'active'))
 const loreInfo = computed(() => (selected.value ? loreStatusFor(selected.value, loreTierId.value) : null))
-const tab = ref('roster')
+const section = computed(() => String(route.params.section || 'roster'))
 const selectedId = ref(null)
 const detailOpen = ref(false)
 const giftOpen = ref(false)
@@ -85,14 +86,8 @@ const edges = computed(() => {
 })
 
 function openDetail(npc) {
-  if (!npc) return
-  selectedId.value = npc.id
-  reply.value = ''
-  giftOpen.value = false
-  loreTierId.value = loreStatusFor(npc).selected.id
-  loreError.value = ''
-  detailOpen.value = true
-  checkLlm()
+  if (!npc || !run.value) return
+  router.push({ name: 'npc', params: { runId: run.value.id, npcId: npc.id } })
 }
 
 function selectLoreTier(tierId) {
@@ -125,14 +120,8 @@ function closeDetail() {
 }
 
 function openChat(npc) {
-  if (!npc) return
-  selectedId.value = npc.id
-  detailOpen.value = false
-  giftOpen.value = false
-  chatOpen.value = true
-  chatInput.value = ''
-  checkLlm()
-  nextTick(scrollChat)
+  if (!npc || !run.value) return
+  router.push({ name: 'npc-chat', params: { runId: run.value.id, npcId: npc.id } })
 }
 
 function closeChat() {
@@ -308,16 +297,28 @@ async function narrateEvent(event) {
     </div>
 
     <nav class="comms-tabs">
-      <button type="button" :class="{ 'is-on': tab === 'inbox' }" @click="tab = 'inbox'">
+      <RouterLink
+        :to="{ name: 'comms-section', params: { runId: run.id, section: 'inbox' } }"
+        :class="{ 'is-on': section === 'inbox' }"
+      >
         收件箱
         <span v-if="pendingInboxCount" class="tab-count">{{ pendingInboxCount }}</span>
-      </button>
-      <button type="button" :class="{ 'is-on': tab === 'roster' }" @click="tab = 'roster'">名册</button>
-      <button type="button" :class="{ 'is-on': tab === 'network' }" @click="tab = 'network'">关系网</button>
-      <button type="button" :class="{ 'is-on': tab === 'events' }" @click="tab = 'events'">动态</button>
+      </RouterLink>
+      <RouterLink
+        :to="{ name: 'comms-section', params: { runId: run.id, section: 'roster' } }"
+        :class="{ 'is-on': section === 'roster' }"
+      >名册</RouterLink>
+      <RouterLink
+        :to="{ name: 'comms-section', params: { runId: run.id, section: 'network' } }"
+        :class="{ 'is-on': section === 'network' }"
+      >关系网</RouterLink>
+      <RouterLink
+        :to="{ name: 'comms-section', params: { runId: run.id, section: 'events' } }"
+        :class="{ 'is-on': section === 'events' }"
+      >动态</RouterLink>
     </nav>
 
-    <section v-if="tab === 'inbox'" class="panel inbox-panel">
+    <section v-if="section === 'inbox'" class="panel inbox-panel">
       <div class="inbox-head">
         <div>
           <h3>消息与约定</h3>
@@ -385,7 +386,7 @@ async function narrateEvent(event) {
       </div>
     </section>
 
-    <section v-if="tab === 'roster'" class="panel roster-panel">
+    <section v-if="section === 'roster'" class="panel roster-panel">
       <div class="roster-grid">
         <button
           v-for="npc in npcs"
@@ -421,7 +422,7 @@ async function narrateEvent(event) {
       <p class="hint roster-hint">点击人物查看四轴关系、兴趣与日程。</p>
     </section>
 
-    <section v-else-if="tab === 'network'" class="panel network">
+    <section v-else-if="section === 'network'" class="panel network">
       <div v-if="edges.length" class="edge-list">
         <button v-for="(edge, index) in edges" :key="index" type="button" class="edge" @click="openEdge(edge)">
           <span class="edge-names">
@@ -765,7 +766,10 @@ async function narrateEvent(event) {
 .ambush-actions { display: flex; gap: 5px; }
 
 .comms-tabs { display: flex; gap: 4px; }
-.comms-tabs button {
+.comms-tabs button, .comms-tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   height: 30px;
   padding: 0 14px;
   border: 1px solid var(--line);
@@ -775,7 +779,7 @@ async function narrateEvent(event) {
   font-size: max(var(--ui-min), calc(11px * var(--ui-scale)));
   cursor: pointer;
 }
-.comms-tabs button.is-on { border-color: rgba(124, 231, 255, .3); background: rgba(124, 231, 255, .08); color: var(--cyan); }
+.comms-tabs button.is-on, .comms-tabs a.is-on { border-color: rgba(124, 231, 255, .3); background: rgba(124, 231, 255, .08); color: var(--cyan); }
 .tab-count {
   display: inline-grid;
   place-items: center;

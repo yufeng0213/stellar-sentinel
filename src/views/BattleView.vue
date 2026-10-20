@@ -14,6 +14,14 @@ const nodeId = String(route.params.nodeId)
 
 const targetIndex = ref(0)
 const fleeOpen = ref(false)
+const fx = ref(null)
+let fxTimer = null
+
+function triggerFx(type, target = -1, label = '') {
+  if (fxTimer) clearTimeout(fxTimer)
+  fx.value = { type, target, label, id: Date.now() }
+  fxTimer = setTimeout(() => { fx.value = null }, 520)
+}
 
 const run = computed(() => game.run)
 const battle = computed(() => game.battle)
@@ -106,11 +114,19 @@ function play(index) {
   const beforeHp = run.value.player.hp
   const result = game.playBattleCard(index, targetIdx.value)
   if (!result?.ok) return
+  const effect = card?.type === 'attack' ? 'slash' : card?.type || 'card'
+  triggerFx(effect, targetIdx.value, card?.name || '')
   playSound(cardSound(card))
   if (battle.value?.status === 'won') {
-    setTimeout(() => playSound('victory'), 140)
+    setTimeout(() => {
+      triggerFx('victory', -1, '战斗结束')
+      playSound('victory')
+    }, 140)
   } else if (run.value.player.hp < beforeHp) {
-    setTimeout(() => playSound('hurt'), 100)
+    setTimeout(() => {
+      triggerFx('player-hurt', -1, '受击')
+      playSound('hurt')
+    }, 100)
   }
 }
 
@@ -119,13 +135,30 @@ function endTurn() {
   const beforeHp = run.value.player.hp
   const result = game.endBattleTurn()
   if (!result?.ok) return
+  triggerFx('enemy', -1, '敌方行动')
   playSound('enemy')
-  if (run.value.player.hp < beforeHp) setTimeout(() => playSound('hurt'), 180)
-  if (battle.value?.status === 'won') setTimeout(() => playSound('victory'), 160)
-  if (battle.value?.status === 'lost') setTimeout(() => playSound('defeat'), 160)
+  if (run.value.player.hp < beforeHp) {
+    setTimeout(() => {
+      triggerFx('player-hurt', -1, '受击')
+      playSound('hurt')
+    }, 180)
+  }
+  if (battle.value?.status === 'won') {
+    setTimeout(() => {
+      triggerFx('victory', -1, '战斗结束')
+      playSound('victory')
+    }, 160)
+  }
+  if (battle.value?.status === 'lost') {
+    setTimeout(() => {
+      triggerFx('defeat', -1, '倒下了')
+      playSound('defeat')
+    }, 160)
+  }
 }
 
 function confirmFlee() {
+  triggerFx('flee', -1, '撤离')
   playSound('flee')
   game.fleeBattle()
   fleeOpen.value = false
@@ -145,7 +178,20 @@ function leaveBattle() {
 </script>
 
 <template>
-  <div v-if="battle" class="battle-page">
+  <div
+    v-if="battle"
+    class="battle-page"
+    :class="{
+      'is-shaking': fx?.type === 'slash' || fx?.type === 'enemy',
+      'is-victory': fx?.type === 'victory',
+      'is-defeat': fx?.type === 'defeat',
+    }"
+  >
+    <div v-if="fx" :key="fx.id" class="battle-fx" :class="`fx-${fx.type}`" aria-hidden="true">
+      <span class="fx-label">{{ fx.label }}</span>
+      <span class="fx-line"></span>
+    </div>
+
     <header class="b-top">
       <div class="b-title">
         <p class="kicker">ENCOUNTER · {{ region?.name }}</p>
@@ -160,7 +206,7 @@ function leaveBattle() {
     </header>
 
     <div class="b-stage">
-      <div class="enemy-row">
+      <div class="enemy-row" :class="{ 'is-attacking': fx?.type === 'enemy' }">
         <button
           v-for="(enemy, index) in battle.enemies"
           :key="enemy.id"
@@ -169,6 +215,7 @@ function leaveBattle() {
           :class="{
             'is-selected': index === targetIdx,
             'is-out': enemy.downed || enemy.surrendered || enemy.fled,
+            'is-hit': fx?.target === index,
           }"
           @click="selectEnemy(index)"
         >
@@ -198,7 +245,7 @@ function leaveBattle() {
       </p>
     </div>
 
-    <div class="b-player">
+    <div class="b-player" :class="{ 'is-hurt': fx?.type === 'player-hurt' }">
       <div class="p-vital">
         <span class="p-label">生命 <em>{{ Math.round(run.player.hp) }} / {{ run.player.hpMax }}</em></span>
         <span class="bar hp"><i :style="{ width: `${hpPct(run.player.hp, run.player.hpMax)}%` }"></i></span>
@@ -302,6 +349,7 @@ function leaveBattle() {
 
 <style scoped>
 .battle-page {
+  position: relative;
   height: 100%;
   width: 100%;
   max-width: 1080px;
@@ -312,6 +360,139 @@ function leaveBattle() {
   padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
   padding-top: max(10px, env(safe-area-inset-top));
   overflow: hidden;
+}
+.battle-page.is-shaking { animation: battle-shake .32s cubic-bezier(.36, .07, .19, .97); }
+.battle-fx { position: absolute; inset: 0; z-index: 35; pointer-events: none; overflow: hidden; }
+.battle-fx .fx-label {
+  position: absolute;
+  left: 50%;
+  top: 23%;
+  transform: translate(-50%, -50%);
+  padding: 4px 10px;
+  border: 1px solid rgba(124, 231, 255, .35);
+  border-radius: 5px;
+  background: rgba(4, 8, 13, .72);
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: max(var(--ui-min), calc(10px * var(--ui-scale)));
+  letter-spacing: .12em;
+  white-space: nowrap;
+  animation: fx-label .52s ease-out both;
+}
+.fx-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  pointer-events: none;
+}
+.fx-slash .fx-line {
+  width: 150%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.95), rgba(124,231,255,.6), transparent);
+  box-shadow: 0 0 18px rgba(124, 231, 255, .7);
+  transform: translate(-50%, -50%) rotate(-20deg);
+  animation: fx-slash .34s ease-out both;
+}
+.fx-psychic .fx-line {
+  width: 120%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(185,164,255,.9), transparent);
+  box-shadow: 0 0 24px rgba(185, 164, 255, .8);
+  transform: translate(-50%, -50%) rotate(72deg);
+  animation: fx-psychic .45s ease-out both;
+}
+.fx-guard .fx-line, .fx-heal .fx-line {
+  width: 150px;
+  height: 150px;
+  border: 2px solid rgba(138, 222, 184, .8);
+  border-radius: 50%;
+  box-shadow: 0 0 42px rgba(138, 222, 184, .32), inset 0 0 30px rgba(138, 222, 184, .16);
+  transform: translate(-50%, -50%);
+  animation: fx-ring .5s ease-out both;
+}
+.fx-psychic .fx-label { border-color: rgba(185, 164, 255, .45); color: var(--violet); }
+.fx-guard .fx-label, .fx-heal .fx-label { border-color: rgba(138, 222, 184, .4); color: var(--jade); }
+.fx-enemy .fx-line {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 50%, transparent 28%, rgba(255, 138, 138, .16) 74%, rgba(255, 138, 138, .3));
+  transform: none;
+  animation: fx-flash .42s ease-out both;
+}
+.fx-enemy .fx-label, .fx-player-hurt .fx-label, .fx-defeat .fx-label { border-color: rgba(255, 138, 138, .45); color: var(--red); }
+.fx-player-hurt .fx-line {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 66%, rgba(255, 138, 138, .28), transparent 52%);
+  animation: fx-flash .42s ease-out both;
+}
+.fx-victory .fx-line {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 196, 107, .22), transparent 60%);
+  animation: fx-flash .6s ease-out both;
+}
+.fx-victory .fx-label { border-color: rgba(255, 196, 107, .5); color: var(--amber); }
+.fx-defeat .fx-line { width: 100%; height: 100%; background: rgba(80, 10, 14, .2); animation: fx-flash .6s ease-out both; }
+.fx-flee .fx-line { width: 100%; height: 100%; background: radial-gradient(circle, transparent 20%, rgba(124, 231, 255, .1)); animation: fx-flash .4s ease-out both; }
+.enemy.is-hit { animation: enemy-hit .38s cubic-bezier(.36, .07, .19, .97); border-color: rgba(255, 138, 138, .65); }
+.enemy-row.is-attacking { animation: enemy-lunge .42s ease-out; }
+.b-player.is-hurt { animation: player-hurt .42s cubic-bezier(.36, .07, .19, .97); border-color: rgba(255, 138, 138, .5); }
+.battle-page.is-victory .result-panel, .battle-page.is-defeat .result-panel { animation: result-rise .45s ease-out both; }
+
+@keyframes battle-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+@keyframes enemy-hit {
+  0%, 100% { transform: translateX(0); filter: none; }
+  20% { transform: translateX(-7px) rotate(-1deg); filter: brightness(1.8); }
+  45% { transform: translateX(5px); }
+  70% { transform: translateX(-3px); }
+}
+@keyframes enemy-lunge {
+  0%, 100% { transform: translateY(0); }
+  35% { transform: translateY(-7px) scale(1.02); }
+  65% { transform: translateY(2px); }
+}
+@keyframes player-hurt {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); background: rgba(255, 138, 138, .12); }
+  55% { transform: translateX(5px); }
+  80% { transform: translateX(-2px); }
+}
+@keyframes fx-slash {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-20deg) scaleX(.2); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-20deg) scaleX(1.05); }
+}
+@keyframes fx-psychic {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(72deg) scaleX(.1); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(72deg) scaleX(1.1); }
+}
+@keyframes fx-ring {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.45); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35); }
+}
+@keyframes fx-flash {
+  0% { opacity: 0; }
+  25% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes fx-label {
+  0% { opacity: 0; transform: translate(-50%, -42%) scale(.9); }
+  25%, 70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -58%) scale(.98); }
+}
+@keyframes result-rise {
+  0% { opacity: 0; transform: translateY(14px) scale(.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .b-top { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }

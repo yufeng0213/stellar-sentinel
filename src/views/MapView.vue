@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ATTR_NAME, GEAR, ITEMS, NODE_TYPES, REGIONS, SKILLS } from '../game-core/data.js'
 import { useGameStore } from '../stores/game.js'
@@ -9,6 +9,7 @@ const router = useRouter()
 const run = computed(() => game.run)
 const current = computed(() => game.current)
 const selectedId = ref(null)
+const dungeonBoard = ref(null)
 
 const ACT_NAMES = {
   1: '第一幕 · 白塔的余烬',
@@ -37,6 +38,78 @@ const actTitle = computed(() => ACT_NAMES[run.value?.act] || '星区')
 
 const clearedCount = computed(() => run.value?.cleared.length || 0)
 const reachableIds = computed(() => new Set(current.value?.next || []))
+
+const dungeonPositions = computed(() => {
+  if (!run.value) return {}
+  const layers = run.value.map.layers
+  const rows = layers.length
+  const positions = {}
+
+  layers.forEach((layerIds, layerIndex) => {
+    const count = layerIds.length
+    const xs = count === 1
+      ? [50]
+      : count === 2
+        ? [30, 70]
+        : [18, 50, 82]
+    layerIds.forEach((nodeId, slot) => {
+      positions[nodeId] = {
+        x: xs[slot] ?? 50,
+        y: 4 + ((rows - layerIndex - 1) / Math.max(1, rows - 1)) * 88,
+        layer: layerIndex,
+      }
+    })
+  })
+
+  return positions
+})
+
+const dungeonNodes = computed(() => (run.value?.map.layers || [])
+  .flat()
+  .map((nodeId) => {
+    const node = run.value.map.nodes[nodeId]
+    const position = dungeonPositions.value[nodeId]
+    return node && position ? { node, ...position } : null
+  })
+  .filter(Boolean)
+  .sort((left, right) => right.layer - left.layer))
+
+const dungeonLines = computed(() => {
+  if (!run.value) return []
+  const lines = []
+  Object.values(run.value.map.nodes).forEach((node) => {
+    const from = dungeonPositions.value[node.id]
+    if (!from) return
+    ;(node.next || []).forEach((nextId) => {
+      const to = dungeonPositions.value[nextId]
+      if (!to) return
+      lines.push({
+        id: `${node.id}-${nextId}`,
+        x1: from.x,
+        y1: from.y,
+        x2: to.x,
+        y2: to.y,
+        active: run.value.location === node.id || reachableIds.value.has(nextId),
+        cleared: run.value.cleared.includes(nextId),
+      })
+    })
+  })
+  return lines
+})
+
+function scrollToCurrent() {
+  const board = dungeonBoard.value
+  const currentId = run.value?.location
+  if (!board || !currentId) return
+  const tile = board.querySelector(`[data-node="${currentId}"]`)
+  if (!tile) return
+  const boardRect = board.getBoundingClientRect()
+  const tileRect = tile.getBoundingClientRect()
+  board.scrollTop += tileRect.top - boardRect.top - (board.clientHeight - tile.clientHeight) / 2
+}
+
+onMounted(() => nextTick(scrollToCurrent))
+watch(() => run.value?.location, () => nextTick(scrollToCurrent))
 
 function stateOf(nodeId) {
   if (!run.value) return 'locked'
@@ -198,42 +271,47 @@ function nextNodes(node) {
 
     <section class="map-board panel">
       <div class="board-head">
-        <span class="kicker">STAR MAP</span>
-        <span class="hint">点击相邻节点前往 · 采集消耗 1 AP</span>
+        <span class="kicker">DUNGEON · FLOOR {{ run.map.layers.length }}</span>
+        <span class="hint">从下往上推进 · 点击相邻格前往 · 连线即通路</span>
       </div>
 
-      <div class="layers">
-        <template v-for="(layerIds, index) in run.map.layers" :key="index">
-          <div v-if="index === 0 || run.map.nodes[layerIds[0]].act !== run.map.nodes[run.map.layers[index - 1][0]].act" class="act-divider">
-            <span>ACT {{ run.map.nodes[layerIds[0]].act }}</span>
-            <i></i>
-          </div>
+      <div ref="dungeonBoard" class="dungeon-board">
+        <div class="dungeon-inner" :style="{ '--rows': run.map.layers.length }">
+          <svg class="dungeon-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <line
+              v-for="line in dungeonLines"
+              :key="line.id"
+              :x1="line.x1"
+              :y1="line.y1"
+              :x2="line.x2"
+              :y2="line.y2"
+              :class="{ 'is-active': line.active, 'is-cleared': line.cleared }"
+            />
+          </svg>
 
-          <div class="layer-row" :class="{ 'is-here': layerHasCurrent(layerIds) }">
-            <span class="layer-no">{{ String(index + 1).padStart(2, '0') }}</span>
-            <div class="layer-nodes" :class="{ 'is-single': layerIds.length === 1 }">
-              <button
-                v-for="nodeId in layerIds"
-                :key="nodeId"
-                type="button"
-                class="node-card"
-                :class="[`is-${stateOf(nodeId)}`, { 'is-quest': questAt(nodeId) }]"
-                :style="{ '--accent': run.map.nodes[nodeId].accent }"
-                @click="openNode(nodeId)"
-              >
-                <span class="nc-top">
-                  <span class="nc-glyph">{{ NODE_TYPES[run.map.nodes[nodeId].type].glyph }}</span>
-                  <span v-if="questAt(nodeId)" class="nc-quest">约</span>
-                  <span class="nc-state">{{ stateLabel(nodeId) }}</span>
-                </span>
-                <b>{{ run.map.nodes[nodeId].title }}</b>
-                <span class="nc-meta">
-                  {{ REGIONS[run.map.nodes[nodeId].region].name }} · {{ NODE_TYPES[run.map.nodes[nodeId].type].name }}
-                </span>
-              </button>
-            </div>
-          </div>
-        </template>
+          <button
+            v-for="entry in dungeonNodes"
+            :key="entry.node.id"
+            type="button"
+            class="dungeon-tile"
+            :data-node="entry.node.id"
+            :class="[
+              `is-${stateOf(entry.node.id)}`,
+              { 'is-quest': questAt(entry.node.id), 'is-act-end': entry.layer === run.map.layers.length - 1 },
+            ]"
+            :style="{ '--x': entry.x, '--y': entry.y, '--accent': entry.node.accent }"
+            @click="openNode(entry.node.id)"
+          >
+            <span class="dt-top">
+              <span class="dt-glyph">{{ NODE_TYPES[entry.node.type].glyph }}</span>
+              <span class="dt-floor">F{{ entry.layer + 1 }}</span>
+              <span v-if="questAt(entry.node.id)" class="dt-quest">约</span>
+            </span>
+            <b>{{ entry.node.title }}</b>
+            <span class="dt-meta">{{ REGIONS[entry.node.region].name }} · {{ NODE_TYPES[entry.node.type].name }}</span>
+            <span class="dt-state">{{ stateLabel(entry.node.id) }}</span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -484,6 +562,130 @@ function nextNodes(node) {
 .map-board { padding: 14px; min-width: 0; }
 .board-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; padding: 0 2px 10px; }
 .board-head .hint { font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); }
+
+.dungeon-board {
+  position: relative;
+  height: min(72vh, 860px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 18px 14px;
+  border: 1px solid rgba(126, 196, 224, .1);
+  border-radius: 14px;
+  background:
+    linear-gradient(rgba(124, 231, 255, .028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 231, 255, .028) 1px, transparent 1px),
+    radial-gradient(120% 80% at 50% 100%, rgba(124, 231, 255, .07), transparent 58%),
+    rgba(3, 7, 12, .5);
+  background-size: 28px 28px, 28px 28px, 100% 100%, 100% 100%;
+  scrollbar-width: thin;
+}
+.dungeon-inner {
+  position: relative;
+  width: 100%;
+  height: calc(var(--rows) * 108px + 36px);
+  min-height: 420px;
+}
+.dungeon-links { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; overflow: visible; }
+.dungeon-links line {
+  stroke: rgba(126, 196, 224, .14);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  transition: stroke .2s ease;
+}
+.dungeon-links line.is-cleared { stroke: rgba(138, 222, 184, .45); }
+.dungeon-links line.is-active {
+  stroke: rgba(255, 196, 107, .78);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px rgba(255, 196, 107, .65));
+}
+
+.dungeon-tile {
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  z-index: 2;
+  width: clamp(78px, 9vw, 132px);
+  min-height: 78px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-left: 3px solid rgb(var(--accent));
+  border-radius: 10px;
+  background:
+    linear-gradient(150deg, rgba(18, 29, 40, .92), rgba(5, 10, 16, .96));
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: border-color .16s ease, background .16s ease, opacity .16s ease, box-shadow .16s ease;
+}
+.dt-top { display: flex; align-items: center; gap: 4px; }
+.dt-glyph { color: rgb(var(--accent)); font-size: max(var(--ui-min), calc(12px * var(--ui-scale))); }
+.dt-floor {
+  margin-left: auto;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: max(var(--ui-min), calc(7px * var(--ui-scale)));
+}
+.dt-quest {
+  padding: 0 3px;
+  border: 1px solid rgba(185, 164, 255, .4);
+  border-radius: 3px;
+  color: var(--violet);
+  font-family: var(--mono);
+  font-size: max(var(--ui-min), calc(7px * var(--ui-scale)));
+}
+.dungeon-tile b {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 3px;
+  font-size: max(var(--ui-min), calc(11px * var(--ui-scale)));
+  font-weight: 500;
+  line-height: 1.28;
+  letter-spacing: .02em;
+}
+.dt-meta {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--dim);
+  font-size: max(var(--ui-min), calc(7.5px * var(--ui-scale)));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-state {
+  display: block;
+  margin-top: 4px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: max(var(--ui-min), calc(6.5px * var(--ui-scale)));
+  letter-spacing: .06em;
+}
+
+.dungeon-tile.is-locked { opacity: .38; }
+.dungeon-tile.is-cleared { opacity: .62; }
+.dungeon-tile.is-cleared .dt-state { color: var(--jade); }
+.dungeon-tile.is-current {
+  border-color: rgba(124, 231, 255, .62);
+  border-left-color: var(--cyan);
+  background: linear-gradient(150deg, rgba(27, 55, 70, .94), rgba(5, 12, 18, .98));
+  box-shadow: 0 0 28px -8px rgba(124, 231, 255, .65);
+  transform: translate(-50%, -50%) scale(1.04);
+}
+.dungeon-tile.is-current .dt-state { color: var(--cyan); }
+.dungeon-tile.is-reachable {
+  border-color: rgba(255, 196, 107, .55);
+  box-shadow: 0 0 18px -10px rgba(255, 196, 107, .8);
+}
+.dungeon-tile.is-reachable .dt-state { color: var(--amber); }
+.dungeon-tile.is-quest { border-color: rgba(185, 164, 255, .55); }
+.dungeon-tile.is-act-end { border-left-color: var(--red); }
+.dungeon-tile.is-act-end .dt-state { color: var(--red); }
+@media (hover: hover) {
+  .dungeon-tile:hover { border-color: var(--line-2); background: rgba(20, 34, 46, .95); }
+  .dungeon-tile.is-reachable:hover { border-color: rgba(255, 196, 107, .9); }
+}
 
 .layers { display: flex; flex-direction: column; min-width: 0; }
 .act-divider {
@@ -757,6 +959,11 @@ function nextNodes(node) {
   .head-copy h2 { font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); }
   .head-actions { flex-direction: row; align-items: center; gap: 6px; }
   .map-board { padding: 11px; }
+  .dungeon-board { height: min(68vh, 620px); padding: 14px 8px; }
+  .dungeon-inner { height: calc(var(--rows) * 84px + 24px); }
+  .dungeon-tile { width: 78px; min-height: 66px; padding: 6px; }
+  .dungeon-tile b { font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); }
+  .dt-meta { font-size: max(var(--ui-min), calc(7px * var(--ui-scale))); }
   .layer-row { gap: 6px; }
   .layer-nodes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
   .layer-nodes.is-single { grid-template-columns: 1fr; }

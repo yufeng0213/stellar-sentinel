@@ -538,7 +538,7 @@ export const useGameStore = defineStore('game', {
       return node.id
     },
 
-    async sendNpcChat(npcId, text) {
+    async sendNpcChat(npcId, text, useLlm = true) {
       const content = String(text || '').trim()
       if (!this.run || !content) return { ok: false }
       const npc = this.run.npcs?.[npcId]
@@ -557,8 +557,15 @@ export const useGameStore = defineStore('game', {
       let full = ''
       let fallback = false
       let errorMessage = ''
+      const controller = new AbortController()
+      let timeout = setTimeout(() => controller.abort(), 20000)
+      const armTimeout = (ms) => {
+        clearTimeout(timeout)
+        timeout = setTimeout(() => controller.abort(), ms)
+      }
 
       try {
+        if (!useLlm) throw new Error('未配置模型')
         if (this.run.llm.calls >= this.run.llm.maxCalls) {
           throw new Error('本局模型调用预算已用完')
         }
@@ -566,17 +573,26 @@ export const useGameStore = defineStore('game', {
         await streamNpcChat(messages, (delta) => {
           full += delta
           placeholder.text = full
-        })
+          // 有增量就重置看门狗；流停住 10 秒就结束，避免按钮永远卡在“…” 
+          armTimeout(10000)
+        }, controller.signal)
         this.run.llm.calls += 1
       } catch (error) {
-        fallback = true
-        errorMessage = error.message
-        full = localNpcReply(this.run, npc, content)
-        placeholder.text = full
-        placeholder.fallback = true
+        errorMessage = error.name === 'AbortError' ? '模型响应超时' : error.message
+        // 已经收到正文时只结束流，不再覆盖成“失败”
+        if (!full.trim()) fallback = true
+      } finally {
+        clearTimeout(timeout)
+        placeholder.streaming = false
+        if (!full.trim()) {
+          full = localNpcReply(this.run, npc, content)
+          placeholder.text = full
+          placeholder.fallback = true
+          fallback = true
+          if (!errorMessage) errorMessage = '模型没有返回内容'
+        }
       }
 
-      placeholder.streaming = false
       const parsed = parseNpcAction(full)
       placeholder.text = parsed.text || (parsed.action ? '（他没有说话。）' : full)
 

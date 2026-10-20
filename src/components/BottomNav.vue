@@ -11,6 +11,13 @@ const items = [
   { key: 'comms', label: '通讯' },
   { key: 'character', label: '角色' },
 ]
+
+const commsRoutes = ['comms', 'comms-section', 'npc', 'npc-lore', 'npc-memory', 'npc-gift', 'npc-chat']
+
+function isOn(key) {
+  if (key === 'comms') return commsRoutes.includes(route.name)
+  return route.name === key
+}
 </script>
 
 <template>
@@ -19,7 +26,7 @@ const items = [
       v-for="item in items"
       :key="item.key"
       :to="{ name: item.key, params: { runId } }"
-      :class="{ 'is-on': route.name === item.key }"
+      :class="{ 'is-on': isOn(item.key) }"
       :aria-label="item.label"
     >
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
