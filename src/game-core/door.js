@@ -3,6 +3,7 @@
  * 门内结局由本地判定决定，文本不依赖模型。
  */
 
+import { endingFor, localEpilogue } from './ending.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -139,13 +140,23 @@ export function resolveDoorFinale(run, choice) {
     text = '门向两侧退开。里面没有房间，只有一段没有尽头的夜。你听见自己的脚步从很远的地方传来，像是有人已经在里面等你。'
   }
 
+  const ending = endingFor(choice, successes)
   run.door.opened = true
   run.door.ending = choice
+  run.door.endingId = ending.id
+  run.door.endingTitle = ending.title
   run.door.endingText = text
   run.door.day = run.day
   run.story = run.story || {}
   run.story.flags = run.story.flags || {}
   run.story.flags.door_opened = true
   run.story.flags.ending = choice
-  return { ok: true, choice, successes, text }
+  run.story.flags.endingId = ending.id
+  run.epilogue = {
+    endingId: ending.id,
+    text: localEpilogue(run, ending.id),
+    source: 'local',
+    day: run.day,
+  }
+  return { ok: true, choice, successes, text, endingId: ending.id, ending, epilogue: run.epilogue }
 }

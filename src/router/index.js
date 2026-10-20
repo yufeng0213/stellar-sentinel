@@ -6,6 +6,8 @@ import RunShell from '../views/RunShell.vue'
 import StoryView from '../views/StoryView.vue'
 import StoryMainView from '../views/StoryMainView.vue'
 import DoorView from '../views/DoorView.vue'
+import EpilogueView from '../views/EpilogueView.vue'
+import EndingsView from '../views/EndingsView.vue'
 import CityView from '../views/CityView.vue'
 import CityQuestView from '../views/CityQuestView.vue'
 import CityBlackMarketView from '../views/CityBlackMarketView.vue'
@@ -32,6 +34,7 @@ const router = createRouter({
     { path: '/', name: 'title', component: TitleView },
     { path: '/create', name: 'create', component: CreateView },
     { path: '/settings/llm', name: 'llm', component: LlmSettingsView },
+    { path: '/endings', name: 'endings', component: EndingsView },
     {
       path: '/run/:runId',
       component: RunShell,
@@ -43,6 +46,7 @@ const router = createRouter({
         { path: 'story', name: 'story', component: StoryView },
         { path: 'story/main', name: 'story-main', component: StoryMainView },
         { path: 'story/door', name: 'story-door', component: DoorView },
+        { path: 'story/epilogue', name: 'story-epilogue', component: EpilogueView },
         { path: 'city', name: 'city', component: CityView },
         { path: 'city/market', name: 'city-market', component: CityMarketView },
         { path: 'city/tavern', name: 'city-tavern', component: CityTavernView },

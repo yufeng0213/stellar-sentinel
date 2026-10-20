@@ -68,6 +68,8 @@ function toBlackMarket() {
       <p>{{ status.node.endingText }}</p>
       <div class="door-actions">
         <button type="button" class="btn btn-primary" @click="back">回到空港</button>
+        <RouterLink :to="{ name: 'story-epilogue', params: { runId: run.id } }" class="btn btn-ghost">查看后日谈</RouterLink>
+        <RouterLink :to="{ name: 'endings' }" class="btn btn-ghost">结局收集</RouterLink>
         <RouterLink :to="{ name: 'story-main', params: { runId: run.id } }" class="btn btn-ghost">查看主线</RouterLink>
       </div>
     </section>

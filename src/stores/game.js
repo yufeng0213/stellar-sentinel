@@ -11,7 +11,9 @@ import {
   refreshCityVisitors,
   tavernRumor,
 } from '../game-core/city.js'
+import { recordEnding } from '../game/collection.js'
 import { ensureDoor, resolveDoorFinale, resolveDoorStep } from '../game-core/door.js'
+import { endingFor, getEnding, localEpilogue } from '../game-core/ending.js'
 import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dungeon.js'
 import { buildDungeonNameMessages, stripDungeonName } from '../game/dungeon.js'
 import {
@@ -408,12 +410,35 @@ export const useGameStore = defineStore('game', {
       if (!this.run) return { ok: false }
       const result = resolveDoorFinale(this.run, choice)
       if (result.ok) {
+        recordEnding({
+          id: result.endingId,
+          title: result.ending.title,
+          runId: this.run.id,
+          day: this.run.day,
+          choice: result.choice,
+          successes: result.successes,
+          at: Date.now(),
+        })
         addLog(this.run, result.text, 'story')
         this.save()
       } else {
         this.notify(result.message, 'bad')
       }
       return result
+    },
+
+    ensureEpilogue() {
+      if (!this.run?.door?.opened) return null
+      if (this.run.epilogue?.text) return this.run.epilogue
+      const ending = getEnding(this.run.door.endingId) || endingFor(this.run.door.ending, this.run.door.checks?.filter((check) => check.success).length || 0)
+      this.run.epilogue = {
+        endingId: ending.id,
+        text: localEpilogue(this.run, ending.id),
+        source: 'local',
+        day: this.run.day,
+      }
+      this.save()
+      return this.run.epilogue
     },
 
     tavernRumor() {

@@ -2,11 +2,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import SoundToggle from '../components/SoundToggle.vue'
+import { ENDINGS } from '../game-core/ending.js'
+import { readEndingCollection } from '../game/collection.js'
 import { useGameStore } from '../stores/game.js'
 
 const router = useRouter()
 const game = useGameStore()
 const hasSave = ref(false)
+const endingUnlocked = ref(0)
 
 const apiLabel = computed(() => ({
   online: '链路在线',
@@ -16,6 +19,7 @@ const apiLabel = computed(() => ({
 
 onMounted(() => {
   hasSave.value = game.hasSave()
+  endingUnlocked.value = Object.keys(readEndingCollection()).length
 })
 
 function continueRun() {
@@ -56,6 +60,7 @@ function continueRun() {
           <RouterLink to="/create" class="btn" :class="{ 'btn-ghost': hasSave }">
             {{ hasSave ? '新的远征' : '开始新的远征' }}
           </RouterLink>
+          <RouterLink to="/endings" class="text-link">结局收集 {{ endingUnlocked }} / {{ ENDINGS.length }}</RouterLink>
           <RouterLink to="/settings/llm" class="text-link">LLM 设置</RouterLink>
           <SoundToggle />
         </div>
@@ -71,7 +76,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.3 · ROUTER</dd>
+            <dd class="mono">0.21 · ENDINGS</dd>
           </div>
         </dl>
       </section>
