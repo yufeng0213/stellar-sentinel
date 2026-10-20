@@ -74,6 +74,7 @@ export const ITEMS = {
   ration: { name: '营养膏', kind: 'use', glyph: '▣', effect: { hp: 18, mental: 5 }, note: '味道像纸板，但有用。' },
   anti: { name: '抗侵蚀剂', kind: 'use', glyph: '✜', effect: { mental: 35 }, note: '压住低语，代价是短暂耳鸣。' },
   medkit: { name: '医疗包', kind: 'use', glyph: '⊞', effect: { hp: 30 }, note: '旧塔制式，纱布已经发黄。' },
+  wine: { name: '空港私酿', kind: 'use', glyph: '♨', effect: { mental: 12, hp: 4 }, note: '酒吧最便宜的暖身酒，喝下去像吞了一小团火。' },
 }
 
 export const GEAR = {

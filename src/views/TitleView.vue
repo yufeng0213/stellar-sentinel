@@ -25,7 +25,7 @@ function continueRun() {
     game.notify('没有找到可用的存档', 'bad')
     return
   }
-  const target = run.story?.stage === 'select' ? 'story' : 'map'
+  const target = ['select', 'opening'].includes(run.story?.stage) ? 'story' : 'map'
   router.push({ name: target, params: { runId: run.id } })
 }
 </script>

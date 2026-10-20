@@ -9,6 +9,7 @@ import { createNpcWorld, tickWorld } from './npc.js'
 import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
 import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
+import { createCityState } from './city.js'
 import { createStoryState } from './story.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -139,6 +140,7 @@ export function createRun(draft, seedInput) {
     mapSeed: map.seed,
     defeats: 0,
     story: createStoryState(),
+    city: createCityState(),
     visited: [map.startId],
     cleared: [map.startId],
     nodeState: {},

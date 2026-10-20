@@ -422,8 +422,42 @@ export function ensureNpcTags(run) {
   return run
 }
 
+export function spawnVisitor(run, index = 0) {
+  if (!run?.npcs) return null
+  const refresh = run.city?.refreshCount || 0
+  const rng = createRng(`${run.seed}:visitor:${refresh}:${index}`)
+  const usedNames = new Set(Object.values(run.npcs).map((npc) => npc.name))
+  const names = rng.shuffle(NAME_POOL).filter((name) => !usedNames.has(name))
+  const name = names[0] || `访客${refresh + 1}-${index + 1}`
+  const id = `npc-v${refresh + 1}-${index + 1}`
+  const npc = makeNpc(run, rng, id, null, name)
+  npc.visitor = true
+  npc.active = true
+  npc.joinedDay = run.day
+  npc.schedule = ['在空港酒馆看人', '去市场找活干', '在城门附近等消息']
+  run.npcs[id] = npc
+
+  const others = Object.values(run.npcs).filter((other) => (
+    other.id !== id && other.active !== false
+  ))
+  rng.shuffle(others).slice(0, 3).forEach((other) => {
+    const affinity = tagAffinity(npc.tags || [], other.tags || []).score
+    run.npcEdges = run.npcEdges || []
+    run.npcEdges.push({
+      a: id,
+      b: other.id,
+      trust: clamp(Math.round(28 + affinity * 0.8 + rng.int(-5, 8)), 0, 80),
+      closeness: clamp(Math.round(12 + affinity * 0.4 + rng.int(0, 18)), 0, 70),
+      rivalry: clamp(Math.round(16 - affinity * 0.5 + rng.int(0, 14)), 0, 70),
+      affinity,
+    })
+  })
+
+  return npc
+}
+
 export function npcList(run) {
-  return Object.values(run.npcs || {})
+  return Object.values(run.npcs || {}).filter((npc) => npc.active !== false)
 }
 
 export function factionName(key) {

@@ -65,7 +65,7 @@ function choose(id) {
 
 function enterMap() {
   if (!run.value) return
-  router.push({ name: 'map', params: { runId: run.value.id } })
+  router.push({ name: 'city', params: { runId: run.value.id } })
 }
 
 function toTitle() {
@@ -152,7 +152,7 @@ function toTitle() {
             <em>d20 {{ choiceResult.roll }} + 属性 = {{ choiceResult.total }} / DC {{ choiceResult.dc }}</em>
           </div>
           <p>{{ choiceResult.text }}</p>
-          <button type="button" class="btn btn-primary" @click="enterMap">进入星图 →</button>
+          <button type="button" class="btn btn-primary" @click="enterMap">进入空港 →</button>
         </div>
       </section>
 

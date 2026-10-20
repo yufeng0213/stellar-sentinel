@@ -4,6 +4,11 @@ import CreateView from '../views/CreateView.vue'
 import LlmSettingsView from '../views/LlmSettingsView.vue'
 import RunShell from '../views/RunShell.vue'
 import StoryView from '../views/StoryView.vue'
+import CityView from '../views/CityView.vue'
+import CityMarketView from '../views/CityMarketView.vue'
+import CityTavernView from '../views/CityTavernView.vue'
+import CityClinicView from '../views/CityClinicView.vue'
+import CityGateView from '../views/CityGateView.vue'
 import MapView from '../views/MapView.vue'
 import InventoryView from '../views/InventoryView.vue'
 import ForgeView from '../views/ForgeView.vue'
@@ -32,6 +37,11 @@ const router = createRouter({
           redirect: (to) => ({ name: 'map', params: { runId: to.params.runId } }),
         },
         { path: 'story', name: 'story', component: StoryView },
+        { path: 'city', name: 'city', component: CityView },
+        { path: 'city/market', name: 'city-market', component: CityMarketView },
+        { path: 'city/tavern', name: 'city-tavern', component: CityTavernView },
+        { path: 'city/clinic', name: 'city-clinic', component: CityClinicView },
+        { path: 'city/gate', name: 'city-gate', component: CityGateView },
         { path: 'map', name: 'map', component: MapView },
         { path: 'battle/:nodeId', name: 'battle', component: BattleView },
         { path: 'inventory', name: 'inventory', component: InventoryView },

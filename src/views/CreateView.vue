@@ -183,7 +183,7 @@ function next() {
 function resume() {
   const run = game.resume()
   if (!run) return game.notify('没有找到存档', 'bad')
-  const target = run.story?.stage === 'select' ? 'story' : 'map'
+  const target = ['select', 'opening'].includes(run.story?.stage) ? 'story' : 'map'
   router.push({ name: target, params: { runId: run.id } })
 }
 

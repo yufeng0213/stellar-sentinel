@@ -4,6 +4,7 @@
  */
 
 import { createNpcWorld, ensureNpcTags } from '../game-core/npc.js'
+import { createCityState } from '../game-core/city.js'
 import { createStoryState } from '../game-core/story.js'
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
@@ -71,6 +72,7 @@ export function validateRun(input) {
   if (typeof data.defeats !== 'number') data.defeats = 0
   if (!data.mapSeed && data.map?.seed) data.mapSeed = data.map.seed
   if (!data.story || typeof data.story !== 'object') data.story = createStoryState()
+  if (!data.city || typeof data.city !== 'object') data.city = createCityState()
   if (!data.story.flags || typeof data.story.flags !== 'object') data.story.flags = {}
 
   Object.values(data.npcChats).forEach((messages) => {

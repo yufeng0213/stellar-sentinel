@@ -1,6 +1,13 @@
 import { defineStore } from 'pinia'
 import { ITEMS } from '../game-core/data.js'
 import {
+  buyCityOffer as buyCityOfferCore,
+  createCityState,
+  ensureCity,
+  healAtClinic,
+  refreshCityVisitors,
+} from '../game-core/city.js'
+import {
   addLog,
   applyConsumable,
   buyShop as buyShopCore,
@@ -158,6 +165,7 @@ export const useGameStore = defineStore('game', {
       if (typeof stored.lastEventDay !== 'number') stored.lastEventDay = 0
       if (stored.weekly === undefined) stored.weekly = null
       if (!stored.story || typeof stored.story !== 'object') stored.story = createStoryState()
+      if (!stored.city || typeof stored.city !== 'object') stored.city = createCityState()
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
           if (!message.streaming) return
@@ -303,6 +311,37 @@ export const useGameStore = defineStore('game', {
     restAt(nodeId) {
       if (!this.run) return { ok: false }
       const result = restAtNode(this.run, nodeId)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    enterCity() {
+      if (!this.run) return null
+      ensureCity(this.run)
+      this.save()
+      return this.run.city
+    },
+
+    buyCityOffer(section, index) {
+      if (!this.run) return { ok: false }
+      const result = buyCityOfferCore(this.run, section, index)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    healCity() {
+      if (!this.run) return { ok: false }
+      const result = healAtClinic(this.run)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    refreshCityVisitors() {
+      if (!this.run) return { ok: false }
+      const result = refreshCityVisitors(this.run)
       if (result.ok) this.save()
       else this.notify(result.message, 'bad')
       return result

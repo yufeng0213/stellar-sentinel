@@ -260,6 +260,11 @@ function camp() {
   game.makeCamp()
 }
 
+function goCity() {
+  if (!run.value) return
+  router.push({ name: 'city', params: { runId: run.value.id } })
+}
+
 function nextNodes(node) {
   return (node.next || []).map((id) => game.node(id)).filter(Boolean)
 }
@@ -278,6 +283,7 @@ function nextNodes(node) {
       <div class="head-actions">
         <span v-if="run.story" class="tag violet">主线 {{ run.story.chapter }} · {{ run.story.title }}</span>
         <span class="tag cyan">AP {{ run.ap }} / {{ run.apMax }}</span>
+        <button type="button" class="btn btn-sm" @click="goCity">回城</button>
         <button type="button" class="btn btn-sm" :disabled="run.ap > 0" @click="camp">扎营</button>
       </div>
     </section>

@@ -87,7 +87,12 @@ const giftItems = computed(() => {
 const edges = computed(() => {
   if (!run.value) return []
   return [...(run.value.npcEdges || [])]
-    .filter((edge) => run.value.npcs[edge.a] && run.value.npcs[edge.b])
+    .filter((edge) => (
+      run.value.npcs[edge.a] &&
+      run.value.npcs[edge.b] &&
+      run.value.npcs[edge.a].active !== false &&
+      run.value.npcs[edge.b].active !== false
+    ))
     .sort((left, right) => right.trust - left.trust)
 })
 

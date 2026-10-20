@@ -176,7 +176,7 @@ function leaveBattle() {
   if (result?.ok) {
     game.notify('你被拖回空港。第二天醒来，星图已重排。', 'bad')
   }
-  router.push({ name: 'map', params: { runId: run.value?.id } })
+  router.push({ name: result?.ok ? 'city' : 'map', params: { runId: run.value?.id } })
 }
 </script>
 
