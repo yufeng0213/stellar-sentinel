@@ -122,6 +122,12 @@ function finishEscort(escort) {
         <p>白塔、黑市、漂流者、低语者。关系会改变空港愿意给你什么。</p>
         <em>查看声望 →</em>
       </button>
+      <button type="button" class="city-card" @click="open('calibration')">
+        <span class="city-glyph">⌬</span>
+        <b>校准</b>
+        <p>用里程碑获得的校准点，把装备、牌组和探索风格连起来。</p>
+        <em>{{ run.calibration?.points || 0 }} 点可用 →</em>
+      </button>
     </section>
 
     <section v-if="run.story" class="panel city-objective">

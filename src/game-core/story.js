@@ -3,6 +3,7 @@
  * 这里只做本地结构；LLM 只负责把结构写得更具体，不改数值。
  */
 
+import { grantCalibrationPoints } from './calibration.js'
 import { ORIGINS } from './data.js'
 import { createRng } from './rng.js'
 
@@ -76,7 +77,14 @@ export function advanceChapter(run) {
     objective: next.objective,
     flags,
   }
-  return { ok: true, chapter: next.number, title: next.title, objective: next.objective }
+  const calibration = grantCalibrationPoints(run, `chapter:${status.current}`, 1, '章节')
+  return {
+    ok: true,
+    chapter: next.number,
+    title: next.title,
+    objective: next.objective,
+    calibration,
+  }
 }
 
 const scene = (id, name, place, region, glyph, tone, details, opening, choices, tags = []) => ({

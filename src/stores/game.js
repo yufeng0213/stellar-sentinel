@@ -15,6 +15,7 @@ import { recordEnding } from '../game/collection.js'
 import { ensureDoor, resolveDoorFinale, resolveDoorStep } from '../game-core/door.js'
 import { endingFor, getEnding, localEpilogue } from '../game-core/ending.js'
 import { ensureBlueprints } from '../game-core/blueprint.js'
+import { ensureCalibration, unlockCalibrationNode } from '../game-core/calibration.js'
 import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dungeon.js'
 import { ensureGear, upgradeGear as upgradeGearCore } from '../game-core/gear.js'
 import { completeEscort, ensureEscorts } from '../game-core/escort.js'
@@ -195,6 +196,7 @@ export const useGameStore = defineStore('game', {
       if (!stored.story || typeof stored.story !== 'object') stored.story = createStoryState()
       if (!stored.city || typeof stored.city !== 'object') stored.city = createCityState()
       ensureBlueprints(stored)
+      ensureCalibration(stored)
       ensureGear(stored)
       ensureDoor(stored)
       ensureDungeon(stored)
@@ -866,6 +868,18 @@ export const useGameStore = defineStore('game', {
       const result = upgradeGearCore(this.run, uid)
       if (result.ok) {
         addLog(this.run, `强化 ${result.gear.name}：${result.cost.nextQuality}。`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    unlockCalibration(nodeId) {
+      if (!this.run) return { ok: false }
+      const result = unlockCalibrationNode(this.run, nodeId)
+      if (result.ok) {
+        addLog(this.run, `校准完成：${result.node.branchName} · ${result.node.name}。`, 'good')
         this.save()
       } else {
         this.notify(result.message, 'bad')

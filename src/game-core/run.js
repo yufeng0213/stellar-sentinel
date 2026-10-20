@@ -10,6 +10,7 @@ import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
 import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
 import { createBlueprintState, recipeKnown } from './blueprint.js'
+import { calibrationEffects, createCalibrationState } from './calibration.js'
 import { createCityState } from './city.js'
 import { createDoorState } from './door.js'
 import { createEscortState } from './escort.js'
@@ -65,7 +66,7 @@ export function effectiveAttr(run, attrKey) {
 function nightMod(run) {
   if (timeLabel(run) !== '深夜') return 0
   if (hasTrait(run, 'night')) return 1
-  if (run.player.species === 'miner' || run.player.perks?.nightVision) return 0
+  if (run.player.species === 'miner' || run.player.perks?.nightVision || calibrationEffects(run).nightEye) return 0
   return -1 + (run.player.perks?.nightPenalty || 0)
 }
 
@@ -84,6 +85,7 @@ function traitBonus(run, kind) {
   if (kind === 'social') {
     if (hasTrait(run, 'dealer')) bonus += 1
     if (run.player.skills?.includes('empathy')) bonus += 2
+    bonus += calibrationEffects(run).social || 0
   }
   return bonus
 }
@@ -155,6 +157,7 @@ export function createRun(draft, seedInput) {
     door: createDoorState(),
     escorts: createEscortState(),
     ...createBlueprintState(),
+    calibration: createCalibrationState(),
     ...createReputationState(),
     dungeon: { name: generateDungeonName({ seed, mapSeed: map.seed }), source: 'local', day: 1 },
     visited: [map.startId],
@@ -302,7 +305,13 @@ export function gather(run, nodeId) {
   }
 
   const region = REGIONS[node.region]
-  const cost = Math.max(0, region.danger - (hasTrait(run, 'calm') ? 1 : 0) - (run.player.perks?.calm || 0))
+  const cost = Math.max(
+    0,
+    region.danger -
+      (hasTrait(run, 'calm') ? 1 : 0) -
+      (run.player.perks?.calm || 0) -
+      (calibrationEffects(run).travelMental || 0)
+  )
   if (cost) {
     run.player.mental = clamp(run.player.mental - cost, 0, run.player.mentalMax)
     addLog(run, `精神稳定度 -${cost}。`, 'info')
@@ -401,7 +410,9 @@ export function resolveEventChoice(run, nodeId, choiceId) {
 }
 
 export function shopPrice(run, offer) {
-  const discount = (run.player.skills?.includes('barter') ? 0.1 : 0) + (run.player.perks?.barter || 0)
+  const discount = (run.player.skills?.includes('barter') ? 0.1 : 0) +
+    (run.player.perks?.barter || 0) +
+    (calibrationEffects(run).discount || 0)
   const markup = run.player.perks?.price || 0
   return Math.max(1, Math.round((offer?.price || 0) * (1 - discount + markup)))
 }
@@ -566,16 +577,17 @@ export function applyConsumable(run, itemId, itemDef) {
   if (!takeItem(run, itemId, 1)) return { ok: false, message: '没有这个物品' }
   const effect = itemDef.effect || {}
   const multiplier = 1 + (run.player.perks?.consume || 0)
+  const healingBonus = calibrationEffects(run).healing || 0
   const changes = { hp: 0, mental: 0 }
   if (effect.hp) {
     const before = run.player.hp
-    const heal = Math.round(effect.hp * multiplier)
+    const heal = Math.round(effect.hp * multiplier + healingBonus)
     run.player.hp = clamp(run.player.hp + heal, 0, run.player.hpMax)
     changes.hp = Math.round(run.player.hp - before)
   }
   if (effect.mental) {
     const before = run.player.mental
-    const heal = Math.round(effect.mental * multiplier)
+    const heal = Math.round(effect.mental * multiplier + healingBonus)
     run.player.mental = clamp(run.player.mental + heal, 0, run.player.mentalMax)
     changes.mental = Math.round(run.player.mental - before)
   }

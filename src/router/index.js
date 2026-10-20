@@ -22,6 +22,7 @@ import InventoryView from '../views/InventoryView.vue'
 import ForgeView from '../views/ForgeView.vue'
 import CommsView from '../views/CommsView.vue'
 import CharacterView from '../views/CharacterView.vue'
+import CalibrationView from '../views/CalibrationView.vue'
 import BattleView from '../views/BattleView.vue'
 import NpcView from '../views/NpcView.vue'
 import NpcLoreView from '../views/NpcLoreView.vue'
@@ -80,6 +81,7 @@ const router = createRouter({
         { path: 'npc/:npcId/network', name: 'npc-network', component: NpcNetworkView },
         { path: 'npc/:npcId/trade', name: 'npc-trade', component: NpcTradeView },
         { path: 'character', name: 'character', component: CharacterView },
+        { path: 'calibration', name: 'calibration', component: CalibrationView },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },

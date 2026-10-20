@@ -6,9 +6,20 @@
 
 import { unlockBossBlueprint } from './blueprint.js'
 import { GIFT_KEYS, ITEMS, REGIONS } from './data.js'
+import { calibrationEffects, grantCalibrationPoints } from './calibration.js'
 import { gearEffects } from './gear.js'
 import { addLog, effectiveAttr } from './run.js'
 import { createRng } from './rng.js'
+
+function battleEffects(run) {
+  const effects = {}
+  ;[gearEffects(run), calibrationEffects(run)].forEach((source) => {
+    Object.entries(source || {}).forEach(([key, value]) => {
+      effects[key] = (effects[key] || 0) + value
+    })
+  })
+  return effects
+}
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 const hasTrait = (run, key) => run.player.traits.includes(key)
@@ -336,7 +347,7 @@ export function createBattle(run, node) {
   const deck = [...BASE_DECK]
   const party = Array.isArray(run.party) ? run.party.slice(0, 2) : []
   party.forEach(() => deck.push('assist'))
-  const effects = gearEffects(run)
+  const effects = battleEffects(run)
 
   const battle = {
     nodeId: node.id,
@@ -344,14 +355,14 @@ export function createBattle(run, node) {
     seed,
     rollCount: 0,
     round: 1,
-    ap: 3,
-    apMax: 3,
+    ap: 3 + (effects.startAp || 0),
+    apMax: 3 + (effects.startAp || 0),
     guard: effects.shield || 0,
     attacksThisTurn: 0,
     bossWeakness: node.enemy?.weakness || null,
     focus: 0,
-    evasion: 0,
-    counter: 0,
+    evasion: effects.evasion || 0,
+    counter: effects.counter || 0,
     firstStrikeUsed: false,
     hand: [],
     drawPile: rng.shuffle(deck),
@@ -416,7 +427,7 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
   const equippedWeapon = hasGear(run, 'blade')
   const equippedHead = hasGear(run, 'visor')
   const equippedBody = hasGear(run, 'robe')
-  const effects = gearEffects(run)
+  const effects = battleEffects(run)
 
   battle.ap -= card.cost
   battle.hand.splice(handIndex, 1)
@@ -448,6 +459,9 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
       if (battle.nodeType === 'boss') situational += effects.boss || 0
       if (battle.nodeType === 'boss' && run.story?.flags?.bossIntel && card.attr === battle.bossWeakness) situational += 3
       if ((effects.firstAttack || 0) && battle.attacksThisTurn === 0) situational += effects.firstAttack
+      if ((effects.armor || 0) && (target.armor > 0 || target.traits?.includes('armored'))) situational += effects.armor
+      if ((effects.execute || 0) && target.hp / target.hpMax <= 0.35) situational += effects.execute
+      if ((effects.psi || 0) && (card.attr === 'psi' || card.type === 'psi')) situational += effects.psi
       const damage = attackDamage(card, check, target, equippedWeapon, situational)
       battle.attacksThisTurn += 1
       damageEnemy(battle, target, damage)
@@ -754,7 +768,7 @@ export function resolveBattle(run, battle, choice) {
     return { ok: false, message: '未知处置' }
   }
 
-  const gearCreditBonus = gearEffects(run).credits || 0
+  const gearCreditBonus = battleEffects(run).credits || 0
   if (credits && gearCreditBonus) credits = Math.round(credits * (1 + gearCreditBonus))
   run.player.credits += credits
   run.player.mental = clamp(run.player.mental + mental, 0, run.player.mentalMax)
@@ -766,9 +780,16 @@ export function resolveBattle(run, battle, choice) {
       text += ` 你在残骸里找到了${unlocked.recipe.name}的图纸。`
     }
   }
+  let calibration = null
+  if (boss) {
+    calibration = grantCalibrationPoints(run, `boss:${battle.nodeId}`, 2, '首领')
+  } else if (battle.nodeType === 'elite') {
+    calibration = grantCalibrationPoints(run, `elite:${battle.nodeId}`, 1, '精英')
+  }
+  if (calibration?.ok) text += ` 校准点 +${calibration.amount}。`
   markNodeResolved(run, battle, { resolved: true, outcome: choice })
 
-  battle.reward = { choice, credits, mental, text, blueprint }
+  battle.reward = { choice, credits, mental, text, blueprint, calibration }
   addLog(run, `${text}${credits ? ` 信用点 +${credits}。` : ''}`, 'story')
   return { ok: true, reward: battle.reward }
 }
