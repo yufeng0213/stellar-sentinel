@@ -20,7 +20,22 @@ const consumables = computed(() => {
     .map((key) => ({ key, ...ITEMS[key], count: run.value.inv[key] }))
 })
 
+const gifts = computed(() => {
+  if (!run.value) return []
+  return Object.keys(run.value.inv)
+    .filter((key) => ITEMS[key]?.kind === 'gift' && run.value.inv[key] > 0)
+    .map((key) => ({ key, ...ITEMS[key], count: run.value.inv[key] }))
+})
+
 const gears = computed(() => (run.value ? run.value.gear : []))
+
+function effectText(item) {
+  const effect = item.effect || {}
+  const parts = []
+  if (effect.hp) parts.push(`生命 +${effect.hp}`)
+  if (effect.mental) parts.push(`精神 +${effect.mental}`)
+  return parts.join(' / ') || '无属性'
+}
 
 function bonusText(bonus) {
   return Object.keys(bonus)
@@ -41,9 +56,9 @@ function isEquipped(gear) {
         <div>
           <p class="kicker">INVENTORY</p>
           <h2>背包</h2>
-          <p class="hint">材料 · 消耗品 · 装备。装备加成会直接进入判定。</p>
+          <p class="hint">材料 · 消耗品 · 小礼物 · 装备。精神就是图景稳定度，低于 30 时判定 -2；消耗品只能在战斗外使用。</p>
         </div>
-        <span class="tag cyan">{{ materials.length + consumables.length }} 种物资</span>
+        <span class="tag cyan">{{ materials.length + consumables.length + gifts.length }} 种物资</span>
       </header>
 
       <h3 class="sec-label">材料</h3>
@@ -60,16 +75,30 @@ function isEquipped(gear) {
 
       <h3 class="sec-label">消耗品</h3>
       <div v-if="consumables.length" class="item-grid">
-        <div v-for="item in consumables" :key="item.key" class="item" :title="item.note">
+        <div v-for="item in consumables" :key="item.key" class="item consumable" :title="item.note">
           <span class="i-glyph use">{{ item.glyph }}</span>
           <span class="i-body">
-            <b>{{ item.name }}</b>
-            <span>×{{ item.count }}</span>
+            <b>{{ item.name }} <small>×{{ item.count }}</small></b>
+            <span class="i-effect">{{ item.useHint || effectText(item) }}</span>
+            <span class="i-note">{{ item.note }}</span>
           </span>
           <button type="button" class="i-use" @click="game.consume(item.key)">使用</button>
         </div>
       </div>
       <div v-else class="empty">没有消耗品。</div>
+
+      <h3 class="sec-label">小礼物</h3>
+      <div v-if="gifts.length" class="item-grid">
+        <div v-for="item in gifts" :key="item.key" class="item gift" :title="item.note">
+          <span class="i-glyph gift">{{ item.glyph }}</span>
+          <span class="i-body">
+            <b>{{ item.name }} <small>×{{ item.count }}</small></b>
+            <span class="i-effect">没有属性，可以送给 NPC</span>
+            <span class="i-note">{{ item.note }}</span>
+          </span>
+        </div>
+      </div>
+      <div v-else class="empty">还没有小礼物。采集或市场里偶尔能碰到。</div>
 
       <h3 class="sec-label">装备</h3>
       <div v-if="gears.length" class="gear-list">
@@ -133,9 +162,15 @@ function isEquipped(gear) {
   font-size: max(var(--ui-min), calc(11px * var(--ui-scale)));
 }
 .i-glyph.use { border-color: rgba(255, 196, 107, .28); color: var(--amber); }
+.i-glyph.gift { border-color: rgba(185, 164, 255, .32); color: var(--violet); }
 .i-body { min-width: 0; flex: 1; }
 .i-body b { display: block; font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
+.i-body b small { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); font-weight: 400; }
 .i-body span { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.i-effect { display: block; margin-top: 3px; color: var(--amber); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); line-height: 1.45; }
+.i-note { display: block; margin-top: 2px; color: var(--dim); font-family: inherit; font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.5; }
+.consumable .i-use { align-self: flex-start; }
+.gift .i-effect { color: var(--violet); }
 .i-use {
   flex: none;
   height: 24px;

@@ -11,7 +11,10 @@ const giftItems = computed(() => {
   return Object.keys(run.value.inv)
     .filter((key) => ITEMS[key] && run.value.inv[key] > 0)
     .map((key) => ({ key, ...ITEMS[key], count: run.value.inv[key] }))
-    .sort((a, b) => b.count - a.count)
+    .sort((a, b) => {
+      if ((a.kind === 'gift') !== (b.kind === 'gift')) return a.kind === 'gift' ? -1 : 1
+      return b.count - a.count
+    })
 })
 
 function give(itemId) {
@@ -28,7 +31,7 @@ function give(itemId) {
       <RouterLink :to="backNpc" class="back-link">← {{ npc.name }}</RouterLink>
       <p class="kicker">GIFT · EXCHANGE</p>
       <h2>赠送</h2>
-      <p class="hint">兴趣匹配的物品效果更好。重复赠送会饱和，别把同一个东西塞满他的背包。</p>
+      <p class="hint">兴趣匹配的物品效果更好。小礼物没有属性，只是好玩；重复赠送会饱和，别把同一个东西塞满他的背包。</p>
     </section>
 
     <section class="panel gift-block">
@@ -38,9 +41,12 @@ function give(itemId) {
         <span class="tag">兴趣：{{ npc.interests.join(' / ') }}</span>
       </div>
       <div v-if="giftItems.length" class="gift-grid">
-        <button v-for="item in giftItems" :key="item.key" type="button" class="gift" @click="give(item.key)">
+        <button v-for="item in giftItems" :key="item.key" type="button" class="gift" :title="item.note" @click="give(item.key)">
           <span class="i-glyph">{{ item.glyph }}</span>
-          <span>{{ item.name }} ×{{ item.count }}</span>
+          <span class="gift-body">
+            <b>{{ item.name }} ×{{ item.count }}</b>
+            <small>{{ item.kind === 'gift' ? '小礼物 · 没有属性' : item.kind === 'use' ? '消耗品' : '材料' }}</small>
+          </span>
         </button>
       </div>
       <p v-else class="empty">背包里没有可以送的东西。</p>
@@ -59,6 +65,9 @@ function give(itemId) {
 .gift-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 7px; }
 .gift { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: rgba(5, 10, 16, .42); color: var(--ink); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); text-align: left; cursor: pointer; }
 .gift:hover { border-color: var(--line-2); }
+.gift-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gift-body b { font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; }
+.gift-body small { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .i-glyph { display: grid; place-items: center; width: 26px; height: 26px; flex: none; border: 1px solid rgba(124, 231, 255, .2); border-radius: 6px; color: var(--cyan); }
 .reply { margin-top: 12px; padding: 9px 11px; border-left: 2px solid rgba(124, 231, 255, .3); background: rgba(124, 231, 255, .04); color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.7; }
 .empty { padding: 18px; color: var(--dim); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); text-align: center; }

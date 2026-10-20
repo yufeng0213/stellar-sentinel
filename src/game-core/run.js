@@ -3,7 +3,7 @@
  * 所有判定都由 seed + rollCount 决定，可复现。
  */
 
-import { ABOS, ATTR_NAME, GEAR, ITEMS, ORIGINS, RECIPES, REGIONS, ROLES } from './data.js'
+import { ABOS, ATTR_NAME, GEAR, GIFT_KEYS, ITEMS, ORIGINS, RECIPES, REGIONS, ROLES } from './data.js'
 import { buildCharacter } from './character.js'
 import { createNpcWorld, tickWorld } from './npc.js'
 import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
@@ -275,6 +275,11 @@ export function gather(run, nodeId) {
       const count = rng.int(yieldItem.qty[0], yieldItem.qty[1])
       gains[yieldItem.item] = (gains[yieldItem.item] || 0) + count
     })
+    // 采集时偶尔会翻出一件没有属性、但适合送人的小东西。
+    if (rng.chance(0.18)) {
+      const gift = rng.pick(GIFT_KEYS)
+      gains[gift] = (gains[gift] || 0) + 1
+    }
   } else if (check.total >= node.dc - 3) {
     gains[node.yields[0].item] = 1
   }
@@ -550,14 +555,22 @@ export function applyConsumable(run, itemId, itemDef) {
   if (!takeItem(run, itemId, 1)) return { ok: false, message: '没有这个物品' }
   const effect = itemDef.effect || {}
   const multiplier = 1 + (run.player.perks?.consume || 0)
+  const changes = { hp: 0, mental: 0 }
   if (effect.hp) {
+    const before = run.player.hp
     const heal = Math.round(effect.hp * multiplier)
     run.player.hp = clamp(run.player.hp + heal, 0, run.player.hpMax)
+    changes.hp = Math.round(run.player.hp - before)
   }
   if (effect.mental) {
+    const before = run.player.mental
     const heal = Math.round(effect.mental * multiplier)
     run.player.mental = clamp(run.player.mental + heal, 0, run.player.mentalMax)
+    changes.mental = Math.round(run.player.mental - before)
   }
-  addLog(run, `使用 ${itemDef.name}。`, 'good')
-  return { ok: true }
+  const parts = []
+  if (changes.hp) parts.push(`生命 ${changes.hp > 0 ? '+' : ''}${changes.hp}`)
+  if (changes.mental) parts.push(`精神 ${changes.mental > 0 ? '+' : ''}${changes.mental}`)
+  addLog(run, `使用 ${itemDef.name}：${parts.length ? parts.join('，') : '状态已满'}。`, 'good')
+  return { ok: true, changes }
 }

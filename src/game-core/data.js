@@ -70,12 +70,22 @@ export const ITEMS = {
   fiber: { name: '纤维束', kind: 'mat', glyph: '≋', note: '从孢雾林里抽出的韧性纤维。' },
   alloy: { name: '合金板', kind: 'mat', glyph: '▥', note: '从船体上切下来的整块装甲。' },
   relic: { name: '遗物碎片', kind: 'mat', glyph: '✧', note: '不属于这个时代的合金。' },
-  stim: { name: '稳定剂', kind: 'use', glyph: '✚', effect: { mental: 25 }, note: '压住过载的神经。' },
-  ration: { name: '营养膏', kind: 'use', glyph: '▣', effect: { hp: 18, mental: 5 }, note: '味道像纸板，但有用。' },
-  anti: { name: '抗侵蚀剂', kind: 'use', glyph: '✜', effect: { mental: 35 }, note: '压住低语，代价是短暂耳鸣。' },
-  medkit: { name: '医疗包', kind: 'use', glyph: '⊞', effect: { hp: 30 }, note: '旧塔制式，纱布已经发黄。' },
-  wine: { name: '空港私酿', kind: 'use', glyph: '♨', effect: { mental: 12, hp: 4 }, note: '酒吧最便宜的暖身酒，喝下去像吞了一小团火。' },
+  stim: { name: '稳定剂', kind: 'use', glyph: '✚', effect: { mental: 25 }, useHint: '战斗外使用 · 精神 +25', note: '压住过载的神经。精神低时判定会变差，出发前或回城后使用。' },
+  ration: { name: '营养膏', kind: 'use', glyph: '▣', effect: { hp: 18, mental: 5 }, useHint: '战斗外使用 · 生命 +18 / 精神 +5', note: '味道像纸板，但有用。用来补一点生命和精神。' },
+  anti: { name: '抗侵蚀剂', kind: 'use', glyph: '✜', effect: { mental: 35 }, useHint: '战斗外使用 · 精神 +35', note: '压住低语，代价是短暂耳鸣。精神恢复量比稳定剂更高。' },
+  medkit: { name: '医疗包', kind: 'use', glyph: '⊞', effect: { hp: 30 }, useHint: '战斗外使用 · 生命 +30', note: '旧塔制式，纱布已经发黄。战斗结束后用来处理伤口。' },
+  wine: { name: '空港私酿', kind: 'use', glyph: '♨', effect: { mental: 12, hp: 4 }, useHint: '战斗外使用 · 精神 +12 / 生命 +4', note: '酒吧最便宜的暖身酒，喝下去像吞了一小团火。' },
+  pebble: { name: '光滑小石头', kind: 'gift', glyph: '○', note: '没有用途，只是摸着很舒服。可以送人。', giftTags: ['遗物'] },
+  postcard: { name: '旧明信片', kind: 'gift', glyph: '▭', note: '边角卷曲，背面没有字。可以送人。', giftTags: ['传闻', '星图'] },
+  bell: { name: '小铜铃', kind: 'gift', glyph: '♧', note: '摇起来声音很轻，像很远的地方在响。可以送人。', giftTags: ['冥想'] },
+  button: { name: '褪色纽扣', kind: 'gift', glyph: '◌', note: '从某件旧制服上掉下来的，线头还在。可以送人。', giftTags: ['旧技术'] },
+  dice: { name: '磨圆的骰子', kind: 'gift', glyph: '⬡', note: '点数已经看不清了，但重心很稳。可以送人。', giftTags: ['交易'] },
+  flower: { name: '干花', kind: 'gift', glyph: '✿', note: '夹在旧书里，颜色居然还在。可以送人。', giftTags: ['植物'] },
+  toy: { name: '铁皮小兽', kind: 'gift', glyph: '♘', note: '发条还能转两圈，然后自己倒下。可以送人。', giftTags: ['机械'] },
+  letter: { name: '没有地址的信', kind: 'gift', glyph: '✉', note: '封口没有拆过，也许不该拆。可以送人。', giftTags: ['传闻'] },
 }
+
+export const GIFT_KEYS = ['pebble', 'postcard', 'bell', 'button', 'dice', 'flower', 'toy', 'letter']
 
 export const GEAR = {
   blade: { name: '共鸣刃', slot: 'weapon', bonus: { per: 1 }, note: '刃口会随心跳轻微震动。' },

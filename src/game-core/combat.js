@@ -4,7 +4,7 @@
  * 规则全部在本地，LLM 不参与命中、伤害与士气。
  */
 
-import { ITEMS, REGIONS } from './data.js'
+import { GIFT_KEYS, ITEMS, REGIONS } from './data.js'
 import { addLog, effectiveAttr } from './run.js'
 import { createRng } from './rng.js'
 
@@ -715,6 +715,11 @@ export function resolveBattle(run, battle, choice) {
       const item = rng.pick(region.items)
       run.inv[item] = (run.inv[item] || 0) + 1
       text += ` 你还找到了一份 ${ITEMS[item].name}。`
+    }
+    if (rng.chance(0.18)) {
+      const gift = rng.pick(GIFT_KEYS)
+      run.inv[gift] = (run.inv[gift] || 0) + 1
+      text += ` 你还顺手收起了 ${ITEMS[gift].name}。`
     }
   } else if (choice === 'interrogate') {
     credits = Math.round(baseReward * 0.7)

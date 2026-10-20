@@ -54,6 +54,14 @@ const ITEM_TAGS = {
   relic: ['遗物', '共鸣'],
   anti: ['冥想'],
   medkit: ['植物'],
+  pebble: ['遗物', '冥想'],
+  postcard: ['传闻', '星图'],
+  bell: ['冥想'],
+  button: ['旧技术'],
+  dice: ['交易'],
+  flower: ['植物'],
+  toy: ['机械'],
+  letter: ['传闻'],
 }
 
 const ITEM_VALUE = {
@@ -71,6 +79,14 @@ const ITEM_VALUE = {
   relic: 20,
   anti: 14,
   medkit: 14,
+  pebble: 4,
+  postcard: 5,
+  bell: 5,
+  button: 3,
+  dice: 4,
+  flower: 6,
+  toy: 6,
+  letter: 7,
 }
 
 const ORIGIN_INTERESTS = {
@@ -514,6 +530,11 @@ export function giftToNpc(run, npcId, itemId) {
 
   if (matches > 0) {
     reply = '他挑了下眉，这东西正合他的兴趣。'
+  }
+  if (ITEMS[itemId].kind === 'gift') {
+    reply = matches > 0
+      ? '他拿着看了很久，像是想起了什么。'
+      : '他收下了，嘴角动了一下。'
   }
   if (npc.bias < -18 && base >= 18) {
     relation.grievance = clamp(relation.grievance + 4, 0, 100)

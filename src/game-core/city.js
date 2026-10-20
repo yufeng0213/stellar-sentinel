@@ -21,6 +21,14 @@ const MARKET_POOL = [
   { key: 'ore', price: 28 },
   { key: 'resin', price: 18 },
   { key: 'fiber', price: 18 },
+  { key: 'pebble', price: 6 },
+  { key: 'postcard', price: 10 },
+  { key: 'bell', price: 10 },
+  { key: 'button', price: 5 },
+  { key: 'dice', price: 9 },
+  { key: 'flower', price: 12 },
+  { key: 'toy', price: 14 },
+  { key: 'letter', price: 15 },
 ]
 
 const CLINIC_POOL = [

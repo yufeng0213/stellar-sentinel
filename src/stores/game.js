@@ -542,8 +542,16 @@ export const useGameStore = defineStore('game', {
       const def = ITEMS[itemId]
       if (!def) return { ok: false }
       const result = applyConsumable(this.run, itemId, def)
-      if (result.ok) this.save()
-      else this.notify(result.message, 'bad')
+      if (result.ok) {
+        const changes = result.changes || {}
+        const parts = []
+        if (changes.hp) parts.push(`生命 ${changes.hp > 0 ? '+' : ''}${changes.hp}`)
+        if (changes.mental) parts.push(`精神 ${changes.mental > 0 ? '+' : ''}${changes.mental}`)
+        this.notify(`使用 ${def.name}${parts.length ? ` · ${parts.join(' / ')}` : ' · 状态已满'}`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
       return result
     },
 
