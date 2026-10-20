@@ -7,6 +7,7 @@ import { createNpcWorld, ensureNpcTags } from '../game-core/npc.js'
 import { createCityState } from '../game-core/city.js'
 import { ensureDoor } from '../game-core/door.js'
 import { ensureDungeon } from '../game-core/dungeon.js'
+import { ensureReputation } from '../game-core/faction.js'
 import { createStoryState } from '../game-core/story.js'
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
@@ -77,6 +78,7 @@ export function validateRun(input) {
   if (!data.city || typeof data.city !== 'object') data.city = createCityState()
   ensureDoor(data)
   ensureDungeon(data)
+  ensureReputation(data)
   if (!data.story.flags || typeof data.story.flags !== 'object') data.story.flags = {}
 
   Object.values(data.npcChats).forEach((messages) => {

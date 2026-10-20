@@ -4,11 +4,13 @@ import { useRouter } from 'vue-router'
 import { REGIONS } from '../game-core/data.js'
 import { AXES, PERSONALITY_LABELS, canInviteToParty, factionName } from '../game-core/npc.js'
 import { TAG_CATEGORIES } from '../game-core/npc-tags.js'
+import { visitorStoryStatus } from '../game-core/visitor-story.js'
 import { useNpcPage } from '../composables/useNpcPage.js'
 
 const router = useRouter()
 const { game, run, npc, tags, backComms, axisPercent } = useNpcPage()
 const reply = ref('')
+const visitorStory = computed(() => (npc.value?.visitor ? visitorStoryStatus(run.value, npc.value) : null))
 
 const inviteCheck = computed(() => (
   npc.value ? canInviteToParty(run.value, npc.value.id) : { ok: false, reason: '' }
@@ -127,6 +129,10 @@ function doLeave() {
         <button type="button" class="link-card" @click="go('npc-memory')">
           <b>记忆</b>
           <span>短期印象与每周长期记忆</span>
+        </button>
+        <button v-if="visitorStory" type="button" class="link-card" @click="go('npc-story')">
+          <b>访客故事</b>
+          <span>{{ visitorStory.completed ? '这段故事已经结束' : `第 ${visitorStory.stage + 1} / 3 节 · ${visitorStory.template.title}` }}</span>
         </button>
         <button type="button" class="link-card" @click="go('npc-chat')">
           <b>通讯</b>

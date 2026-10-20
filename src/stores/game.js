@@ -15,6 +15,8 @@ import { recordEnding } from '../game/collection.js'
 import { ensureDoor, resolveDoorFinale, resolveDoorStep } from '../game-core/door.js'
 import { endingFor, getEnding, localEpilogue } from '../game-core/ending.js'
 import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dungeon.js'
+import { adjustReputation, claimFactionFavor, ensureReputation } from '../game-core/faction.js'
+import { advanceVisitorStory as advanceVisitorStoryCore } from '../game-core/visitor-story.js'
 import { buildDungeonNameMessages, stripDungeonName } from '../game/dungeon.js'
 import {
   addLog,
@@ -177,6 +179,7 @@ export const useGameStore = defineStore('game', {
       if (!stored.city || typeof stored.city !== 'object') stored.city = createCityState()
       ensureDoor(stored)
       ensureDungeon(stored)
+      ensureReputation(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
           if (!message.streaming) return
@@ -677,14 +680,45 @@ export const useGameStore = defineStore('game', {
     giftNpc(npcId, itemId) {
       if (!this.run) return { ok: false }
       const result = giftToNpc(this.run, npcId, itemId)
-      if (result.ok) this.save()
+      if (result.ok) {
+        const npc = this.run.npcs?.[npcId]
+        if (npc?.faction) adjustReputation(this.run, npc.faction, 2, '送礼')
+        this.save()
+      }
       return result
     },
 
     talkNpc(npcId, topic) {
       if (!this.run) return { ok: false }
       const result = talkToNpc(this.run, npcId, topic)
+      if (result.ok) {
+        const npc = this.run.npcs?.[npcId]
+        if (npc?.faction) adjustReputation(this.run, npc.faction, 1, '交谈')
+        this.save()
+      }
+      return result
+    },
+
+    adjustFaction(factionId, delta, reason = '') {
+      if (!this.run) return { ok: false }
+      const result = adjustReputation(this.run, factionId, delta, reason)
       if (result.ok) this.save()
+      return result
+    },
+
+    claimFactionFavor(factionId) {
+      if (!this.run) return { ok: false }
+      const result = claimFactionFavor(this.run, factionId)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    advanceVisitorStory(npcId) {
+      if (!this.run) return { ok: false }
+      const result = advanceVisitorStoryCore(this.run, npcId)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
       return result
     },
 

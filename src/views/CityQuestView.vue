@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { ITEMS } from '../game-core/data.js'
+import { FACTION_INFO } from '../game-core/faction.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
@@ -49,6 +50,7 @@ function requirement(quest) {
           <div class="quest-title">
             <b>{{ quest.title }}</b>
             <span class="tag" :class="quest.type === 'clear' ? 'violet' : 'jade'">{{ quest.type === 'clear' ? '探索' : '交付' }}</span>
+            <span v-if="quest.faction" class="tag">{{ FACTION_INFO[quest.faction]?.name }}</span>
           </div>
           <p>{{ quest.desc }}</p>
           <span class="quest-req">{{ requirement(quest) }}</span>

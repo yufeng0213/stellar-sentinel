@@ -90,6 +90,12 @@ function open(name) {
         <p>不问来路的货，以及一份关于白塔的情报。</p>
         <em>进入黑市 →</em>
       </button>
+      <button type="button" class="city-card" @click="open('city-factions')">
+        <span class="city-glyph">⌘</span>
+        <b>派系</b>
+        <p>白塔、黑市、漂流者、低语者。关系会改变空港愿意给你什么。</p>
+        <em>查看声望 →</em>
+      </button>
     </section>
 
     <section v-if="run.story" class="panel city-objective">

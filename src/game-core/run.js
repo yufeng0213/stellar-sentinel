@@ -12,6 +12,7 @@ import { generateRunMap, makeSeed } from './procgen.js'
 import { createCityState } from './city.js'
 import { createDoorState } from './door.js'
 import { generateDungeonName, resetDungeon } from './dungeon.js'
+import { createReputationState } from './faction.js'
 import { createStoryState } from './story.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -144,6 +145,7 @@ export function createRun(draft, seedInput) {
     story: createStoryState(),
     city: createCityState(),
     door: createDoorState(),
+    ...createReputationState(),
     dungeon: { name: generateDungeonName({ seed, mapSeed: map.seed }), source: 'local', day: 1 },
     visited: [map.startId],
     cleared: [map.startId],

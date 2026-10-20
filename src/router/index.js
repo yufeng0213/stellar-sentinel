@@ -11,6 +11,7 @@ import EndingsView from '../views/EndingsView.vue'
 import CityView from '../views/CityView.vue'
 import CityQuestView from '../views/CityQuestView.vue'
 import CityBlackMarketView from '../views/CityBlackMarketView.vue'
+import CityFactionView from '../views/CityFactionView.vue'
 import CityMarketView from '../views/CityMarketView.vue'
 import CityTavernView from '../views/CityTavernView.vue'
 import CityClinicView from '../views/CityClinicView.vue'
@@ -26,6 +27,7 @@ import NpcLoreView from '../views/NpcLoreView.vue'
 import NpcMemoryView from '../views/NpcMemoryView.vue'
 import NpcGiftView from '../views/NpcGiftView.vue'
 import NpcChatView from '../views/NpcChatView.vue'
+import NpcStoryView from '../views/NpcStoryView.vue'
 import { useGameStore } from '../stores/game.js'
 
 const router = createRouter({
@@ -53,6 +55,7 @@ const router = createRouter({
         { path: 'city/clinic', name: 'city-clinic', component: CityClinicView },
         { path: 'city/quests', name: 'city-quests', component: CityQuestView },
         { path: 'city/blackmarket', name: 'city-blackmarket', component: CityBlackMarketView },
+        { path: 'city/factions', name: 'city-factions', component: CityFactionView },
         { path: 'city/gate', name: 'city-gate', component: CityGateView },
         { path: 'map', name: 'map', component: MapView },
         { path: 'battle/:nodeId', name: 'battle', component: BattleView },
@@ -69,6 +72,7 @@ const router = createRouter({
         { path: 'npc/:npcId/memory', name: 'npc-memory', component: NpcMemoryView },
         { path: 'npc/:npcId/gift', name: 'npc-gift', component: NpcGiftView },
         { path: 'npc/:npcId/chat', name: 'npc-chat', component: NpcChatView },
+        { path: 'npc/:npcId/story', name: 'npc-story', component: NpcStoryView },
         { path: 'character', name: 'character', component: CharacterView },
       ],
     },

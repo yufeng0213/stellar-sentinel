@@ -4,6 +4,7 @@
  */
 
 import { ITEMS } from './data.js'
+import { adjustReputation, FACTION_IDS } from './faction.js'
 import { spawnVisitor } from './npc.js'
 import { createRng } from './rng.js'
 
@@ -104,6 +105,7 @@ function makeQuests(run) {
         title: template.title,
         desc: template.desc,
         reward: template.reward,
+        faction: rng.pick(FACTION_IDS),
         key: template.key || null,
         need: template.need || 0,
         nodeId: template.type === 'clear' ? target.id : null,
@@ -225,6 +227,7 @@ export function claimCityQuest(run, questId) {
 
   run.player.credits += quest.reward
   quest.status = 'done'
+  if (quest.faction) adjustReputation(run, quest.faction, 5, '城市委托')
   return { ok: true, quest, reward: quest.reward }
 }
 
@@ -238,6 +241,7 @@ export function buyBlackMarketIntel(run) {
   run.story = run.story || {}
   run.story.flags = run.story.flags || {}
   run.story.flags.intel = true
+  adjustReputation(run, 'market', 3, '黑市情报')
   return {
     ok: true,
     cost,
