@@ -134,8 +134,8 @@ export function makeGear(run, key, quality) {
 
 export function createRun(draft, seedInput) {
   const seed = String(seedInput || makeSeed()).toUpperCase()
-  const map = generateRunMap(seed)
   const player = buildCharacter(draft)
+  const map = generateRunMap(seed, player)
   const origin = ORIGINS[player.origin]
 
   const run = {
@@ -476,7 +476,7 @@ export function retreatAfterDefeat(run) {
   run.player.mental = Math.max(1, Math.ceil(run.player.mentalMax * 0.65))
 
   const mapSeed = `${run.seed}:RETREAT:${run.day}:${run.defeats}`
-  const map = generateRunMap(mapSeed)
+  const map = generateRunMap(mapSeed, run.player)
   run.map = map
   run.mapSeed = mapSeed
   resetDungeon(run)

@@ -277,10 +277,302 @@ const EVENT_TEMPLATES = [
       { id: 'wait', label: '等它过去', desc: '稳妥，但会消耗时间', outcome: { text: '你退回检修口，等光慢慢散去。', mental: -2 } },
     ],
   },
+  {
+    id: 'mugging',
+    title: '被盯上了',
+    text: '三个人从废弃舱门后面走出来，没有亮武器，但站位已经把你围住了。“把身上的东西留下。”',
+    choices: [
+      {
+        id: 'handover',
+        label: '交钱走人',
+        desc: '损失信用点，但不会受伤',
+        outcome: { text: '你把能拿出来的信用点都给了他们。他们数了数，让开了路。', credits: -35, mental: -3 },
+      },
+      {
+        id: 'resist',
+        label: '硬闯',
+        desc: '体魄判定，失败会挨打并丢更多钱',
+        attr: 'vit',
+        dc: 14,
+        success: { text: '你撞开最前面的人，趁机跑出了包围。', mental: 3 },
+        failure: { text: '你被按在地上，钱包和口袋都被翻空了。', hp: -8, credits: -25, mental: -4 },
+      },
+      {
+        id: 'sprint',
+        label: '转身就跑',
+        desc: '感知判定，甩开他们',
+        attr: 'per',
+        dc: 13,
+        success: { text: '你钻进侧面的检修通道，身后的脚步慢了下来。' },
+        failure: { text: '你跑错了方向，被堵在死路里挨了一顿。', hp: -5, credits: -20 },
+      },
+    ],
+  },
+  {
+    id: 'beating',
+    title: '巷子里的拳头',
+    text: '你只是多看了一眼，对面的人就动了手。没有警告，也没有理由。',
+    choices: [
+      {
+        id: 'fight',
+        label: '还手',
+        desc: '体魄判定，赢了能抢回一点东西',
+        attr: 'vit',
+        dc: 14,
+        success: { text: '你把他掀翻在地，捡起他掉下的信用点离开。', credits: 18, hp: -2 },
+        failure: { text: '你被打到耳鸣，等能站起来时人已经走了。', hp: -9, mental: -6 },
+      },
+      {
+        id: 'curl',
+        label: '护住头',
+        desc: '不还手，尽量减少伤害',
+        outcome: { text: '你护住要害，挨到他们失去兴趣。', hp: -4, mental: -8 },
+      },
+    ],
+  },
+  {
+    id: 'checkpoint',
+    title: '临时关卡',
+    text: '两个带枪的人把货箱横在通道中间。“过路费。现在。”',
+    choices: [
+      {
+        id: 'pay',
+        label: '交过路费',
+        desc: '损失信用点，直接通过',
+        outcome: { text: '你交了钱。他们搬开一只箱子，刚好够你侧身过去。', credits: -25 },
+      },
+      {
+        id: 'bluff',
+        label: '报一个名字',
+        desc: '交际判定，赌他们不认识',
+        attr: 'soc',
+        dc: 14,
+        success: { text: '他们对视了一眼，决定不惹麻烦。', mental: 2 },
+        failure: { text: '他们认识那个名字，也知道你不是。你被搜走了钱。', hp: -5, credits: -20 },
+      },
+      {
+        id: 'back',
+        label: '退回岔路',
+        desc: '绕远，消耗一点精神',
+        outcome: { text: '你沿着来时的路退回去，多花了些时间。', mental: -3 },
+      },
+    ],
+  },
+  {
+    id: 'pipeburst',
+    title: '冷却管爆裂',
+    text: '头顶的管道先发出尖啸，然后整段炸开。白色的冷雾瞬间吞没了通道。',
+    choices: [
+      {
+        id: 'dash',
+        label: '冲过去',
+        desc: '体魄判定，抢在管道继续破裂前通过',
+        attr: 'vit',
+        dc: 13,
+        success: { text: '你从冷雾里冲出来，衣服结了一层霜。', hp: -3 },
+        failure: { text: '一块管壁砸在你肩上，你差点跪下去。', hp: -10, mental: -3 },
+      },
+      {
+        id: 'patch',
+        label: '先关阀门',
+        desc: '技艺判定，修好管道还能拆点材料',
+        attr: 'tec',
+        dc: 14,
+        skill: 'mechanics',
+        success: { text: '你关掉阀门，拆下几块还能用的金属。', itemKey: true, itemCount: 2 },
+        failure: { text: '阀门卡死，你被喷出的冷雾冻伤了手。', hp: -6, mental: -3 },
+      },
+    ],
+  },
+  {
+    id: 'olddebt',
+    title: '旧账',
+    text: '一个陌生人在你经过时叫出了你的名字。“你欠的那笔，今天该清了吧。”',
+    choices: [
+      {
+        id: 'pay',
+        label: '把钱还了',
+        desc: '损失信用点，事情到此为止',
+        outcome: { text: '你把钱数给他。他收好，没有再多说一句。', credits: -30 },
+      },
+      {
+        id: 'argue',
+        label: '说清楚',
+        desc: '交际判定，也许这根本不是你的账',
+        attr: 'soc',
+        dc: 15,
+        success: { text: '他翻了翻记录，发现真的找错了人。', mental: 4 },
+        failure: { text: '他不想听解释，只把金额又加了一笔。', credits: -20, mental: -8 },
+      },
+      {
+        id: 'vanish',
+        label: '混进人群',
+        desc: '感知判定，甩掉他',
+        attr: 'per',
+        dc: 13,
+        success: { text: '你在拐角换了一件外套，他没有再跟上来。' },
+        failure: { text: '他一直跟到你的落脚点，记住了你的门。', mental: -7, flag: 'marked' },
+      },
+    ],
+  },
+  {
+    id: 'nightterror',
+    title: '图景里的手',
+    text: '你只是闭了一下眼，再睁开时通道变了。墙上有东西在缓慢地呼吸。',
+    choices: [
+      {
+        id: 'endure',
+        label: '稳住图景',
+        desc: '意志判定，压住这次侵蚀',
+        attr: 'wil',
+        dc: 14,
+        success: { text: '你把自己的呼吸压回正常的节奏，墙上的东西退了下去。', mental: 6 },
+        failure: { text: '那只手碰到了你的意识，你听见自己不认识的声音。', mental: -12 },
+      },
+      {
+        id: 'wake',
+        label: '强行醒来',
+        desc: '立刻脱离，但会留下余震',
+        outcome: { text: '你咬破舌尖，逼自己回到现实。耳鸣持续了很久。', mental: -5, hp: -2 },
+      },
+    ],
+  },
+  {
+    id: 'omega_pressure',
+    title: '信息素路障',
+    text: '一个 Alpha 把手臂横在通道中间，低头打量你。“Omega 一个人跑到这种地方？”他身后的两个人没有走开。',
+    requires: { abo: 'omega' },
+    choices: [
+      {
+        id: 'lower',
+        label: '低下头',
+        desc: '不反抗，尽快离开',
+        outcome: { text: '你压低视线从墙边挤过去，背后传来笑声。', mental: -9, credits: -10 },
+      },
+      {
+        id: 'stand',
+        label: '顶回去',
+        desc: '意志判定，失败会被压制',
+        attr: 'wil',
+        dc: 15,
+        success: { text: '你没有移开视线。他先觉得没趣，让开了。', mental: 5 },
+        failure: { text: '信息素压下来，你的膝盖发软。他们看着你笑。', hp: -5, mental: -12 },
+      },
+      {
+        id: 'slip',
+        label: '找空隙走',
+        desc: '感知判定，绕开他们',
+        attr: 'per',
+        dc: 13,
+        success: { text: '你从货箱和墙之间挤过去，没有回头。' },
+        failure: { text: '你被拽住了背包，挣脱时摔在金属地上。', hp: -4, mental: -6 },
+      },
+    ],
+  },
+  {
+    id: 'omega_market',
+    title: '被认出来了',
+    text: '摊主看了看你的颈环，把价格牌翻了一面。“Omega 的话，得加钱。”',
+    requires: { abo: 'omega' },
+    choices: [
+      {
+        id: 'buy',
+        label: '认下这个价',
+        desc: '损失信用点，拿到补给',
+        outcome: { text: '你付了高价，拿走了东西。摊主笑得很客气。', credits: -25, itemKey: true, itemCount: 1 },
+      },
+      {
+        id: 'barter',
+        label: '谈价',
+        desc: '交际判定，争取正常价格',
+        attr: 'soc',
+        dc: 14,
+        success: { text: '你把话题绕回货本身，他最后按原价卖了。', credits: -8, itemKey: true, itemCount: 1 },
+        failure: { text: '他叫来旁边的人一起看你的笑话。你空手离开。', mental: -7 },
+      },
+      {
+        id: 'leave',
+        label: '不买了',
+        desc: '不给他这个机会',
+        outcome: { text: '你转身离开。他在背后说了句什么，你没有听清。', mental: -2 },
+      },
+    ],
+  },
+  {
+    id: 'guide_demand',
+    title: '临时疏导',
+    text: '两名哨兵拦住你，说感官过载得厉害，要求你进图景帮他们压下去。他们的手已经按在武器上。',
+    requires: { role: 'guide' },
+    choices: [
+      {
+        id: 'soothe',
+        label: '进图景疏导',
+        desc: '损耗精神，换他们放行',
+        outcome: { text: '你走进他们的图景，把过载的感官一层层压回去。出来时手指在抖。', mental: -12, credits: 20 },
+      },
+      {
+        id: 'refuse',
+        label: '拒绝',
+        desc: '意志判定，顶住压力',
+        attr: 'wil',
+        dc: 15,
+        success: { text: '你明确说不。他们对视了一眼，最终还是让开了。', mental: -2 },
+        failure: { text: '他们把你按在墙边，逼你做完才放手。', hp: -4, mental: -10 },
+      },
+      {
+        id: 'negotiate',
+        label: '谈条件',
+        desc: '交际判定，只做最低限度的疏导',
+        attr: 'soc',
+        dc: 14,
+        success: { text: '你只做了最浅的一层，收了一点费用。他们没察觉。', credits: 25, mental: -4 },
+        failure: { text: '他们看穿了你，逼你继续。结束时你几乎站不稳。', mental: -9 },
+      },
+    ],
+  },
+  {
+    id: 'alpha_challenge',
+    title: '另一个 Alpha',
+    text: '对方没有让路，只是抬起下巴。“你觉得自己能过去？”',
+    requires: { abo: 'alpha' },
+    choices: [
+      {
+        id: 'stare',
+        label: '压回去',
+        desc: '意志判定，谁先移开视线',
+        attr: 'wil',
+        dc: 14,
+        success: { text: '他先移开了视线，侧身让出半步。', mental: 4 },
+        failure: { text: '你先眨眼了。他笑着拍了拍你的肩，力道不轻。', mental: -8, hp: -2 },
+      },
+      {
+        id: 'trade',
+        label: '谈一笔',
+        desc: '交际判定，把对峙变成交易',
+        attr: 'soc',
+        dc: 14,
+        success: { text: '你们各退一步，他甚至还卖了你一点东西。', credits: -10, itemKey: true, itemCount: 1 },
+        failure: { text: '他觉得你在示弱，叫手下把你赶了出去。', mental: -6 },
+      },
+      {
+        id: 'walk',
+        label: '绕开',
+        desc: '不接这个挑战',
+        outcome: { text: '你从旁边走过去。他没有拦你，但一直看着。', mental: -2 },
+      },
+    ],
+  },
 ]
 
-function makeEvent(rng, region) {
-  const template = rng.pick(EVENT_TEMPLATES)
+function makeEvent(rng, region, profile = null) {
+  const pool = EVENT_TEMPLATES.flatMap((template) => {
+    const requires = template.requires || {}
+    if (requires.abo && requires.abo !== profile?.abo) return []
+    if (requires.role && requires.role !== profile?.role) return []
+    // 身份相关事件对匹配角色出现得更多一些，但不独占事件池。
+    return template.requires ? [template, template] : [template]
+  })
+  const template = rng.pick(pool)
   const choices = template.choices.map((choice) => {
     const copy = { ...choice }
     if (copy.success) {
@@ -288,7 +580,10 @@ function makeEvent(rng, region) {
       if (copy.success.itemKey === true) copy.success.itemKey = rng.pick(region.items)
     }
     if (copy.failure) copy.failure = { ...copy.failure }
-    if (copy.outcome) copy.outcome = { ...copy.outcome }
+    if (copy.outcome) {
+      copy.outcome = { ...copy.outcome }
+      if (copy.outcome.itemKey === true) copy.outcome.itemKey = rng.pick(region.items)
+    }
     return copy
   })
   return {
@@ -325,7 +620,7 @@ function makeStock(rng, region) {
   ]
 }
 
-function makeNode(rng, layer, slot, type) {
+function makeNode(rng, layer, slot, type, profile = null) {
   const regionId = pickRegion(rng, layer)
   const region = REGIONS[regionId]
   const act = ACT_OF_LAYER[layer]
@@ -368,7 +663,7 @@ function makeNode(rng, layer, slot, type) {
     node.subtitle = `${region.name} · 休整点`
   } else {
     node.subtitle = `${region.name} · 异常`
-    node.event = makeEvent(rng, region)
+    node.event = makeEvent(rng, region, profile)
     node.title = node.event.title
   }
 
@@ -397,7 +692,7 @@ function connectLayers(rng, prevIds, nextIds, nodes) {
   })
 }
 
-export function generateRunMap(seed) {
+export function generateRunMap(seed, profile = null) {
   const rng = createRng(seed)
   const nodes = {}
   const layers = []
@@ -414,7 +709,7 @@ export function generateRunMap(seed) {
       else if (layer === TOTAL_LAYERS - 1) type = 'boss'
       else type = weightedPick(rng, TYPE_WEIGHTS[ACT_OF_LAYER[layer]])
 
-      const node = makeNode(rng, layer, slot, type)
+      const node = makeNode(rng, layer, slot, type, profile)
       nodes[node.id] = node
       ids.push(node.id)
     }
