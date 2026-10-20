@@ -3,6 +3,7 @@ import { ITEMS } from '../game-core/data.js'
 import {
   buyBlackMarketIntel,
   buyCityOffer as buyCityOfferCore,
+  buyDoorKey,
   claimCityQuest,
   createCityState,
   ensureCity,
@@ -10,6 +11,7 @@ import {
   refreshCityVisitors,
   tavernRumor,
 } from '../game-core/city.js'
+import { ensureDoor, resolveDoorFinale, resolveDoorStep } from '../game-core/door.js'
 import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dungeon.js'
 import { buildDungeonNameMessages, stripDungeonName } from '../game/dungeon.js'
 import {
@@ -171,6 +173,7 @@ export const useGameStore = defineStore('game', {
       if (stored.weekly === undefined) stored.weekly = null
       if (!stored.story || typeof stored.story !== 'object') stored.story = createStoryState()
       if (!stored.city || typeof stored.city !== 'object') stored.city = createCityState()
+      ensureDoor(stored)
       ensureDungeon(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
@@ -378,6 +381,38 @@ export const useGameStore = defineStore('game', {
       const result = buyBlackMarketIntel(this.run)
       if (result.ok) this.save()
       else this.notify(result.message, 'bad')
+      return result
+    },
+
+    buyCityDoorKey() {
+      if (!this.run) return { ok: false }
+      const result = buyDoorKey(this.run)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    resolveDoorStep() {
+      if (!this.run) return { ok: false }
+      const result = resolveDoorStep(this.run)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    resolveDoorFinale(choice) {
+      if (!this.run) return { ok: false }
+      const result = resolveDoorFinale(this.run, choice)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
       return result
     },
 

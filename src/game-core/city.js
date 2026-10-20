@@ -65,6 +65,7 @@ export function createCityState() {
     refreshCount: 0,
     healDay: 0,
     intelBought: false,
+    doorKeyBought: false,
     rumorDay: 0,
     lastRumor: '',
   }
@@ -127,6 +128,7 @@ export function ensureCity(run) {
   if (typeof city.rumorDay !== 'number') city.rumorDay = 0
   if (!city.lastRumor) city.lastRumor = ''
   if (typeof city.intelBought !== 'boolean') city.intelBought = false
+  if (typeof city.doorKeyBought !== 'boolean') city.doorKeyBought = false
 
   if (city.marketDay !== run.day) {
     city.market = makeOffers(createRng(`${run.seed}:market:${run.day}`), MARKET_POOL, 6, 'wine')
@@ -240,6 +242,23 @@ export function buyBlackMarketIntel(run) {
     ok: true,
     cost,
     text: '摊主把一枚旧芯片推过来：白塔的信号源不在塔里，在塔下面的旧矿脉。',
+  }
+}
+
+export function buyDoorKey(run) {
+  const city = ensureCity(run)
+  if ((run.story?.chapter || 1) < 4) return { ok: false, message: '门钥要等到第四章才会出现在黑市' }
+  if (run.story?.flags?.doorKey || city.doorKeyBought) return { ok: false, message: '你已经拿到门钥了' }
+  const cost = 80
+  if (run.player.credits < cost) return { ok: false, message: '需要 80 信用点' }
+  run.player.credits -= cost
+  city.doorKeyBought = true
+  run.story.flags = run.story.flags || {}
+  run.story.flags.doorKey = true
+  return {
+    ok: true,
+    cost,
+    text: '摊主把一枚没有齿的钥匙放在柜台上：它开的不是锁，是门。',
   }
 }
 

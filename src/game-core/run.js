@@ -10,6 +10,7 @@ import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
 import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
 import { createCityState } from './city.js'
+import { createDoorState } from './door.js'
 import { generateDungeonName, resetDungeon } from './dungeon.js'
 import { createStoryState } from './story.js'
 
@@ -142,6 +143,7 @@ export function createRun(draft, seedInput) {
     defeats: 0,
     story: createStoryState(),
     city: createCityState(),
+    door: createDoorState(),
     dungeon: { name: generateDungeonName({ seed, mapSeed: map.seed }), source: 'local', day: 1 },
     visited: [map.startId],
     cleared: [map.startId],

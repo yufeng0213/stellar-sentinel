@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { doorSeals } from '../game-core/door.js'
 import { chapterStatus } from '../game-core/story.js'
 import { useGameStore } from '../stores/game.js'
 
@@ -8,6 +9,7 @@ const game = useGameStore()
 const router = useRouter()
 const run = computed(() => game.run)
 const status = computed(() => (run.value ? chapterStatus(run.value) : null))
+const seals = computed(() => (run.value ? doorSeals(run.value) : null))
 const dungeon = computed(() => run.value?.dungeon || null)
 
 function renameDungeon(useLlm) {
@@ -40,6 +42,14 @@ function enter() {
       <div class="gate-objective-actions">
         <span class="tag" :class="status?.complete ? 'jade' : 'amber'">{{ status?.complete ? '目标已完成' : '进行中' }}</span>
         <RouterLink :to="{ name: 'story-main', params: { runId: run.id } }" class="text-link">查看主线 →</RouterLink>
+      </div>
+      <div v-if="status?.current === 4" class="gate-seals">
+        <span v-for="seal in seals?.seals" :key="seal.id" class="tag" :class="seal.ok ? 'jade' : 'amber'">
+          {{ seal.ok ? '◈' : '◇' }} {{ seal.name }}
+        </span>
+        <RouterLink v-if="seals?.complete" :to="{ name: 'story-door', params: { runId: run.id } }" class="btn btn-sm">
+          {{ run.door?.opened ? '查看结局' : '前往门' }} →
+        </RouterLink>
       </div>
     </section>
 
@@ -80,6 +90,7 @@ function enter() {
 .gate-objective h3 { margin-top: 4px; font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 400; }
 .gate-objective p { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); line-height: 1.7; }
 .gate-objective-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.gate-seals { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .text-link { color: var(--cyan); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .gate-dungeon { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 16px; }
 .gate-dungeon h3 { margin-top: 3px; color: var(--cyan); font-size: max(var(--ui-min), calc(20px * var(--ui-scale))); font-weight: 400; letter-spacing: .06em; }

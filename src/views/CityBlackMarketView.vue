@@ -24,6 +24,11 @@ function buyIntel() {
   const result = game.buyCityIntel()
   if (result.ok) game.notify(result.text, 'good')
 }
+
+function buyDoorKey() {
+  const result = game.buyCityDoorKey()
+  if (result.ok) game.notify(result.text, 'good')
+}
 </script>
 
 <template>
@@ -46,6 +51,17 @@ function buyIntel() {
       </div>
       <button type="button" class="btn btn-primary" :disabled="city?.intelBought || run.player.credits < 60" @click="buyIntel">
         {{ city?.intelBought ? '已购买' : '购买情报 · 60' }}
+      </button>
+    </section>
+
+    <section v-if="(run.story?.chapter || 1) >= 4" class="panel intel-card door-key-card" :class="{ 'is-bought': run.story?.flags?.doorKey }">
+      <div>
+        <span class="kicker">KEY · THE DOOR</span>
+        <h3>没有齿的钥匙</h3>
+        <p>{{ run.story?.flags?.doorKey ? '门钥已经在你手上。它很轻，像是用一段旧记忆削出来的。' : '摊主把一枚没有齿的钥匙放在柜台上。开价 80 信用点。' }}</p>
+      </div>
+      <button type="button" class="btn btn-primary" :disabled="run.story?.flags?.doorKey || run.player.credits < 80" @click="buyDoorKey">
+        {{ run.story?.flags?.doorKey ? '已购买' : '购买门钥 · 80' }}
       </button>
     </section>
 
@@ -75,6 +91,7 @@ function buyIntel() {
 .intel-card h3 { margin-top: 3px; font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 400; }
 .intel-card p { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.65; }
 .intel-card.is-bought { opacity: .72; }
+.door-key-card { border-color: rgba(185, 164, 255, .32); background: linear-gradient(150deg, rgba(185, 164, 255, .08), rgba(5, 10, 16, .5)); }
 .black-list { padding: 15px; }
 .black-list h3 { margin-bottom: 9px; font-size: max(var(--ui-min), calc(14px * var(--ui-scale))); font-weight: 500; }
 .black-offers { display: flex; flex-direction: column; gap: 5px; }

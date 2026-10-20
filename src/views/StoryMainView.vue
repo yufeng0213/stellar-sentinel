@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { doorSeals } from '../game-core/door.js'
 import { MAIN_CHAPTERS, chapterStatus } from '../game-core/story.js'
 import { useGameStore } from '../stores/game.js'
 
@@ -8,6 +9,7 @@ const game = useGameStore()
 const router = useRouter()
 const run = computed(() => game.run)
 const status = computed(() => (run.value ? chapterStatus(run.value) : null))
+const seals = computed(() => (run.value ? doorSeals(run.value) : null))
 
 function advance() {
   if (!run.value) return
@@ -44,8 +46,25 @@ function back() {
       <button v-if="status.complete && status.current < MAIN_CHAPTERS.length" type="button" class="btn btn-primary" @click="advance">
         推进到下一章 →
       </button>
+      <p v-else-if="status.complete && status.current === 4" class="hint">门后的结局已经记录。这一章完成了。</p>
       <p v-else-if="status.complete" class="hint">这一章已经完成，后续章节还在写。</p>
       <p v-else class="hint">完成目标后回到这里推进主线。</p>
+
+      <div v-if="status.current === 4" class="door-seals">
+        <span class="kicker">DOOR SEALS</span>
+        <div class="seal-tags">
+          <span v-for="seal in seals?.seals" :key="seal.id" class="tag" :class="seal.ok ? 'jade' : 'amber'">
+            {{ seal.ok ? '◈' : '◇' }} {{ seal.name }}
+          </span>
+        </div>
+        <RouterLink
+          v-if="seals?.complete"
+          :to="{ name: 'story-door', params: { runId: run.id } }"
+          class="btn btn-primary"
+        >
+          {{ status.complete ? '查看门后的结局 →' : '前往门 →' }}
+        </RouterLink>
+      </div>
     </section>
 
     <section class="panel chapter-list">
@@ -78,6 +97,8 @@ function back() {
 .main-progress { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex: none; }
 .main-objective { padding: 16px; }
 .main-objective p { margin: 5px 0 14px; color: var(--muted); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); line-height: 1.7; }
+.door-seals { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.seal-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 12px; }
 .chapter-list { padding: 16px; }
 .chapter-list h3 { margin-bottom: 10px; font-size: max(var(--ui-min), calc(14px * var(--ui-scale))); font-weight: 500; }
 .chapter-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(255, 255, 255, .05); opacity: .5; }

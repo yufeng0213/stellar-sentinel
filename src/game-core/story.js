@@ -42,9 +42,9 @@ export const MAIN_CHAPTERS = [
     number: 4,
     id: 'door',
     title: '门',
-    objective: '白塔的门已经打开。下一章尚未写入。',
-    hint: '后续章节待开发。',
-    complete: () => false,
+    objective: '集齐情报、首领记录与门钥，前往白塔的门。',
+    hint: '门在矿脉最深处。先确认你带齐了能让它回应你的东西。',
+    complete: (run) => !!run.story?.flags?.door_opened,
   },
 ]
 
@@ -64,15 +64,17 @@ export function advanceChapter(run) {
   if (!status.complete) return { ok: false, message: '当前章节目标还没有完成' }
   if (status.current >= MAIN_CHAPTERS.length) return { ok: false, message: '后续章节尚未开放' }
   const next = MAIN_CHAPTERS[status.current]
+  const flags = {
+    ...(run.story?.flags || {}),
+    [`chapter_${status.current}_done`]: true,
+  }
+  if (status.current === 3) flags.boss_signal = true
   run.story = {
     ...run.story,
     chapter: next.number,
     title: next.title,
     objective: next.objective,
-    flags: {
-      ...(run.story?.flags || {}),
-      [`chapter_${status.current}_done`]: true,
-    },
+    flags,
   }
   return { ok: true, chapter: next.number, title: next.title, objective: next.objective }
 }

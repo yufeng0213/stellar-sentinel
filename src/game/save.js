@@ -5,6 +5,7 @@
 
 import { createNpcWorld, ensureNpcTags } from '../game-core/npc.js'
 import { createCityState } from '../game-core/city.js'
+import { ensureDoor } from '../game-core/door.js'
 import { ensureDungeon } from '../game-core/dungeon.js'
 import { createStoryState } from '../game-core/story.js'
 
@@ -74,6 +75,7 @@ export function validateRun(input) {
   if (!data.mapSeed && data.map?.seed) data.mapSeed = data.map.seed
   if (!data.story || typeof data.story !== 'object') data.story = createStoryState()
   if (!data.city || typeof data.city !== 'object') data.city = createCityState()
+  ensureDoor(data)
   ensureDungeon(data)
   if (!data.story.flags || typeof data.story.flags !== 'object') data.story.flags = {}
 
