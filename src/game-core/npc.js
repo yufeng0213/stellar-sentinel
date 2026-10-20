@@ -12,6 +12,7 @@ import {
   tagAffinity,
 } from './npc-tags.js'
 import { applyNpcArchetype, ensureNpcArchetype, pickNpcArchetype } from './npc-archetypes.js'
+import { clearAmbiguous, ensureNpcStage, relationStageInfo, relationStageOf } from './npc-stages.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -351,6 +352,9 @@ function makeNpc(run, rng, id, seedRole, name) {
     loverSince: 0,
     confessed: false,
     confessedDay: 0,
+    ambiguous: false,
+    ambiguousSince: 0,
+    stageHistory: [],
     lore: { entries: [] },
     longMemory: [],
     personaDone: [],
@@ -454,6 +458,7 @@ export function ensureNpcTags(run) {
     if (typeof npc.confessed !== 'boolean') npc.confessed = false
     if (typeof npc.confessedDay !== 'number') npc.confessedDay = 0
     if (!Array.isArray(npc.personaDone)) npc.personaDone = []
+    ensureNpcStage(npc)
     ensureNpcArchetype(run, npc)
     if (npc.tags?.length) return
     const seedRole = FIXED_NPCS.find((item) => item.name === npc.name) || null
@@ -584,7 +589,9 @@ export function romanceStatus(run, npcId) {
   const npc = run?.npcs?.[npcId]
   if (!npc) return null
   const lovers = Object.values(run.npcs || {}).filter((item) => item.alive && item.lover)
-  const available = !npc.lover &&
+  const stage = relationStageOf(npc)
+  const available = stage.id === 'ambiguous' &&
+    !npc.lover &&
     npc.alive &&
     !npc.hostile &&
     npc.relation.trust >= 50 &&
@@ -593,6 +600,9 @@ export function romanceStatus(run, npcId) {
   return {
     available,
     lover: Boolean(npc.lover),
+    stage: stage.id,
+    stageName: stage.name,
+    stageInfo: relationStageInfo(npc),
     lovers: lovers.length,
     otherLovers: lovers.filter((item) => item.id !== npc.id).length,
   }
@@ -603,6 +613,7 @@ export function confessToNpc(run, npcId) {
   if (!npc) return { ok: false, message: '找不到这个人' }
   const status = romanceStatus(run, npcId)
   if (status.lover) return { ok: false, message: '你们已经是恋人了' }
+  if (status.stage !== 'ambiguous') return { ok: false, message: '关系还没到暧昧阶段，先把话说开一点' }
   if (!status.available) return { ok: false, message: '信任或亲近还不够，或者对方不打算谈这件事' }
 
   const rng = createRng(`${run.seed}:confess:${npcId}:${run.rollCount}`)
@@ -654,6 +665,7 @@ export function breakUpWithNpc(run, npcId) {
   npc.confessed = true
   npc.confessedDay = run.day
   npc.breakupDay = run.day
+  clearAmbiguous(npc, run.day)
   npc.relation.closeness = clamp(npc.relation.closeness - 20, 0, 100)
   npc.relation.trust = clamp(npc.relation.trust - 8, 0, 100)
   npc.relation.grievance = clamp(npc.relation.grievance + 10, 0, 100)

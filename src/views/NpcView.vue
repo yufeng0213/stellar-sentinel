@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ITEMS, REGIONS } from '../game-core/data.js'
 import { AXES, PERSONALITY_LABELS, canInviteToParty, factionName, romanceStatus } from '../game-core/npc.js'
+import { RELATION_STAGES, relationStageInfo } from '../game-core/npc-stages.js'
 import { TAG_CATEGORIES } from '../game-core/npc-tags.js'
 import { visitorStoryStatus } from '../game-core/visitor-story.js'
 import { useNpcPage } from '../composables/useNpcPage.js'
@@ -21,6 +22,7 @@ const inviteCheck = computed(() => (
   npc.value ? canInviteToParty(run.value, npc.value.id) : { ok: false, reason: '' }
 ))
 const romance = computed(() => (run.value && npc.value ? romanceStatus(run.value, npc.value.id) : null))
+const stageInfo = computed(() => (npc.value ? relationStageInfo(npc.value) : null))
 
 function go(name) {
   if (!npc.value || !run.value) return
@@ -93,6 +95,7 @@ function doBreakUp() {
           <p class="sub">{{ npc.abo }} · {{ npc.role }}</p>
           <div class="sheet-tags">
             <span v-if="archetype" class="tag violet">{{ archetype.glyph }} {{ archetype.name }}</span>
+            <span v-if="stageInfo" class="tag" :class="stageInfo.color">{{ stageInfo.name }}</span>
             <span v-if="npc.lover" class="tag red">恋人</span>
             <span v-if="npc.party" class="tag jade">队伍中</span>
             <span v-if="npc.hostile" class="tag red">敌视</span>
@@ -116,6 +119,32 @@ function doBreakUp() {
       </div>
       <p class="archetype-desc">{{ archetype.desc }}</p>
       <p class="hint">说话方式：{{ archetype.voice }}</p>
+    </section>
+
+    <section v-if="stageInfo" class="panel npc-block stage-block">
+      <div class="stage-head">
+        <div>
+          <p class="kicker">RELATION STAGE</p>
+          <h3>{{ stageInfo.name }}</h3>
+        </div>
+        <span class="stage-desc">{{ stageInfo.desc }}</span>
+      </div>
+      <div class="stage-track">
+        <span
+          v-for="(stage, index) in RELATION_STAGES"
+          :key="stage.id"
+          class="stage-step"
+          :class="{ 'is-done': index < stageInfo.index, 'is-current': index === stageInfo.index }"
+        >
+          {{ stage.name }}
+        </span>
+      </div>
+      <p v-if="stageInfo.next" class="stage-next">
+        下一阶段「{{ stageInfo.next.name }}」还需要信任 +{{ stageInfo.trustToNext }}、亲近 +{{ stageInfo.closenessToNext }}
+      </p>
+      <p v-else class="stage-next">已经走到这段关系的当前终点。</p>
+      <p v-if="stageInfo.canBond" class="stage-hint">好感期会出现一次更明确的试探；接受后进入暧昧。</p>
+      <p v-else-if="stageInfo.id === 'ambiguous'" class="stage-hint">暧昧期可以继续靠近，也可以主动表达心意或等对方先开口。</p>
     </section>
 
     <section class="panel npc-block">
@@ -260,6 +289,16 @@ function doBreakUp() {
 .npc-block { padding: 14px 16px; }
 .npc-block h3 { margin-bottom: 10px; color: var(--ink); font-size: max(var(--ui-min), calc(14px * var(--ui-scale))); font-weight: 500; letter-spacing: .06em; }
 .bag-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.stage-block { border-color: rgba(124, 231, 255, .16); }
+.stage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.stage-head h3 { margin: 2px 0 0; }
+.stage-desc { max-width: 58%; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.55; text-align: right; }
+.stage-track { display: flex; gap: 4px; margin-top: 12px; }
+.stage-step { flex: 1; padding: 5px 4px; border: 1px solid var(--line); border-radius: 5px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); text-align: center; }
+.stage-step.is-done { border-color: rgba(124, 231, 255, .18); color: var(--muted); }
+.stage-step.is-current { border-color: rgba(124, 231, 255, .45); background: rgba(124, 231, 255, .08); color: var(--cyan); }
+.stage-next { margin-top: 8px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
+.stage-hint { margin-top: 5px; color: var(--violet); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .archetype-block { border-color: rgba(185, 164, 255, .22); background: rgba(185, 164, 255, .045); }
 .archetype-head { display: flex; align-items: center; gap: 10px; }
 .archetype-glyph { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border: 1px solid rgba(185, 164, 255, .35); border-radius: 9px; color: var(--violet); font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); }

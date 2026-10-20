@@ -7,6 +7,8 @@ import { ITEMS, REGIONS } from './data.js'
 import { recordWeeklyMemories } from './memory.js'
 import { activeEscorts, startEscort } from './escort.js'
 import { PERSONA_EVENTS, personaEventFor } from './npc-persona-events.js'
+import { STAGE_EVENTS, stageEventFor } from './npc-stage-events.js'
+import { markAmbiguous, relationStageOf } from './npc-stages.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -20,6 +22,7 @@ export const EVENT_TYPES = {
   confession: { label: '表白', color: 'red', base: 10, major: true },
   jealousy: { label: '吃醋', color: 'red', base: 8, major: true },
   escort: { label: '护送', color: 'amber', base: 9, major: true },
+  bond: { label: '好感', color: 'violet', base: 10, major: true },
   persona: { label: '专属', color: 'violet', base: 8, major: true },
   conflict: { label: '冲突', color: 'red', base: 10, major: true },
   gossip: { label: '八卦', color: 'amber', base: 7, major: false },
@@ -118,6 +121,13 @@ function eventEligible(run, npc, type, rng) {
 
   const relation = npc.relation
   if (type === 'message') return true
+  if (type === 'bond') {
+    const stage = relationStageOf(npc)
+    return stage.id === 'goodwill' &&
+      relation.trust >= 35 &&
+      relation.closeness >= 20 &&
+      !!stageEventFor(npc)
+  }
   if (type === 'persona') {
     const personaEvent = personaEventFor(npc)
     return !!personaEvent &&
@@ -128,7 +138,8 @@ function eventEligible(run, npc, type, rng) {
   if (type === 'favor') return relation.trust >= 20
   if (type === 'quest') return relation.trust >= 30 && relation.closeness >= 15 && questTargets(run).length > 0
   if (type === 'romance') {
-    return relation.trust >= 40 &&
+    return relationStageOf(npc).id === 'ambiguous' &&
+      relation.trust >= 40 &&
       relation.closeness >= 55 &&
       !hasTag(npc, 'commitmentphobe') &&
       !hasTag(npc, 'solo')
@@ -136,6 +147,7 @@ function eventEligible(run, npc, type, rng) {
   if (type === 'confession') {
     return !npc.lover &&
       !npc.confessed &&
+      relationStageOf(npc).id === 'ambiguous' &&
       relation.trust >= 50 &&
       relation.closeness >= 60 &&
       !hasTag(npc, 'commitmentphobe') &&
@@ -162,6 +174,7 @@ function eventWeight(run, npc, type) {
   weight *= npc.tagEffects?.eventWeight?.[type] || 1
 
   if (type === 'message') weight *= 1 + relation.trust / 180
+  if (type === 'bond') weight *= 1 + relation.closeness / 80
   if (type === 'persona') weight *= 1 + relation.closeness / 100
   if (type === 'gift') weight *= 1 + npc.personality.generosity / 160
   if (type === 'favor') weight *= (1 + relation.trust / 150) * (npc.injured ? 2 : 1)
@@ -253,7 +266,14 @@ function buildEvent(run, rng, npc, type, weekly = false) {
     choices: [],
   }
 
-  if (type === 'message') {
+  if (type === 'bond') {
+    const definition = stageEventFor(npc)
+    if (!definition) return null
+    base.title = definition.title
+    base.text = definition.text
+    base.payload = { stageEventId: definition.id }
+    base.choices = definition.choices.map((choice) => ({ id: choice.id, label: choice.label }))
+  } else if (type === 'message') {
     base.title = `${npc.name} 发来一条信息`
     base.text = messageText(npc)
     base.choices = [
@@ -453,6 +473,19 @@ export function generateNpcEvents(run, options = {}) {
 
   if (pendingCount < 6) {
     const daily = candidates(run, rng, false)
+    // 好感期不能靠随机错过：只要有人停在好感，下一次结算先给他一次试探。
+    const pendingBond = run.inbox.some((event) => event.status === 'pending' && event.type === 'bond')
+    const bondCandidate = daily.find((item) => item.type === 'bond')
+    if (!pendingBond && bondCandidate) {
+      const bondEvent = buildEvent(run, rng, bondCandidate.npc, 'bond')
+      if (bondEvent) {
+        run.inbox.unshift(bondEvent)
+        markCooldown(run, bondCandidate.npc, 'bond')
+        usedNpc.add(bondCandidate.npc.id)
+        usedTypes.add('bond')
+        created.push(bondEvent)
+      }
+    }
     const count = daily.length && rng.chance(0.35) ? 2 : daily.length ? 1 : 0
     for (let index = 0; index < count; index += 1) {
       const pool = daily.filter((item) => (
@@ -500,6 +533,19 @@ function resolveMessage(run, npc, event, choice) {
   }
   npc.relation.closeness = clamp(npc.relation.closeness - 1, 0, 100)
   return '你没有回复。消息停在那里。'
+}
+
+function resolveBond(run, npc, event, choice) {
+  const definition = Object.values(STAGE_EVENTS).find((item) => item.id === event.payload.stageEventId)
+  const picked = definition?.choices.find((item) => item.id === choice)
+  if (!definition || !picked) return { error: '这段试探已经失效' }
+  const outcome = picked.outcome || {}
+  if (typeof outcome.trust === 'number') npc.relation.trust = clamp(npc.relation.trust + outcome.trust, 0, 100)
+  if (typeof outcome.closeness === 'number') npc.relation.closeness = clamp(npc.relation.closeness + outcome.closeness, 0, 100)
+  if (typeof outcome.grievance === 'number') npc.relation.grievance = clamp(npc.relation.grievance + outcome.grievance, 0, 100)
+  if (typeof outcome.mental === 'number') run.player.mental = clamp(run.player.mental + outcome.mental, 0, run.player.mentalMax)
+  if (outcome.advance) markAmbiguous(npc, run.day)
+  return outcome.text || '你们都没有把话说完。'
 }
 
 function resolvePersona(run, npc, event, choice) {
@@ -671,6 +717,7 @@ export function resolveInboxEvent(run, eventId, choiceId) {
 
   let result = ''
   if (event.type === 'message') result = resolveMessage(run, npc, event, choiceId)
+  else if (event.type === 'bond') result = resolveBond(run, npc, event, choiceId)
   else if (event.type === 'persona') result = resolvePersona(run, npc, event, choiceId)
   else if (event.type === 'gift') result = resolveGift(run, npc, event, choiceId)
   else if (event.type === 'favor') result = resolveFavor(run, npc, event, choiceId)
