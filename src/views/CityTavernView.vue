@@ -12,10 +12,16 @@ const visitors = computed(() => (city.value?.visitorIds || [])
   .map((id) => run.value?.npcs?.[id])
   .filter((npc) => npc && npc.active !== false))
 const hasWine = computed(() => (run.value?.inv?.wine || 0) > 0)
+const rumor = computed(() => city.value?.lastRumor || '')
 
 function drink() {
   const result = game.consume('wine')
   if (result.ok) game.notify('一杯空港私酿下肚，精神暖了一点。', 'good')
+}
+
+function askRumor() {
+  const result = game.tavernRumor()
+  if (result.ok) game.notify(result.cached ? '今天已经听过这条消息了' : '打听到一条消息', '')
 }
 
 onMounted(() => game.enterCity())
@@ -41,6 +47,7 @@ function refresh() {
       </div>
       <div class="tavern-actions">
         <span class="tag amber">信用点 {{ run.player.credits }}</span>
+        <button type="button" class="btn btn-sm" @click="askRumor">打听消息</button>
         <button v-if="hasWine" type="button" class="btn btn-sm" @click="drink">来一杯私酿</button>
         <button type="button" class="btn btn-sm" :disabled="run.player.credits < 12" @click="refresh">换一批访客 · 12</button>
       </div>
@@ -70,6 +77,11 @@ function refresh() {
       <div v-if="!visitors.length" class="panel empty">酒馆今天很安静。换一批访客试试。</div>
     </section>
 
+    <section v-if="rumor" class="panel rumor-box">
+      <span class="kicker">RUMOR · D{{ run.day }}</span>
+      <p>{{ rumor }}</p>
+    </section>
+
     <p class="tavern-note">访客是临时出现在空港的人。他们也有标签、性格和关系网，会参与之后的事件。</p>
   </div>
 </template>
@@ -90,6 +102,8 @@ function refresh() {
 .visitor-relations { display: flex; gap: 10px; margin-top: 12px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .visitor-relations b { color: var(--muted); font-weight: 500; }
 .visitor-go { display: block; margin-top: 12px; color: var(--amber); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.rumor-box { padding: 12px 16px; border-color: rgba(185, 164, 255, .22); background: rgba(185, 164, 255, .045); }
+.rumor-box p { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); line-height: 1.7; }
 .tavern-note { color: var(--dim); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); text-align: center; }
 .empty { padding: 30px; color: var(--dim); text-align: center; }
 @media (hover: hover) {

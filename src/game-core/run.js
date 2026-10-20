@@ -10,6 +10,7 @@ import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
 import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
 import { createCityState } from './city.js'
+import { generateDungeonName, resetDungeon } from './dungeon.js'
 import { createStoryState } from './story.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -141,6 +142,7 @@ export function createRun(draft, seedInput) {
     defeats: 0,
     story: createStoryState(),
     city: createCityState(),
+    dungeon: { name: generateDungeonName({ seed, mapSeed: map.seed }), source: 'local', day: 1 },
     visited: [map.startId],
     cleared: [map.startId],
     nodeState: {},
@@ -447,6 +449,7 @@ export function retreatAfterDefeat(run) {
   const map = generateRunMap(mapSeed)
   run.map = map
   run.mapSeed = mapSeed
+  resetDungeon(run)
   run.location = map.startId
   run.act = 1
   run.visited = [map.startId]

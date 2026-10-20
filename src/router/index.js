@@ -4,7 +4,10 @@ import CreateView from '../views/CreateView.vue'
 import LlmSettingsView from '../views/LlmSettingsView.vue'
 import RunShell from '../views/RunShell.vue'
 import StoryView from '../views/StoryView.vue'
+import StoryMainView from '../views/StoryMainView.vue'
 import CityView from '../views/CityView.vue'
+import CityQuestView from '../views/CityQuestView.vue'
+import CityBlackMarketView from '../views/CityBlackMarketView.vue'
 import CityMarketView from '../views/CityMarketView.vue'
 import CityTavernView from '../views/CityTavernView.vue'
 import CityClinicView from '../views/CityClinicView.vue'
@@ -37,10 +40,13 @@ const router = createRouter({
           redirect: (to) => ({ name: 'map', params: { runId: to.params.runId } }),
         },
         { path: 'story', name: 'story', component: StoryView },
+        { path: 'story/main', name: 'story-main', component: StoryMainView },
         { path: 'city', name: 'city', component: CityView },
         { path: 'city/market', name: 'city-market', component: CityMarketView },
         { path: 'city/tavern', name: 'city-tavern', component: CityTavernView },
         { path: 'city/clinic', name: 'city-clinic', component: CityClinicView },
+        { path: 'city/quests', name: 'city-quests', component: CityQuestView },
+        { path: 'city/blackmarket', name: 'city-blackmarket', component: CityBlackMarketView },
         { path: 'city/gate', name: 'city-gate', component: CityGateView },
         { path: 'map', name: 'map', component: MapView },
         { path: 'battle/:nodeId', name: 'battle', component: BattleView },

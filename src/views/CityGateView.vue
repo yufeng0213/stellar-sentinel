@@ -1,11 +1,19 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { chapterStatus } from '../game-core/story.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
 const router = useRouter()
 const run = computed(() => game.run)
+const status = computed(() => (run.value ? chapterStatus(run.value) : null))
+const dungeon = computed(() => run.value?.dungeon || null)
+
+function renameDungeon(useLlm) {
+  const result = game.renameDungeon(useLlm)
+  if (result?.ok) game.notify(`地穴命名为：${result.name}`, 'good')
+}
 
 function enter() {
   if (!run.value) return
@@ -26,9 +34,25 @@ function enter() {
     </section>
 
     <section class="panel gate-objective">
-      <span class="kicker">MAIN OBJECTIVE</span>
-      <h3>{{ run.story?.title || '失联的白塔' }}</h3>
-      <p>{{ run.story?.objective }}</p>
+      <span class="kicker">MAIN OBJECTIVE · CH{{ status?.current }}</span>
+      <h3>{{ status?.title || '失联的白塔' }}</h3>
+      <p>{{ status?.objective }}</p>
+      <div class="gate-objective-actions">
+        <span class="tag" :class="status?.complete ? 'jade' : 'amber'">{{ status?.complete ? '目标已完成' : '进行中' }}</span>
+        <RouterLink :to="{ name: 'story-main', params: { runId: run.id } }" class="text-link">查看主线 →</RouterLink>
+      </div>
+    </section>
+
+    <section class="panel gate-dungeon">
+      <div>
+        <span class="kicker">DUNGEON DESIGNATION</span>
+        <h3>{{ dungeon?.name || '未命名地穴' }}</h3>
+        <p class="hint">{{ dungeon?.source === 'llm' ? '模型命名' : '本地命名' }} · 名字不改变节点、掉落或难度。</p>
+      </div>
+      <div class="gate-dungeon-actions">
+        <button type="button" class="btn btn-sm" @click="renameDungeon(true)">让模型命名</button>
+        <button type="button" class="btn btn-ghost btn-sm" @click="renameDungeon(false)">本地重掷</button>
+      </div>
     </section>
 
     <section class="panel gate-status">
@@ -55,6 +79,11 @@ function enter() {
 .gate-objective { padding: 16px; }
 .gate-objective h3 { margin-top: 4px; font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 400; }
 .gate-objective p { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); line-height: 1.7; }
+.gate-objective-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.text-link { color: var(--cyan); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.gate-dungeon { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 16px; }
+.gate-dungeon h3 { margin-top: 3px; color: var(--cyan); font-size: max(var(--ui-min), calc(20px * var(--ui-scale))); font-weight: 400; letter-spacing: .06em; }
+.gate-dungeon-actions { display: flex; flex-wrap: wrap; gap: 5px; }
 .gate-status { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 14px; }
 .gate-status div { padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: rgba(5, 10, 16, .38); }
 .gate-status span { display: block; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
@@ -63,5 +92,6 @@ function enter() {
 @media (max-width: 600px) {
   .gate-hero { padding: 15px; }
   .gate-status { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gate-dungeon { align-items: flex-start; flex-direction: column; }
 }
 </style>

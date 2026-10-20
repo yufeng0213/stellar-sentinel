@@ -1,12 +1,17 @@
 import { defineStore } from 'pinia'
 import { ITEMS } from '../game-core/data.js'
 import {
+  buyBlackMarketIntel,
   buyCityOffer as buyCityOfferCore,
+  claimCityQuest,
   createCityState,
   ensureCity,
   healAtClinic,
   refreshCityVisitors,
+  tavernRumor,
 } from '../game-core/city.js'
+import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dungeon.js'
+import { buildDungeonNameMessages, stripDungeonName } from '../game/dungeon.js'
 import {
   addLog,
   applyConsumable,
@@ -54,7 +59,7 @@ import { stealFromNpc, stealFromShop } from '../game-core/steal.js'
 import { streamNpcChat } from '../game/llm.js'
 import { buildLoreMessages, localLore, loreTarget, stripLore } from '../game/lore.js'
 import { buildStoryOpeningMessages, stripStoryOpening } from '../game/story.js'
-import { createStoryState, getAwakening, localOpening, resolveOpeningChoice, startAwakening } from '../game-core/story.js'
+import { advanceChapter, createStoryState, getAwakening, localOpening, resolveOpeningChoice, startAwakening } from '../game-core/story.js'
 import {
   buildEventNarrativeMessages,
   localEventNarrative,
@@ -166,6 +171,7 @@ export const useGameStore = defineStore('game', {
       if (stored.weekly === undefined) stored.weekly = null
       if (!stored.story || typeof stored.story !== 'object') stored.story = createStoryState()
       if (!stored.city || typeof stored.city !== 'object') stored.city = createCityState()
+      ensureDungeon(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
           if (!message.streaming) return
@@ -243,6 +249,18 @@ export const useGameStore = defineStore('game', {
       if (result.ok) {
         addLog(this.run, result.text, 'story')
         this.save()
+      }
+      return result
+    },
+
+    advanceMainChapter() {
+      if (!this.run) return { ok: false }
+      const result = advanceChapter(this.run)
+      if (result.ok) {
+        addLog(this.run, `主线推进：${result.title}。`, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
       }
       return result
     },
@@ -345,6 +363,77 @@ export const useGameStore = defineStore('game', {
       if (result.ok) this.save()
       else this.notify(result.message, 'bad')
       return result
+    },
+
+    claimCityQuest(questId) {
+      if (!this.run) return { ok: false }
+      const result = claimCityQuest(this.run, questId)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    buyCityIntel() {
+      if (!this.run) return { ok: false }
+      const result = buyBlackMarketIntel(this.run)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    tavernRumor() {
+      if (!this.run) return { ok: false }
+      const result = tavernRumor(this.run)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    async renameDungeon(useLlm = true) {
+      if (!this.run) return { ok: false }
+      ensureDungeon(this.run)
+      if (!useLlm) {
+        const result = rerollDungeon(this.run)
+        this.save()
+        return result
+      }
+
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: 120 }
+      let name = ''
+      let source = 'local'
+      let error = ''
+      if (this.run.llm.calls < this.run.llm.maxCalls) {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 25000)
+        try {
+          const { messages } = buildDungeonNameMessages(this.run)
+          name = stripDungeonName(await streamNpcChat(messages, () => {}, controller.signal))
+          if (name) {
+            source = 'llm'
+            this.run.llm.calls += 1
+          }
+        } catch (cause) {
+          error = cause.name === 'AbortError' ? '模型响应超时' : cause.message
+        } finally {
+          clearTimeout(timer)
+        }
+      } else {
+        error = '本局模型调用预算已用完'
+      }
+
+      if (!name) {
+        const result = rerollDungeon(this.run)
+        this.save()
+        return { ...result, source: 'local', error }
+      }
+      const result = setDungeonName(this.run, name, source)
+      if (!result.ok) {
+        const fallback = rerollDungeon(this.run)
+        this.save()
+        return { ...fallback, source: 'local', error: result.message }
+      }
+      this.save()
+      return { ...result, error }
     },
 
     skipAt(nodeId) {

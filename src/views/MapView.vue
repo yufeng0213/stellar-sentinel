@@ -274,7 +274,7 @@ function nextNodes(node) {
   <div v-if="run" class="run-page">
     <section class="map-head panel" :style="{ '--accent': region?.accent }">
       <div class="head-copy">
-        <p class="kicker">EXPEDITION · {{ run.seed }}</p>
+        <p class="kicker">EXPEDITION · {{ run.dungeon?.name || run.seed }}</p>
         <h2>{{ actTitle }}</h2>
         <p class="sub">
           {{ region?.name }} · 已探索 {{ clearedCount }} / {{ run.map.layers.flat().length }} 节点

@@ -154,6 +154,7 @@ function cooldownBlocked(run, npc, type) {
 function candidates(run, rng, weekly = false) {
   const list = []
   Object.values(run.npcs || {}).forEach((npc) => {
+    if (npc.active === false) return
     Object.keys(EVENT_TYPES).forEach((type) => {
       const meta = EVENT_TYPES[type]
       if (weekly && !meta.major) return

@@ -72,6 +72,24 @@ function open(name) {
         <p>查看主线目标，带上队伍和补给，重新进入星区。</p>
         <em>准备出发 →</em>
       </button>
+      <button type="button" class="city-card" @click="open('story-main')">
+        <span class="city-glyph">✧</span>
+        <b>主线</b>
+        <p>查看当前章节、目标和已经完成的章节。</p>
+        <em>CH{{ run.story?.chapter || 1 }} {{ run.story?.title || '失联的白塔' }} →</em>
+      </button>
+      <button type="button" class="city-card" @click="open('city-quests')">
+        <span class="city-glyph">▦</span>
+        <b>任务板</b>
+        <p>每天三张委托。交材料、清理航线，换信用点。</p>
+        <em>查看委托 →</em>
+      </button>
+      <button type="button" class="city-card" @click="open('city-blackmarket')">
+        <span class="city-glyph">◈</span>
+        <b>黑市</b>
+        <p>不问来路的货，以及一份关于白塔的情报。</p>
+        <em>进入黑市 →</em>
+      </button>
     </section>
 
     <section v-if="run.story" class="panel city-objective">

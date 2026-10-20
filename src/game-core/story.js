@@ -13,6 +13,70 @@ export const STORY_CHAPTER = {
   objective: '沿着重复的坐标，找到白塔失联前留下的信号源。',
 }
 
+export const MAIN_CHAPTERS = [
+  {
+    number: 1,
+    id: 'white-tower',
+    title: '失联的白塔',
+    objective: '沿着重复的坐标，找到白塔失联前留下的信号源。',
+    hint: '清理 2 个远征节点，带回第一条可验证的线索。',
+    complete: (run) => (run.cleared || []).length >= 3,
+  },
+  {
+    number: 2,
+    id: 'black-market-price',
+    title: '黑市的价码',
+    objective: '在空港黑市买到一份关于白塔信号源的情报。',
+    hint: '去黑市找那个只收现金的摊主。',
+    complete: (run) => !!run.story?.flags?.intel,
+  },
+  {
+    number: 3,
+    id: 'under-the-tower',
+    title: '塔下的矿脉',
+    objective: '清理当前星图的首领节点，确认信号源的具体位置。',
+    hint: '首领节点在星图最深处。带回它身上的记录。',
+    complete: (run) => !!run.map?.bossId && (run.cleared || []).includes(run.map.bossId),
+  },
+  {
+    number: 4,
+    id: 'door',
+    title: '门',
+    objective: '白塔的门已经打开。下一章尚未写入。',
+    hint: '后续章节待开发。',
+    complete: () => false,
+  },
+]
+
+export function chapterStatus(run) {
+  const chapterNumber = Math.max(1, Number(run?.story?.chapter) || 1)
+  const def = MAIN_CHAPTERS.find((item) => item.number === chapterNumber) || MAIN_CHAPTERS[MAIN_CHAPTERS.length - 1]
+  return {
+    ...def,
+    complete: def.complete(run),
+    current: chapterNumber,
+    total: MAIN_CHAPTERS.length,
+  }
+}
+
+export function advanceChapter(run) {
+  const status = chapterStatus(run)
+  if (!status.complete) return { ok: false, message: '当前章节目标还没有完成' }
+  if (status.current >= MAIN_CHAPTERS.length) return { ok: false, message: '后续章节尚未开放' }
+  const next = MAIN_CHAPTERS[status.current]
+  run.story = {
+    ...run.story,
+    chapter: next.number,
+    title: next.title,
+    objective: next.objective,
+    flags: {
+      ...(run.story?.flags || {}),
+      [`chapter_${status.current}_done`]: true,
+    },
+  }
+  return { ok: true, chapter: next.number, title: next.title, objective: next.objective }
+}
+
 const scene = (id, name, place, region, glyph, tone, details, opening, choices, tags = []) => ({
   id,
   name,
