@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
+  activeSynergies,
   CALIBRATION_BRANCHES,
   calibrationNodeStatus,
   calibrationSummary,
@@ -12,6 +13,7 @@ const game = useGameStore()
 const router = useRouter()
 const run = computed(() => game.run)
 const summary = computed(() => (run.value ? calibrationSummary(run.value) : null))
+const synergies = computed(() => (run.value ? activeSynergies(run.value) : []))
 const branches = computed(() => Object.values(CALIBRATION_BRANCHES).map((branch) => ({
   ...branch,
   nodes: branch.nodes.map((node) => calibrationNodeStatus(run.value, node.id)),
@@ -73,6 +75,31 @@ function back() {
       <p class="hint">每个节点消耗 1 点。节点只能按分支顺序解锁。</p>
     </section>
 
+    <section class="panel synergy-panel">
+      <div class="synergy-head">
+        <div>
+          <p class="kicker">GEAR × CALIBRATION</p>
+          <h2>装备共鸣</h2>
+        </div>
+        <span class="tag" :class="synergies.some((item) => item.active) ? 'jade' : ''">
+          {{ synergies.filter((item) => item.active).length }} 条生效
+        </span>
+      </div>
+      <div class="synergy-grid">
+        <article v-for="synergy in synergies" :key="synergy.id" class="synergy" :class="{ 'is-on': synergy.active }">
+          <div class="synergy-top">
+            <b>{{ synergy.name }}</b>
+            <span>{{ synergy.active ? '已共鸣' : '未满足' }}</span>
+          </div>
+          <p>{{ synergy.desc }}</p>
+          <small>
+            套装 {{ synergy.current.pieces }} / {{ synergy.require.pieces }} 件 ·
+            校准 {{ synergy.current.nodes }} / {{ synergy.require.nodes }} 节点
+          </small>
+        </article>
+      </div>
+    </section>
+
     <section class="branch-grid">
       <article v-for="branch in branches" :key="branch.id" class="panel branch" :class="`branch-${branch.id}`">
         <header>
@@ -121,6 +148,18 @@ function back() {
 .calibration-points span { display: block; margin-top: 3px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .effect-panel { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px 16px; }
 .effect-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.synergy-panel { padding: 15px 16px; }
+.synergy-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.synergy-head h2 { margin-top: 3px; font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 400; }
+.synergy-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.synergy { padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .4); opacity: .58; }
+.synergy.is-on { border-color: rgba(124, 231, 255, .3); background: rgba(124, 231, 255, .05); opacity: 1; }
+.synergy-top { display: flex; justify-content: space-between; gap: 6px; }
+.synergy-top b { font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.synergy-top span { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.synergy.is-on .synergy-top span { color: var(--cyan); }
+.synergy p { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.5; }
+.synergy small { display: block; margin-top: 4px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .branch-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .branch { padding: 16px; }
 .branch header h2 { margin-top: 3px; font-size: max(var(--ui-min), calc(22px * var(--ui-scale))); font-weight: 400; }
@@ -142,6 +181,7 @@ function back() {
 @media (max-width: 900px) {
   .calibration-head { flex-direction: column; padding: 15px; }
   .effect-panel { flex-direction: column; }
+  .synergy-grid { grid-template-columns: 1fr; }
   .branch-grid { grid-template-columns: 1fr; }
 }
 </style>

@@ -1,6 +1,6 @@
 {
   "name": "stellar-sentinel",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "private": true,
   "type": "module",
   "description": "星穹哨向 · 星际哨兵向导 RPG",

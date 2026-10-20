@@ -3,6 +3,8 @@
  * 点数只来自里程碑（开局、首领、章节），不需要刷经验。
  */
 
+import { gearSetState } from './gear.js'
+
 export const CALIBRATION_BRANCHES = {
   sentinel: {
     id: 'sentinel',
@@ -55,6 +57,87 @@ export const CALIBRATION_NODES = Object.values(CALIBRATION_BRANCHES)
     cost: 1,
   })))
 
+export const SYNERGIES = [
+  {
+    id: 'tower_sentinel',
+    name: '白塔壁垒',
+    desc: '白塔制式 2 件 + 哨兵 2 节点：战斗开始再获得 2 点护盾。',
+    require: { setId: 'tower', pieces: 2, branch: 'sentinel', nodes: 2 },
+    effect: { shield: 2 },
+  },
+  {
+    id: 'tower_guide',
+    name: '静默装甲',
+    desc: '白塔制式 2 件 + 向导 2 节点：受到的侵蚀伤害 -1。',
+    require: { setId: 'tower', pieces: 2, branch: 'guide', nodes: 2 },
+    effect: { mentalResist: 1 },
+  },
+  {
+    id: 'drifters_survival',
+    name: '拾荒路线',
+    desc: '漂流者套装 2 件 + 生存 2 节点：战斗信用点收益 +10%。',
+    require: { setId: 'drifters', pieces: 2, branch: 'survival', nodes: 2 },
+    effect: { credits: 0.1 },
+  },
+  {
+    id: 'drifters_sentinel',
+    name: '路边伏击',
+    desc: '漂流者套装 2 件 + 哨兵 2 节点：每回合第一张攻击牌伤害 +1。',
+    require: { setId: 'drifters', pieces: 2, branch: 'sentinel', nodes: 2 },
+    effect: { firstAttack: 1 },
+  },
+  {
+    id: 'whisper_guide',
+    name: '低语共振',
+    desc: '低语者遗物 2 件 + 向导 2 节点：灵能牌伤害 +2。',
+    require: { setId: 'whisper', pieces: 2, branch: 'guide', nodes: 2 },
+    effect: { psi: 2 },
+  },
+  {
+    id: 'whisper_survival',
+    name: '静默行商',
+    desc: '低语者遗物 2 件 + 生存 2 节点：商店价格再 -5%。',
+    require: { setId: 'whisper', pieces: 2, branch: 'survival', nodes: 2 },
+    effect: { discount: 0.05 },
+  },
+]
+
+export function activeSynergies(run) {
+  const state = ensureCalibration(run)
+  const sets = gearSetState(run).reduce((map, set) => {
+    map[set.id] = set.count
+    return map
+  }, {})
+  const branches = CALIBRATION_NODES.reduce((map, node) => {
+    if (state.nodes.includes(node.id)) map[node.branch] = (map[node.branch] || 0) + 1
+    return map
+  }, {})
+  return SYNERGIES.map((synergy) => {
+    const setCount = sets[synergy.require.setId] || 0
+    const branchCount = branches[synergy.require.branch] || 0
+    return {
+      ...synergy,
+      active: setCount >= synergy.require.pieces && branchCount >= synergy.require.nodes,
+      current: {
+        setId: synergy.require.setId,
+        pieces: setCount,
+        branch: synergy.require.branch,
+        nodes: branchCount,
+      },
+    }
+  })
+}
+
+export function synergyEffects(run) {
+  const effects = {}
+  activeSynergies(run).filter((synergy) => synergy.active).forEach((synergy) => {
+    Object.entries(synergy.effect || {}).forEach(([key, value]) => {
+      effects[key] = (effects[key] || 0) + value
+    })
+  })
+  return effects
+}
+
 export function createCalibrationState() {
   return {
     points: 1,
@@ -83,6 +166,9 @@ export function calibrationEffects(run) {
     Object.entries(node.effect || {}).forEach(([key, value]) => {
       effects[key] = (effects[key] || 0) + value
     })
+  })
+  Object.entries(synergyEffects(run)).forEach(([key, value]) => {
+    effects[key] = (effects[key] || 0) + value
   })
   return effects
 }

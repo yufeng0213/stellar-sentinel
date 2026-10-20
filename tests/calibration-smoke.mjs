@@ -3,12 +3,14 @@
  */
 
 import { randomDraft } from '../src/game-core/character.js'
-import { createRun } from '../src/game-core/run.js'
+import { createRun, makeGear } from '../src/game-core/run.js'
 import {
+  activeSynergies,
   calibrationEffects,
   calibrationNodeStatus,
   calibrationSummary,
   grantCalibrationPoints,
+  synergyEffects,
   unlockCalibrationNode,
 } from '../src/game-core/calibration.js'
 import { validateRun } from '../src/game/save.js'
@@ -36,6 +38,16 @@ check(unlockCalibrationNode(run, 'sentinel_breaker').ok, '第二层校准没有�
 check(calibrationEffects(run).armor === 2, '破甲效果没有生效')
 const summary = calibrationSummary(run)
 check(summary.unlocked === 2 && summary.total === 15, '校准统计错误')
+
+const blade = makeGear(run, 'blade', '标准')
+const visor = makeGear(run, 'visor', '标准')
+run.gear.push(blade, visor)
+run.equipment.weapon = blade.uid
+run.equipment.head = visor.uid
+const synergies = activeSynergies(run)
+check(synergies.find((item) => item.id === 'tower_sentinel')?.active, '白塔壁垒没有共鸣')
+check((synergyEffects(run).shield || 0) >= 2, '装备共鸣没有生效')
+check((calibrationEffects(run).shield || 0) >= 2, '校准总效果没有包含共鸣')
 
 const imported = validateRun(JSON.parse(JSON.stringify(run)))
 check(imported.ok, '校准存档校验失败')

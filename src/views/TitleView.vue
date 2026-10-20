@@ -76,7 +76,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.31.0 · CALIBRATION</dd>
+            <dd class="mono">0.32.0 · SYNERGY</dd>
           </div>
         </dl>
       </section>
