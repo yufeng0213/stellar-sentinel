@@ -85,12 +85,12 @@ function doLeave() {
       <div class="axes">
         <div v-for="axis in AXES" :key="axis.key" class="axis-row">
           <span>{{ axis.name }}</span>
-          <span class="bar"><i :style="{ width: `${axisPercent(npc.relation[axis.key])}%` }"></i></span>
+          <span class="bar" :class="`axis-${axis.key}`"><i :style="{ width: `${axisPercent(npc.relation[axis.key])}%` }"></i></span>
           <b>{{ npc.relation[axis.key] }}</b>
         </div>
         <div class="axis-row is-grievance">
           <span>怨念</span>
-          <span class="bar"><i :style="{ width: `${axisPercent(npc.relation.grievance)}%` }"></i></span>
+          <span class="bar axis-grievance"><i :style="{ width: `${axisPercent(npc.relation.grievance)}%` }"></i></span>
           <b>{{ npc.relation.grievance }}</b>
         </div>
       </div>
@@ -194,7 +194,13 @@ function doLeave() {
 .axes { display: flex; flex-direction: column; gap: 5px; }
 .axis-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) 28px; align-items: center; gap: 8px; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); }
 .axis-row b { color: var(--ink); font-family: var(--mono); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; text-align: right; }
-.axis-row .bar { height: 5px; }
+.axis-row .bar { height: 5px; background: rgba(255, 255, 255, .07); }
+.axis-row .bar i { display: block; height: 100%; border-radius: inherit; background: var(--cyan); transition: width .35s ease; }
+.axis-trust i { background: linear-gradient(90deg, #3f86ad, #7ce7ff); }
+.axis-respect i { background: linear-gradient(90deg, #6d5ea8, #b9a4ff); }
+.axis-closeness i { background: linear-gradient(90deg, #3fa989, #8adeb8); }
+.axis-fear i { background: linear-gradient(90deg, #b27a37, #ffc46b); }
+.axis-grievance i { background: linear-gradient(90deg, #a84343, #ff8a8a); }
 .axis-row.is-grievance { color: var(--red); }
 .tag-affinity {
   margin-top: 10px;
