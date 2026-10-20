@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ATTR_NAME, GEAR, ITEMS, NODE_TYPES, REGIONS, SKILLS } from '../game-core/data.js'
+import { localSettlementReport } from '../game/settlement.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
@@ -11,6 +12,8 @@ const current = computed(() => game.current)
 const selectedId = ref(null)
 const dungeonBoard = ref(null)
 const settling = ref(null)
+const nightReport = ref('')
+const reportBusy = ref(false)
 let settleTimer = null
 
 const ACT_NAMES = {
@@ -265,6 +268,8 @@ function camp() {
   if (!result?.ok) return
   const events = (run.value.worldEvents || []).slice(0, Math.max(0, (run.value.worldEvents?.length || 0) - before)).slice(0, 10)
   settling.value = { progress: 0, phase: '扫描空港', done: false, events }
+  nightReport.value = localSettlementReport(run.value, events)
+  reportBusy.value = false
   clearInterval(settleTimer)
   settleTimer = setInterval(() => {
     if (!settling.value) return
@@ -284,8 +289,19 @@ function camp() {
 
 function closeSettle() {
   settling.value = null
+  nightReport.value = ''
+  reportBusy.value = false
   clearInterval(settleTimer)
   settleTimer = null
+}
+
+async function writeNightReport() {
+  if (!settling.value || reportBusy.value) return
+  reportBusy.value = true
+  const result = await game.generateSettlementReport(settling.value.events.map((event) => event.text), true)
+  nightReport.value = result.text || nightReport.value
+  reportBusy.value = false
+  if (result.error) game.notify(`夜报使用本地版本：${result.error}`, 'bad')
 }
 
 onBeforeUnmount(() => clearInterval(settleTimer))
@@ -397,7 +413,16 @@ function nextNodes(node) {
               <p v-for="(event, index) in settling.events" :key="index">{{ event.text }}</p>
               <p v-if="!settling.events.length" class="empty">这一夜很安静。</p>
             </div>
-            <button v-if="settling.done" type="button" class="btn btn-primary" @click="closeSettle">进入第二天</button>
+            <div v-if="settling.done && nightReport" class="night-report">
+              <p class="kicker">NIGHT REPORT · 空港夜报</p>
+              <p>{{ nightReport }}</p>
+            </div>
+            <div v-if="settling.done" class="settle-actions">
+              <button type="button" class="btn btn-ghost" :disabled="reportBusy" @click="writeNightReport">
+                {{ reportBusy ? '正在写夜报…' : '让模型写成夜报' }}
+              </button>
+              <button type="button" class="btn btn-primary" @click="closeSettle">进入第二天</button>
+            </div>
           </div>
         </div>
       </Transition>
@@ -1065,6 +1090,9 @@ function nextNodes(node) {
 .settle-events { max-height: 220px; margin: 14px 0; overflow-y: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 8px 0; }
 .settle-events p { padding: 4px 0; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.55; }
 .settle-events .empty { color: var(--dim); text-align: center; }
+.night-report { margin: 0 0 12px; padding: 12px; border: 1px solid rgba(185, 164, 255, .26); border-radius: 9px; background: rgba(185, 164, 255, .05); }
+.night-report p:last-child { margin-top: 5px; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.75; white-space: pre-wrap; }
+.settle-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
 @media (min-width: 900px) {
   .sheet-backdrop { align-items: center; padding: 20px; }
   .sheet { border-radius: 20px; }

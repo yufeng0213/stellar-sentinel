@@ -60,6 +60,8 @@ import {
   canInviteToParty,
   createNpcWorld,
   ensureNpcTags,
+  breakUpWithNpc,
+  confessToNpc,
   giftToNpc,
   intimidateNpc,
   inviteToParty as inviteToPartyCore,
@@ -71,6 +73,7 @@ import { stealFromNpc, stealFromShop } from '../game-core/steal.js'
 import { streamNpcChat } from '../game/llm.js'
 import { buildLoreMessages, localLore, loreTarget, stripLore } from '../game/lore.js'
 import { buildStoryOpeningMessages, stripStoryOpening } from '../game/story.js'
+import { buildSettlementMessages, localSettlementReport, stripSettlementReport } from '../game/settlement.js'
 import { advanceChapter, createStoryState, getAwakening, localOpening, resolveOpeningChoice, startAwakening } from '../game-core/story.js'
 import {
   buildEventNarrativeMessages,
@@ -523,6 +526,52 @@ export const useGameStore = defineStore('game', {
       return result
     },
 
+    async generateSettlementReport(events = [], useLlm = true) {
+      if (!this.run) return { ok: false, message: '还没有远征' }
+      const local = localSettlementReport(this.run, events)
+      if (!useLlm) {
+        this.run.settlementReport = { day: this.run.day, text: local, source: 'local', eventCount: events.length }
+        this.save()
+        return { ok: true, text: local, source: 'local' }
+      }
+
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: 120 }
+      let text = ''
+      let source = 'local'
+      let error = ''
+      if (this.run.llm.calls < this.run.llm.maxCalls) {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 90000)
+        try {
+          const { messages } = buildSettlementMessages(this.run, events)
+          text = stripSettlementReport(await streamNpcChat(messages, () => {}, controller.signal))
+          if (text) {
+            source = 'llm'
+            this.run.llm.calls += 1
+          }
+        } catch (cause) {
+          error = cause.name === 'AbortError' ? '模型响应超时' : cause.message
+          text = ''
+          source = 'local'
+        } finally {
+          clearTimeout(timer)
+        }
+      } else {
+        error = '本局模型调用预算已用完'
+      }
+
+      if (!text) text = local
+      this.run.settlementReport = {
+        day: this.run.day,
+        text,
+        source,
+        eventCount: events.length,
+        error,
+      }
+      this.save()
+      return { ok: true, text, source, error }
+    },
+
     craftRecipe(recipeId) {
       if (!this.run) return { ok: false }
       const result = craftRun(this.run, recipeId)
@@ -713,6 +762,30 @@ export const useGameStore = defineStore('game', {
         const npc = this.run.npcs?.[npcId]
         if (npc?.faction) adjustReputation(this.run, npc.faction, 1, '交谈')
         this.save()
+      }
+      return result
+    },
+
+    confessNpc(npcId) {
+      if (!this.run) return { ok: false }
+      const result = confessToNpc(this.run, npcId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    breakUpNpc(npcId) {
+      if (!this.run) return { ok: false }
+      const result = breakUpWithNpc(this.run, npcId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
       }
       return result
     },

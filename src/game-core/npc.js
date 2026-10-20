@@ -567,6 +567,86 @@ export function npcRelationTree(run, npcId) {
   }
 }
 
+export function romanceStatus(run, npcId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc) return null
+  const lovers = Object.values(run.npcs || {}).filter((item) => item.alive && item.lover)
+  const available = !npc.lover &&
+    npc.alive &&
+    !npc.hostile &&
+    npc.relation.trust >= 50 &&
+    npc.relation.closeness >= 60 &&
+    !['commitmentphobe', 'solo'].some((tag) => (npc.tags || []).includes(tag))
+  return {
+    available,
+    lover: Boolean(npc.lover),
+    lovers: lovers.length,
+    otherLovers: lovers.filter((item) => item.id !== npc.id).length,
+  }
+}
+
+export function confessToNpc(run, npcId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc) return { ok: false, message: '找不到这个人' }
+  const status = romanceStatus(run, npcId)
+  if (status.lover) return { ok: false, message: '你们已经是恋人了' }
+  if (!status.available) return { ok: false, message: '信任或亲近还不够，或者对方不打算谈这件事' }
+
+  const rng = createRng(`${run.seed}:confess:${npcId}:${run.rollCount}`)
+  run.rollCount += 1
+  const roll = rng.int(1, 20)
+  const soc = run.player.attrs?.soc || 0
+  const bonus = Math.floor(npc.relation.closeness / 10) + Math.floor(npc.relation.trust / 20)
+  const dc = status.otherLovers ? 15 : 12
+  const total = roll + soc + bonus
+  const accepted = roll === 20 || (roll !== 1 && total >= dc)
+
+  npc.confessed = true
+  npc.confessedDay = run.day
+  if (accepted) {
+    npc.lover = true
+    npc.loverSince = run.day
+    npc.romance = true
+    npc.relation.closeness = clamp(npc.relation.closeness + 8, 0, 100)
+    npc.relation.trust = clamp(npc.relation.trust + 4, 0, 100)
+    run.flags = run.flags || {}
+    run.flags.lover = { npcId: npc.id, day: run.day }
+    return {
+      ok: true,
+      accepted: true,
+      roll,
+      total,
+      dc,
+      text: '你把话说完了。他沉默了一会儿，然后说：“好。”',
+    }
+  }
+
+  npc.relation.closeness = clamp(npc.relation.closeness - 4, 0, 100)
+  npc.relation.grievance = clamp(npc.relation.grievance + 2, 0, 100)
+  return {
+    ok: true,
+    accepted: false,
+    roll,
+    total,
+    dc,
+    text: '他听懂了，但没有立刻回答。最后只说：“再给我一点时间。”',
+  }
+}
+
+export function breakUpWithNpc(run, npcId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc?.lover) return { ok: false, message: '你们现在不是恋人' }
+  npc.lover = false
+  npc.loverSince = 0
+  npc.confessed = true
+  npc.confessedDay = run.day
+  npc.breakupDay = run.day
+  npc.relation.closeness = clamp(npc.relation.closeness - 20, 0, 100)
+  npc.relation.trust = clamp(npc.relation.trust - 8, 0, 100)
+  npc.relation.grievance = clamp(npc.relation.grievance + 10, 0, 100)
+  return { ok: true, text: '你把关系停在了这里。他没有挽留，只是把门关得很轻。' }
+}
+
 function pushEvent(run, text, kind = 'info') {
   if (!Array.isArray(run.worldEvents)) run.worldEvents = []
   run.worldEvents.unshift({ day: run.day, text, kind })

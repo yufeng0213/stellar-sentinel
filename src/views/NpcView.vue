@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ITEMS, REGIONS } from '../game-core/data.js'
-import { AXES, PERSONALITY_LABELS, canInviteToParty, factionName } from '../game-core/npc.js'
+import { AXES, PERSONALITY_LABELS, canInviteToParty, factionName, romanceStatus } from '../game-core/npc.js'
 import { TAG_CATEGORIES } from '../game-core/npc-tags.js'
 import { visitorStoryStatus } from '../game-core/visitor-story.js'
 import { useNpcPage } from '../composables/useNpcPage.js'
@@ -18,6 +18,7 @@ const bagItems = computed(() => Object.keys(npc.value?.bag || {})
 const inviteCheck = computed(() => (
   npc.value ? canInviteToParty(run.value, npc.value.id) : { ok: false, reason: '' }
 ))
+const romance = computed(() => (run.value && npc.value ? romanceStatus(run.value, npc.value.id) : null))
 
 function go(name) {
   if (!npc.value || !run.value) return
@@ -61,6 +62,20 @@ function doLeave() {
   if (!npc.value) return
   const result = game.leaveNpc(npc.value.id)
   reply.value = result.reply || result.message || ''
+}
+
+function doConfess() {
+  if (!npc.value) return
+  const result = game.confessNpc(npc.value.id)
+  reply.value = result.text || result.message || ''
+  if (result.ok) game.notify(result.accepted ? '你们开始交往了' : '对方还需要一点时间', result.accepted ? 'good' : '')
+}
+
+function doBreakUp() {
+  if (!npc.value) return
+  const result = game.breakUpNpc(npc.value.id)
+  reply.value = result.text || result.message || ''
+  if (result.ok) game.notify('关系结束了', 'bad')
 }
 </script>
 
@@ -119,6 +134,8 @@ function doLeave() {
         <button type="button" class="btn btn-sm" :disabled="!npc.alive || npc.hostile" title="敏捷判定；有扒窃能力时 +2" @click="doSteal">扒窃</button>
         <button type="button" class="btn btn-sm" :disabled="!npc.alive || npc.hostile" @click="doThreat">威胁</button>
         <button type="button" class="btn btn-sm" :disabled="!npc.alive" @click="doApologize">道歉 · 40</button>
+        <button v-if="romance?.lover" type="button" class="btn btn-sm" @click="doBreakUp">结束关系</button>
+        <button v-else-if="romance?.available" type="button" class="btn btn-sm" @click="doConfess">表达心意</button>
       </div>
       <p v-if="reply" class="reply">{{ reply }}</p>
       <p v-if="!npc.party" class="hint">组队需要信任 50、亲近 30，队伍上限 2 人。</p>

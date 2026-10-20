@@ -4,8 +4,15 @@
 
 import { randomDraft } from '../src/game-core/character.js'
 import { createRun } from '../src/game-core/run.js'
-import { giftToNpc, npcRelationTree, tickWorld } from '../src/game-core/npc.js'
+import {
+  breakUpWithNpc,
+  giftToNpc,
+  npcRelationTree,
+  romanceStatus,
+  tickWorld,
+} from '../src/game-core/npc.js'
 import { resolveInboxEvent } from '../src/game-core/npc-events.js'
+import { buildSettlementMessages, localSettlementReport } from '../src/game/settlement.js'
 import { validateRun } from '../src/game/save.js'
 
 const errors = []
@@ -55,6 +62,39 @@ npc.bag.medkit = 1
 tickWorld(run)
 check(npc.injured === false, 'NPC 受伤后没有自己使用医疗包')
 check(!npc.bag.medkit, 'NPC 使用医疗包后没有扣除')
+
+const other = Object.values(run.npcs).find((item) => item.id !== npc.id)
+other.lover = true
+other.relation.trust = 65
+other.relation.closeness = 65
+check(romanceStatus(run, other.id).lover, '恋爱状态没有识别恋人')
+const jealousy = {
+  id: 'social-jealousy',
+  day: run.day,
+  week: 1,
+  npcId: npc.id,
+  type: 'jealousy',
+  status: 'pending',
+  title: `${npc.name} 闻到了别人身上的味道`,
+  text: '“你最近是不是也去了别人那里？”',
+  payload: { otherId: other.id },
+  choices: [{ id: 'honest', label: '坦白' }, { id: 'deny', label: '否认' }],
+}
+run.inbox.push(jealousy)
+const jealousyResult = resolveInboxEvent(run, jealousy.id, 'honest')
+check(jealousyResult.ok, '吃醋事件处理失败')
+check(npc.relation.grievance > 0, '坦白后没有产生怨念')
+
+const broken = breakUpWithNpc(run, other.id)
+check(broken.ok && other.lover === false, '分手没有解除恋人关系')
+
+const reportEvents = [{ text: '霜在城门附近等你。' }, { text: '叶卡在废墟巡逻时受了伤。' }]
+const localReport = localSettlementReport(run, reportEvents)
+check(localReport.includes('第 1 天'), '本地夜报缺少日期')
+check(localReport.includes('霜'), '本地夜报没有使用事件')
+const reportPrompt = buildSettlementMessages(run, reportEvents)
+check(reportPrompt.messages.length === 2, '夜报 prompt 不是两段')
+check(reportPrompt.messages[1].content.includes('叶卡'), '夜报 prompt 缺少事件')
 
 const imported = validateRun(JSON.parse(JSON.stringify(run)))
 check(imported.ok, '社交状态存档校验失败')

@@ -16,6 +16,7 @@ export const EVENT_TYPES = {
   quest: { label: '邀请', color: 'violet', base: 15, major: true },
   romance: { label: '靠近', color: 'red', base: 8, major: true },
   confession: { label: '表白', color: 'red', base: 10, major: true },
+  jealousy: { label: '吃醋', color: 'red', base: 8, major: true },
   conflict: { label: '冲突', color: 'red', base: 10, major: true },
   gossip: { label: '八卦', color: 'amber', base: 7, major: false },
 }
@@ -124,6 +125,11 @@ function eventEligible(run, npc, type, rng) {
       relation.closeness >= 60 &&
       !hasTag(npc, 'commitmentphobe') &&
       !hasTag(npc, 'solo')
+  }
+  if (type === 'jealousy') {
+    return npc.lover && Object.values(run.npcs || {}).some((other) => (
+      other.id !== npc.id && other.alive && other.lover
+    ))
   }
   if (type === 'gossip') return relation.trust >= 10 && (run.npcEdges || []).some((edge) => edge.a === npc.id || edge.b === npc.id)
   return false
@@ -280,6 +286,17 @@ function buildEvent(run, rng, npc, type, weekly = false) {
     base.choices = [
       { id: 'accept', label: '我们试试' },
       { id: 'decline', label: '还是做朋友' },
+    ]
+  } else if (type === 'jealousy') {
+    const other = Object.values(run.npcs || {}).find((item) => (
+      item.id !== npc.id && item.alive && item.lover
+    ))
+    base.title = `${npc.name} 闻到了别人身上的味道`
+    base.text = `“你最近……是不是也去了${other?.name || '别人'}那里？”他没有提高声音，但把门挡住了。`
+    base.payload = { otherId: other?.id || null }
+    base.choices = [
+      { id: 'honest', label: '坦白' },
+      { id: 'deny', label: '否认' },
     ]
   } else if (type === 'conflict') {
     const amount = Math.min(60, 20 + Math.round(relation.grievance / 2))
@@ -503,6 +520,8 @@ function resolveConfession(run, npc, event, choice) {
     npc.lover = true
     npc.loverSince = run.day
     npc.romance = true
+    npc.confessed = true
+    npc.confessedDay = run.day
     npc.relation.closeness = clamp(npc.relation.closeness + 10, 0, 100)
     npc.relation.trust = clamp(npc.relation.trust + 6, 0, 100)
     run.flags = run.flags || {}
@@ -513,6 +532,18 @@ function resolveConfession(run, npc, event, choice) {
   npc.confessedDay = run.day
   npc.relation.closeness = clamp(npc.relation.closeness - 6, 0, 100)
   return '你说还是做朋友。他点点头，把没说完的话收了回去。'
+}
+
+function resolveJealousy(run, npc, event, choice) {
+  if (choice === 'honest') {
+    npc.relation.closeness = clamp(npc.relation.closeness - 5, 0, 100)
+    npc.relation.grievance = clamp(npc.relation.grievance + 8, 0, 100)
+    npc.relation.trust = clamp(npc.relation.trust + 4, 0, 100)
+    return '你把事情说清楚了。他听完没有走，只是很久没有再碰你的手。'
+  }
+  npc.relation.closeness = clamp(npc.relation.closeness - 12, 0, 100)
+  npc.relation.grievance = clamp(npc.relation.grievance + 15, 0, 100)
+  return '你说没有。他看着你，像是已经知道了答案，但最后什么也没拆穿。'
 }
 
 function resolveConflict(run, npc, event, choice) {
@@ -556,6 +587,7 @@ export function resolveInboxEvent(run, eventId, choiceId) {
   else if (event.type === 'quest') result = resolveQuest(run, npc, event, choiceId)
   else if (event.type === 'romance') result = resolveRomance(run, npc, event, choiceId)
   else if (event.type === 'confession') result = resolveConfession(run, npc, event, choiceId)
+  else if (event.type === 'jealousy') result = resolveJealousy(run, npc, event, choiceId)
   else if (event.type === 'conflict') result = resolveConflict(run, npc, event, choiceId)
   else if (event.type === 'gossip') result = resolveGossip(run, npc, event, choiceId)
 
