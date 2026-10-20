@@ -333,6 +333,17 @@ NPC 之间维护关系边：`{ a, b, trust, closeness, rivalry }`。
 - [x] 旧存档补 reputation / factionFavors
 - [x] `test:faction` 与 `test:visitorStory` 覆盖声望、补给、剧情与存档
 
+### Phase 18 · 派系任务链与声望商店（完成）
+
+- [x] 四个派系各 3 步任务链，按 10 / 30 / 60 声望解锁
+- [x] 交付、支付与清理节点三类任务目标
+- [x] 任务奖励信用点、物品与派系声望
+- [x] 派系详情页 `/city/faction/:factionId`
+- [x] 声望商店：信用点 + 声望兑换派系补给
+- [x] 派系卡片进入详情
+- [x] 旧存档补 factionChains
+- [x] `test:faction` 覆盖任务链、商店、补给与存档
+
 ## 6. 验收标准
 
 - 手机 390×844、500×900 无整页滚动；所有主界面一屏可操作

@@ -12,6 +12,7 @@ import CityView from '../views/CityView.vue'
 import CityQuestView from '../views/CityQuestView.vue'
 import CityBlackMarketView from '../views/CityBlackMarketView.vue'
 import CityFactionView from '../views/CityFactionView.vue'
+import CityFactionDetailView from '../views/CityFactionDetailView.vue'
 import CityMarketView from '../views/CityMarketView.vue'
 import CityTavernView from '../views/CityTavernView.vue'
 import CityClinicView from '../views/CityClinicView.vue'
@@ -56,6 +57,7 @@ const router = createRouter({
         { path: 'city/quests', name: 'city-quests', component: CityQuestView },
         { path: 'city/blackmarket', name: 'city-blackmarket', component: CityBlackMarketView },
         { path: 'city/factions', name: 'city-factions', component: CityFactionView },
+        { path: 'city/faction/:factionId', name: 'city-faction', component: CityFactionDetailView },
         { path: 'city/gate', name: 'city-gate', component: CityGateView },
         { path: 'map', name: 'map', component: MapView },
         { path: 'battle/:nodeId', name: 'battle', component: BattleView },

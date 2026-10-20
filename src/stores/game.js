@@ -15,7 +15,13 @@ import { recordEnding } from '../game/collection.js'
 import { ensureDoor, resolveDoorFinale, resolveDoorStep } from '../game-core/door.js'
 import { endingFor, getEnding, localEpilogue } from '../game-core/ending.js'
 import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dungeon.js'
-import { adjustReputation, claimFactionFavor, ensureReputation } from '../game-core/faction.js'
+import {
+  adjustReputation,
+  buyFactionShopItem,
+  claimFactionChain,
+  claimFactionFavor,
+  ensureReputation,
+} from '../game-core/faction.js'
 import { advanceVisitorStory as advanceVisitorStoryCore } from '../game-core/visitor-story.js'
 import { buildDungeonNameMessages, stripDungeonName } from '../game/dungeon.js'
 import {
@@ -709,6 +715,22 @@ export const useGameStore = defineStore('game', {
     claimFactionFavor(factionId) {
       if (!this.run) return { ok: false }
       const result = claimFactionFavor(this.run, factionId)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    claimFactionChain(factionId) {
+      if (!this.run) return { ok: false }
+      const result = claimFactionChain(this.run, factionId)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    buyFactionShop(factionId, index) {
+      if (!this.run) return { ok: false }
+      const result = buyFactionShopItem(this.run, factionId, index)
       if (result.ok) this.save()
       else this.notify(result.message, 'bad')
       return result

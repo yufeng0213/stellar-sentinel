@@ -44,6 +44,9 @@ function claim(status) {
           <button type="button" class="btn btn-sm" :disabled="status.score < 10 || status.favorDay === run.day" @click="claim(status)">
             领取补给
           </button>
+          <RouterLink :to="{ name: 'city-faction', params: { runId: run.id, factionId: status.id } }" class="text-link">
+            详情 →
+          </RouterLink>
         </div>
       </article>
     </section>
@@ -72,6 +75,7 @@ function claim(status) {
 .faction-creed { margin-top: 8px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .faction-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .faction-favor { color: var(--dim); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
+.text-link { color: var(--cyan); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); white-space: nowrap; }
 @media (max-width: 750px) {
   .faction-head { flex-direction: column; padding: 14px; }
   .faction-grid { grid-template-columns: 1fr; }
