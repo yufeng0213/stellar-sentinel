@@ -87,6 +87,6 @@ function exitRun() {
   align-self: center;
   color: var(--dim);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: max(var(--ui-min), calc(11px * var(--ui-scale)));
 }
 </style>

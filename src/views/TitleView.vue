@@ -142,7 +142,7 @@ h1 em { color: var(--amber); font-style: normal; text-shadow: 0 0 34px rgba(255,
   max-width: 34em;
   margin-top: 20px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: max(var(--ui-min), calc(13px * var(--ui-scale)));
   line-height: 1.95;
 }
 
@@ -150,7 +150,7 @@ h1 em { color: var(--amber); font-style: normal; text-shadow: 0 0 34px rgba(255,
 .text-link {
   margin-left: 6px;
   color: var(--dim);
-  font-size: 11.5px;
+  font-size: max(var(--ui-min), calc(11.5px * var(--ui-scale)));
   border-bottom: 1px solid transparent;
 }
 .text-link:hover { color: var(--cyan); border-color: var(--line-2); }
@@ -163,11 +163,11 @@ h1 em { color: var(--amber); font-style: normal; text-shadow: 0 0 34px rgba(255,
   padding-top: 16px;
   border-top: 1px solid var(--line);
 }
-.telemetry dt { color: var(--dim); font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; }
-.telemetry dd { margin-top: 4px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.telemetry dt { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); letter-spacing: 0.14em; }
+.telemetry dd { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); overflow-wrap: anywhere; }
 .telemetry dd.online { color: var(--jade); }
 .telemetry dd.offline { color: var(--red); }
-.telemetry dd.mono { font-family: var(--mono); font-size: 9.5px; }
+.telemetry dd.mono { font-family: var(--mono); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); }
 
 .title-art {
   position: relative;
@@ -242,7 +242,7 @@ h1 em { color: var(--amber); font-style: normal; text-shadow: 0 0 34px rgba(255,
   margin-top: 12px;
   color: var(--dim);
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: max(var(--ui-min), calc(9px * var(--ui-scale)));
   letter-spacing: 0.1em;
 }
 .live { display: inline-flex; align-items: center; gap: 5px; color: var(--jade); }
@@ -256,9 +256,9 @@ h1 em { color: var(--amber); font-style: normal; text-shadow: 0 0 34px rgba(255,
   padding-bottom: 4px;
   border-bottom: 1px dashed rgba(126, 196, 224, .1);
   color: var(--muted);
-  font-size: 10px;
+  font-size: max(var(--ui-min), calc(10px * var(--ui-scale)));
 }
-.art-lines time { color: var(--dim); font-family: var(--mono); font-size: 9px; }
+.art-lines time { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 
 .title-foot {
   width: min(1180px, 100%);
@@ -267,7 +267,7 @@ h1 em { color: var(--amber); font-style: normal; text-shadow: 0 0 34px rgba(255,
   justify-content: space-between;
   gap: 12px;
   color: var(--dim);
-  font-size: 9.5px;
+  font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale)));
 }
 
 @keyframes sweep { to { transform: rotate(360deg); } }

@@ -227,8 +227,8 @@ onMounted(load)
 .brand-btn { border: 0; background: transparent; padding: 0; cursor: pointer; text-align: left; }
 
 .settings-panel { padding: 22px 24px 20px; }
-h1 { margin-top: 6px; font-size: 24px; font-weight: 300; letter-spacing: 0.1em; }
-.lede { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+h1 { margin-top: 6px; font-size: max(var(--ui-min), calc(24px * var(--ui-scale))); font-weight: 300; letter-spacing: 0.1em; }
+.lede { margin-top: 6px; color: var(--muted); font-size: max(var(--ui-min), calc(12px * var(--ui-scale))); line-height: 1.8; }
 
 .form-grid {
   display: grid;
@@ -240,7 +240,7 @@ h1 { margin-top: 6px; font-size: 24px; font-weight: 300; letter-spacing: 0.1em; 
 .form-grid input[type="range"] { padding: 0; height: 26px; accent-color: var(--cyan); background: transparent; border: 0; }
 
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-.api-state { font-family: var(--mono); font-size: 9.5px; color: var(--dim); }
+.api-state { font-family: var(--mono); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); color: var(--dim); }
 .api-state.bad { color: var(--red); }
 .api-state.ok { color: var(--jade); }
 
@@ -249,7 +249,7 @@ h1 { margin-top: 6px; font-size: 24px; font-weight: 300; letter-spacing: 0.1em; 
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  font-size: 11px;
+  font-size: max(var(--ui-min), calc(11px * var(--ui-scale)));
   line-height: 1.7;
   word-break: break-word;
 }
@@ -262,17 +262,17 @@ h1 { margin-top: 6px; font-size: 24px; font-weight: 300; letter-spacing: 0.1em; 
   padding-top: 14px;
   border-top: 1px dashed var(--line);
 }
-.note b { color: var(--muted); font-size: 11px; font-weight: 500; }
-.note p { margin-top: 4px; color: var(--dim); font-size: 10px; line-height: 1.8; }
+.note b { color: var(--muted); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.note p { margin-top: 4px; color: var(--dim); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.8; }
 .note code { color: var(--muted); font-family: var(--mono); }
 
 @media (max-width: 640px) {
   .settings-shell { padding: 14px 12px 30px; padding-top: max(14px, env(safe-area-inset-top)); }
   .settings-panel { padding: 16px 14px; border-radius: 16px; }
-  h1 { font-size: 21px; }
+  h1 { font-size: max(var(--ui-min), calc(21px * var(--ui-scale))); }
   .form-grid { grid-template-columns: 1fr; gap: 11px; margin-top: 16px; }
   .span-2 { grid-column: auto; }
   .settings-head .brand-text small { display: none; }
-  .field input, .field select { font-size: 16px; }
+  .field input, .field select { font-size: max(var(--ui-min), calc(16px * var(--ui-scale))); }
 }
 </style>

@@ -83,7 +83,7 @@ function craftNote(recipe) {
 <style scoped>
 .forge { padding: 18px; }
 .forge-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.forge-head h2 { margin-top: 3px; font-size: 19px; font-weight: 400; letter-spacing: 0.1em; }
+.forge-head h2 { margin-top: 3px; font-size: max(var(--ui-min), calc(19px * var(--ui-scale))); font-weight: 400; letter-spacing: 0.1em; }
 .forge-head .hint { margin-top: 3px; }
 
 .recipe-list { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
@@ -105,13 +105,13 @@ function craftNote(recipe) {
   border: 1px solid rgba(255, 196, 107, .22);
   border-radius: 8px;
   color: rgba(255, 196, 107, .85);
-  font-size: 12px;
+  font-size: max(var(--ui-min), calc(12px * var(--ui-scale)));
 }
 .r-body { flex: 1; min-width: 0; }
 .r-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.r-top b { font-size: 12px; font-weight: 500; letter-spacing: 0.05em; }
-.r-top span { color: var(--dim); font-family: var(--mono); font-size: 9px; white-space: nowrap; }
-.r-note { margin-top: 1px; color: var(--dim); font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r-top b { font-size: max(var(--ui-min), calc(12px * var(--ui-scale))); font-weight: 500; letter-spacing: 0.05em; }
+.r-top span { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); white-space: nowrap; }
+.r-note { margin-top: 1px; color: var(--dim); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mats { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
 .mat {
   padding: 1px 5px;
@@ -119,19 +119,19 @@ function craftNote(recipe) {
   border-radius: 4px;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: max(var(--ui-min), calc(9px * var(--ui-scale)));
   white-space: nowrap;
 }
 .mat.lack { border-color: rgba(255, 138, 138, .28); color: var(--red); }
 .recipe .btn { flex: none; }
-.footnote { margin-top: 12px; color: var(--dim); font-size: 9.5px; line-height: 1.8; }
+.footnote { margin-top: 12px; color: var(--dim); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.8; }
 
 @media (max-width: 899px) {
   .forge { padding: 14px; }
-  .forge-head h2 { font-size: 17px; }
+  .forge-head h2 { font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); }
   .recipe { padding: 9px 10px; gap: 8px; }
   .r-note { display: none; }
-  .r-top b { font-size: 11.5px; }
-  .recipe .btn { height: 27px; padding: 0 9px; font-size: 10.5px; }
+  .r-top b { font-size: max(var(--ui-min), calc(11.5px * var(--ui-scale))); }
+  .recipe .btn { height: 27px; padding: 0 9px; font-size: max(var(--ui-min), calc(10.5px * var(--ui-scale))); }
 }
 </style>

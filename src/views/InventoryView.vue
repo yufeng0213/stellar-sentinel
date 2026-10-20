@@ -94,7 +94,7 @@ function isEquipped(gear) {
 <style scoped>
 .bag { padding: 18px; }
 .bag-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.bag-head h2 { margin-top: 3px; font-size: 19px; font-weight: 400; letter-spacing: 0.1em; }
+.bag-head h2 { margin-top: 3px; font-size: max(var(--ui-min), calc(19px * var(--ui-scale))); font-weight: 400; letter-spacing: 0.1em; }
 .bag-head .hint { margin-top: 3px; }
 
 .sec-label {
@@ -104,7 +104,7 @@ function isEquipped(gear) {
   margin: 16px 0 8px;
   color: var(--dim);
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: max(var(--ui-min), calc(9px * var(--ui-scale)));
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -130,12 +130,12 @@ function isEquipped(gear) {
   border: 1px solid rgba(124, 231, 255, .2);
   border-radius: 7px;
   color: var(--cyan);
-  font-size: 11px;
+  font-size: max(var(--ui-min), calc(11px * var(--ui-scale)));
 }
 .i-glyph.use { border-color: rgba(255, 196, 107, .28); color: var(--amber); }
 .i-body { min-width: 0; flex: 1; }
-.i-body b { display: block; font-size: 11px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.i-body span { color: var(--dim); font-family: var(--mono); font-size: 9px; }
+.i-body b { display: block; font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.i-body span { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .i-use {
   flex: none;
   height: 24px;
@@ -144,7 +144,7 @@ function isEquipped(gear) {
   border-radius: 6px;
   background: transparent;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale)));
   cursor: pointer;
 }
 @media (hover: hover) {
@@ -171,17 +171,17 @@ function isEquipped(gear) {
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: max(var(--ui-min), calc(12px * var(--ui-scale)));
 }
 .gear.is-on .g-glyph { border-color: rgba(124, 231, 255, .3); color: var(--cyan); }
 .g-body { flex: 1; min-width: 0; }
-.g-body b { font-size: 11.5px; font-weight: 500; }
-.g-body .q { margin-left: 5px; font-family: var(--mono); font-size: 9px; }
+.g-body b { font-size: max(var(--ui-min), calc(11.5px * var(--ui-scale))); font-weight: 500; }
+.g-body .q { margin-left: 5px; font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .q0 { color: var(--dim); }
 .q1 { color: var(--muted); }
 .q2 { color: var(--jade); }
-.g-body p { margin-top: 1px; color: var(--dim); font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.g-bonus { flex: none; color: var(--jade); font-family: var(--mono); font-size: 9.5px; }
+.g-body p { margin-top: 1px; color: var(--dim); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-bonus { flex: none; color: var(--jade); font-family: var(--mono); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); }
 .gear .btn { flex: none; }
 
 .empty {
@@ -189,14 +189,14 @@ function isEquipped(gear) {
   border: 1px dashed rgba(126, 196, 224, .14);
   border-radius: 12px;
   color: var(--dim);
-  font-size: 10.5px;
+  font-size: max(var(--ui-min), calc(10.5px * var(--ui-scale)));
   text-align: center;
   line-height: 1.8;
 }
 
 @media (max-width: 899px) {
   .bag { padding: 14px; }
-  .bag-head h2 { font-size: 17px; }
+  .bag-head h2 { font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); }
   .item-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .g-bonus { display: none; }
 }
