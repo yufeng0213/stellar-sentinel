@@ -27,6 +27,12 @@ const weeklySummary = computed(() => run.value?.weekly?.summary || '')
 const activeQuests = computed(() => (run.value?.quests || []).filter((quest) => quest.status === 'active'))
 const loreInfo = computed(() => (selected.value ? loreStatusFor(selected.value, loreTierId.value) : null))
 const section = computed(() => String(route.params.section || 'roster'))
+const sectionMeta = computed(() => ({
+  inbox: { kicker: 'INBOX', title: '收件箱', hint: '每天结束会有人来找你。每周会有一件更大的事。' },
+  roster: { kicker: 'ROSTER', title: '名册', hint: '每个人都有自己的标签、日程与关系网。' },
+  network: { kicker: 'NETWORK', title: '关系网', hint: 'NPC 之间的关系会随每日行动漂移。' },
+  events: { kicker: 'EVENTS', title: '世界动态', hint: '你不在场时，星区也在继续运转。' },
+}[section.value] || { kicker: 'COMMS', title: '通讯', hint: '' }))
 const selectedId = ref(null)
 const detailOpen = ref(false)
 const giftOpen = ref(false)
@@ -273,11 +279,9 @@ async function narrateEvent(event) {
   <div v-if="run" class="run-page">
     <section class="panel comms-head">
       <div>
-        <p class="kicker">COMMS · RELATIONS</p>
-        <h2>通讯与关系</h2>
-        <p class="hint">
-          每个人都有自己的日程与关系网。扎营推进一天后，他们会自己行动。
-        </p>
+        <p class="kicker">COMMS · {{ sectionMeta.kicker }}</p>
+        <h2>{{ sectionMeta.title }}</h2>
+        <p class="hint">{{ sectionMeta.hint }}</p>
       </div>
       <div class="head-meta">
         <span class="tag cyan">{{ npcs.length }} 人</span>

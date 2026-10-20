@@ -16,6 +16,7 @@ import {
   restAtNode,
   resolveEvent,
   resolveEventChoice as resolveEventChoiceCore,
+  retreatAfterDefeat,
   shopPrice as shopPriceCore,
   skipNode,
   timeLabel,
@@ -358,11 +359,18 @@ export const useGameStore = defineStore('game', {
     },
 
     leaveBattle() {
-      if (!this.run?.battle) return
-      if (['lost', 'fled'].includes(this.run.battle.status)) {
+      if (!this.run?.battle) return { ok: false }
+      if (this.run.battle.status === 'lost') {
+        const result = retreatAfterDefeat(this.run)
+        this.save()
+        return result
+      }
+      if (this.run.battle.status === 'fled') {
         this.run.battle = null
         this.save()
+        return { ok: true }
       }
+      return { ok: false }
     },
 
     async discoverNpcLore(npcId, tierId = null, useLlm = true) {

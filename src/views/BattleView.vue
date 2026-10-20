@@ -172,7 +172,10 @@ function choose(choice) {
 }
 
 function leaveBattle() {
-  game.leaveBattle()
+  const result = game.leaveBattle()
+  if (result?.ok) {
+    game.notify('你被拖回空港。第二天醒来，星图已重排。', 'bad')
+  }
   router.push({ name: 'map', params: { runId: run.value?.id } })
 }
 </script>
@@ -337,10 +340,10 @@ function leaveBattle() {
         <p class="kicker">DOWN</p>
         <h2>你倒下了</h2>
         <p class="result-note">
-          损失 {{ battle.defeat?.credits || 0 }} 信用点。你在节点旁醒来，耳鸣了很久。
+          损失 {{ battle.defeat?.credits || 0 }} 信用点。你被拖回空港，第二天醒来，星图会重新排布。
         </p>
         <div class="result-actions">
-          <button type="button" class="btn btn-primary" @click="leaveBattle">返回星图</button>
+          <button type="button" class="btn btn-primary" @click="leaveBattle">回城休整</button>
         </div>
       </div>
     </div>
@@ -754,6 +757,12 @@ function leaveBattle() {
   .b-actions .btn { flex: 1; }
   .result-panel { padding: 16px; border-radius: 16px; }
   .result-panel h2 { font-size: max(var(--ui-min), calc(21px * var(--ui-scale))); }
+}
+
+@media (min-width: 900px) {
+  .battle-page { max-width: 1400px; padding: 16px 26px calc(16px + env(safe-area-inset-bottom)); }
+  .enemy { max-width: 320px; }
+  .card { min-height: 128px; }
 }
 
 @media (max-width: 430px) {

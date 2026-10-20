@@ -1,6 +1,6 @@
 {
   "name": "stellar-sentinel",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "private": true,
   "type": "module",
   "description": "星穹哨向 · 星际哨兵向导 RPG",
@@ -11,7 +11,7 @@
     "build": "vite build",
     "start": "node server/index.js",
     "preview": "vite preview",
-    "test": "npm run test:core && npm run test:combat && npm run test:npc && npm run test:llm && npm run test:world && npm run test:chargen && npm run test:tags && npm run test:events && npm run test:lore && npm run test:narrative",
+    "test": "npm run test:core && npm run test:combat && npm run test:npc && npm run test:llm && npm run test:world && npm run test:chargen && npm run test:tags && npm run test:events && npm run test:lore && npm run test:narrative && npm run test:retreat",
     "test:core": "node tests/core-smoke.mjs",
     "test:combat": "node tests/combat-smoke.mjs",
     "test:npc": "node tests/npc-smoke.mjs",
@@ -21,7 +21,8 @@
     "test:tags": "node tests/tags-smoke.mjs",
     "test:events": "node tests/events-smoke.mjs",
     "test:lore": "node tests/lore-smoke.mjs",
-    "test:narrative": "node tests/narrative-smoke.mjs"
+    "test:narrative": "node tests/narrative-smoke.mjs",
+    "test:retreat": "node tests/retreat-smoke.mjs"
   },
   "dependencies": {
     "express": "^4.21.2",

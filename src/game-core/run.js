@@ -135,6 +135,8 @@ export function createRun(draft, seedInput) {
     location: map.startId,
     act: 1,
     map,
+    mapSeed: map.seed,
+    defeats: 0,
     visited: [map.startId],
     cleared: [map.startId],
     nodeState: {},
@@ -426,6 +428,44 @@ export function restAtNode(run, nodeId) {
   run.player.mental = clamp(run.player.mental + node.mental, 0, run.player.mentalMax)
   addLog(run, '你在这里休息了一会儿。附近的线路安静下来。', 'good')
   return { ok: true }
+}
+
+/** 战败不是死局：被拖回空港，第二天换一张星图重新出发。 */
+export function retreatAfterDefeat(run) {
+  if (!run) return { ok: false, message: '没有远征记录' }
+  run.defeats = (run.defeats || 0) + 1
+  run.day += 1
+  run.ap = run.apMax
+  run.player.hp = Math.max(1, Math.ceil(run.player.hpMax * 0.65))
+  run.player.mental = Math.max(1, Math.ceil(run.player.mentalMax * 0.65))
+
+  const mapSeed = `${run.seed}:RETREAT:${run.day}:${run.defeats}`
+  const map = generateRunMap(mapSeed)
+  run.map = map
+  run.mapSeed = mapSeed
+  run.location = map.startId
+  run.act = 1
+  run.visited = [map.startId]
+  run.cleared = [map.startId]
+  run.nodeState = {}
+  run.battle = null
+  run.pendingAmbush = null
+
+  run.quests = (run.quests || []).map((quest) => (
+    quest.status === 'active'
+      ? { ...quest, status: 'failed', completedDay: run.day, result: '星图重排，约定失效' }
+      : quest
+  ))
+  run.inbox = (run.inbox || []).map((event) => (
+    event.status === 'pending' && event.type === 'quest'
+      ? { ...event, status: 'expired', resolvedDay: run.day, result: '星图重排，邀约失效' }
+      : event
+  ))
+
+  tickWorld(run)
+  generateNpcEvents(run)
+  addLog(run, '你被拖回空港。第二天醒来，星图已经重排。', 'bad')
+  return { ok: true, day: run.day, mapSeed }
 }
 
 export function camp(run) {

@@ -111,7 +111,7 @@ function isEquipped(gear) {
 }
 .sec-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
-.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 7px; }
+.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 7px; }
 .item {
   display: flex;
   align-items: center;
@@ -134,7 +134,7 @@ function isEquipped(gear) {
 }
 .i-glyph.use { border-color: rgba(255, 196, 107, .28); color: var(--amber); }
 .i-body { min-width: 0; flex: 1; }
-.i-body b { display: block; font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.i-body b { display: block; font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
 .i-body span { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .i-use {
   flex: none;
@@ -175,12 +175,12 @@ function isEquipped(gear) {
 }
 .gear.is-on .g-glyph { border-color: rgba(124, 231, 255, .3); color: var(--cyan); }
 .g-body { flex: 1; min-width: 0; }
-.g-body b { font-size: max(var(--ui-min), calc(11.5px * var(--ui-scale))); font-weight: 500; }
+.g-body b { font-size: max(var(--ui-min), calc(11.5px * var(--ui-scale))); font-weight: 500; overflow-wrap: anywhere; }
 .g-body .q { margin-left: 5px; font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .q0 { color: var(--dim); }
 .q1 { color: var(--muted); }
 .q2 { color: var(--jade); }
-.g-body p { margin-top: 1px; color: var(--dim); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-body p { margin-top: 1px; color: var(--dim); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.5; overflow-wrap: anywhere; }
 .g-bonus { flex: none; color: var(--jade); font-family: var(--mono); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); }
 .gear .btn { flex: none; }
 

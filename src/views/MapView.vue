@@ -39,29 +39,41 @@ const actTitle = computed(() => ACT_NAMES[run.value?.act] || '星区')
 const clearedCount = computed(() => run.value?.cleared.length || 0)
 const reachableIds = computed(() => new Set(current.value?.next || []))
 
+const DUNGEON = {
+  padX: 64,
+  colGap: 228,
+  tileW: 132,
+  tileH: 78,
+  height: 468,
+}
+
 const dungeonPositions = computed(() => {
   if (!run.value) return {}
   const layers = run.value.map.layers
-  const rows = layers.length
   const positions = {}
 
   layers.forEach((layerIds, layerIndex) => {
     const count = layerIds.length
-    const xs = count === 1
-      ? [50]
+    const ys = count === 1
+      ? [DUNGEON.height / 2]
       : count === 2
-        ? [30, 70]
-        : [18, 50, 82]
+        ? [DUNGEON.height * 0.34, DUNGEON.height * 0.68]
+        : [DUNGEON.height * 0.2, DUNGEON.height * 0.5, DUNGEON.height * 0.8]
     layerIds.forEach((nodeId, slot) => {
       positions[nodeId] = {
-        x: xs[slot] ?? 50,
-        y: 4 + ((rows - layerIndex - 1) / Math.max(1, rows - 1)) * 88,
+        x: DUNGEON.padX + DUNGEON.tileW / 2 + layerIndex * DUNGEON.colGap,
+        y: ys[slot] ?? DUNGEON.height / 2,
         layer: layerIndex,
       }
     })
   })
 
   return positions
+})
+
+const dungeonWidth = computed(() => {
+  const columns = run.value?.map.layers.length || 1
+  return DUNGEON.padX * 2 + DUNGEON.tileW + (columns - 1) * DUNGEON.colGap
 })
 
 const dungeonNodes = computed(() => (run.value?.map.layers || [])
@@ -72,7 +84,7 @@ const dungeonNodes = computed(() => (run.value?.map.layers || [])
     return node && position ? { node, ...position } : null
   })
   .filter(Boolean)
-  .sort((left, right) => right.layer - left.layer))
+  .sort((left, right) => left.layer - right.layer))
 
 const dungeonLines = computed(() => {
   if (!run.value) return []
@@ -83,12 +95,12 @@ const dungeonLines = computed(() => {
     ;(node.next || []).forEach((nextId) => {
       const to = dungeonPositions.value[nextId]
       if (!to) return
+      const startX = from.x + DUNGEON.tileW / 2
+      const endX = to.x - DUNGEON.tileW / 2
+      const midX = (startX + endX) / 2
       lines.push({
         id: `${node.id}-${nextId}`,
-        x1: from.x,
-        y1: from.y,
-        x2: to.x,
-        y2: to.y,
+        d: `M ${startX} ${from.y} H ${midX} V ${to.y} H ${endX}`,
         active: run.value.location === node.id || reachableIds.value.has(nextId),
         cleared: run.value.cleared.includes(nextId),
       })
@@ -105,7 +117,7 @@ function scrollToCurrent() {
   if (!tile) return
   const boardRect = board.getBoundingClientRect()
   const tileRect = tile.getBoundingClientRect()
-  board.scrollTop += tileRect.top - boardRect.top - (board.clientHeight - tile.clientHeight) / 2
+  board.scrollLeft += tileRect.left - boardRect.left - (board.clientWidth - tile.clientWidth) / 2
 }
 
 onMounted(() => nextTick(scrollToCurrent))
@@ -271,23 +283,36 @@ function nextNodes(node) {
 
     <section class="map-board panel">
       <div class="board-head">
-        <span class="kicker">DUNGEON · FLOOR {{ run.map.layers.length }}</span>
-        <span class="hint">从下往上推进 · 点击相邻格前往 · 连线即通路</span>
+        <span class="kicker">DUNGEON · {{ run.map.layers.length }} 个房间层</span>
+        <span class="hint">从左往右推进 · 横向滑动查看整层 · 直角连线即通路</span>
       </div>
 
       <div ref="dungeonBoard" class="dungeon-board">
-        <div class="dungeon-inner" :style="{ '--rows': run.map.layers.length }">
-          <svg class="dungeon-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            <line
+        <div
+          class="dungeon-inner"
+          :style="{ width: `${dungeonWidth}px`, height: `${DUNGEON.height}px` }"
+        >
+          <svg
+            class="dungeon-links"
+            :viewBox="`0 0 ${dungeonWidth} ${DUNGEON.height}`"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path
               v-for="line in dungeonLines"
               :key="line.id"
-              :x1="line.x1"
-              :y1="line.y1"
-              :x2="line.x2"
-              :y2="line.y2"
+              :d="line.d"
+              fill="none"
               :class="{ 'is-active': line.active, 'is-cleared': line.cleared }"
             />
           </svg>
+
+          <span
+            v-for="(layerIds, index) in run.map.layers"
+            :key="`floor-${index}`"
+            class="dungeon-floor"
+            :style="{ left: `${dungeonPositions[layerIds[0]]?.x || 0}px` }"
+          >F{{ index + 1 }}</span>
 
           <button
             v-for="entry in dungeonNodes"
@@ -299,7 +324,7 @@ function nextNodes(node) {
               `is-${stateOf(entry.node.id)}`,
               { 'is-quest': questAt(entry.node.id), 'is-act-end': entry.layer === run.map.layers.length - 1 },
             ]"
-            :style="{ '--x': entry.x, '--y': entry.y, '--accent': entry.node.accent }"
+            :style="{ left: `${entry.x}px`, top: `${entry.y}px`, '--accent': entry.node.accent }"
             @click="openNode(entry.node.id)"
           >
             <span class="dt-top">
@@ -316,8 +341,8 @@ function nextNodes(node) {
     </section>
 
     <p class="map-note">
-      星图由种子 <span class="mono">{{ run.seed }}</span> 生成。战斗、交易与事件节点在后续阶段接入；
-      当前可以采集、调查事件、休整，或绕开战斗节点。
+      星图由种子 <span class="mono">{{ run.mapSeed || run.seed }}</span> 生成。横向滑动查看整层；
+      战败后会被拖回空港，第二天星图重新排布。
     </p>
 
     <Teleport to="body">
@@ -565,10 +590,10 @@ function nextNodes(node) {
 
 .dungeon-board {
   position: relative;
-  height: min(72vh, 860px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 18px 14px;
+  height: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 18px 14px 26px;
   border: 1px solid rgba(126, 196, 224, .1);
   border-radius: 14px;
   background:
@@ -581,30 +606,36 @@ function nextNodes(node) {
 }
 .dungeon-inner {
   position: relative;
-  width: 100%;
-  height: calc(var(--rows) * 108px + 36px);
-  min-height: 420px;
+  min-width: 100%;
 }
 .dungeon-links { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; overflow: visible; }
-.dungeon-links line {
-  stroke: rgba(126, 196, 224, .14);
+.dungeon-links path {
+  stroke: rgba(126, 196, 224, .16);
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
   transition: stroke .2s ease;
 }
-.dungeon-links line.is-cleared { stroke: rgba(138, 222, 184, .45); }
-.dungeon-links line.is-active {
-  stroke: rgba(255, 196, 107, .78);
+.dungeon-links path.is-cleared { stroke: rgba(138, 222, 184, .5); }
+.dungeon-links path.is-active {
+  stroke: rgba(255, 196, 107, .82);
   stroke-width: 2;
   filter: drop-shadow(0 0 4px rgba(255, 196, 107, .65));
+}
+.dungeon-floor {
+  position: absolute;
+  bottom: 0;
+  z-index: 1;
+  color: rgba(126, 196, 224, .3);
+  font-family: var(--mono);
+  font-size: max(var(--ui-min), calc(8px * var(--ui-scale)));
+  letter-spacing: .14em;
+  transform: translateX(-50%);
 }
 
 .dungeon-tile {
   position: absolute;
-  left: calc(var(--x) * 1%);
-  top: calc(var(--y) * 1%);
   z-index: 2;
-  width: clamp(78px, 9vw, 132px);
+  width: 132px;
   min-height: 78px;
   padding: 7px 8px;
   border: 1px solid var(--line);
@@ -959,9 +990,8 @@ function nextNodes(node) {
   .head-copy h2 { font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); }
   .head-actions { flex-direction: row; align-items: center; gap: 6px; }
   .map-board { padding: 11px; }
-  .dungeon-board { height: min(68vh, 620px); padding: 14px 8px; }
-  .dungeon-inner { height: calc(var(--rows) * 84px + 24px); }
-  .dungeon-tile { width: 78px; min-height: 66px; padding: 6px; }
+  .dungeon-board { padding: 14px 8px 22px; }
+  .dungeon-tile { width: 108px; min-height: 70px; padding: 6px; }
   .dungeon-tile b { font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); }
   .dt-meta { font-size: max(var(--ui-min), calc(7px * var(--ui-scale))); }
   .layer-row { gap: 6px; }

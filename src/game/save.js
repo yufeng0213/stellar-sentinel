@@ -67,6 +67,8 @@ export function validateRun(input) {
   if (!data.eventPity || typeof data.eventPity !== 'object') data.eventPity = {}
   if (typeof data.lastEventDay !== 'number') data.lastEventDay = 0
   if (data.weekly === undefined) data.weekly = null
+  if (typeof data.defeats !== 'number') data.defeats = 0
+  if (!data.mapSeed && data.map?.seed) data.mapSeed = data.map.seed
 
   Object.values(data.npcChats).forEach((messages) => {
     if (!Array.isArray(messages)) return
