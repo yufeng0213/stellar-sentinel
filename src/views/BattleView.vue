@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { CARDS, CARD_TYPES, INTENTS } from '../game-core/combat.js'
 import { REGIONS } from '../game-core/data.js'
+import { play as playSound, cardSound } from '../audio.js'
+import SoundToggle from '../components/SoundToggle.vue'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
@@ -47,7 +49,11 @@ onMounted(() => {
   const created = game.ensureBattle(nodeId)
   if (!created) {
     router.replace({ name: 'map', params: { runId: run.value?.id } })
+    return
   }
+  playSound('battle')
+  if (battle.value?.status === 'won') playSound('victory')
+  if (battle.value?.status === 'lost') playSound('defeat')
 })
 
 function hpPct(entity, max) {
@@ -96,15 +102,31 @@ function selectEnemy(index) {
 
 function play(index) {
   if (!battle.value || !canAct.value) return
-  game.playBattleCard(index, targetIdx.value)
+  const card = CARDS[battle.value.hand[index]]
+  const beforeHp = run.value.player.hp
+  const result = game.playBattleCard(index, targetIdx.value)
+  if (!result?.ok) return
+  playSound(cardSound(card))
+  if (battle.value?.status === 'won') {
+    setTimeout(() => playSound('victory'), 140)
+  } else if (run.value.player.hp < beforeHp) {
+    setTimeout(() => playSound('hurt'), 100)
+  }
 }
 
 function endTurn() {
   if (!battle.value || !canAct.value) return
-  game.endBattleTurn()
+  const beforeHp = run.value.player.hp
+  const result = game.endBattleTurn()
+  if (!result?.ok) return
+  playSound('enemy')
+  if (run.value.player.hp < beforeHp) setTimeout(() => playSound('hurt'), 180)
+  if (battle.value?.status === 'won') setTimeout(() => playSound('victory'), 160)
+  if (battle.value?.status === 'lost') setTimeout(() => playSound('defeat'), 160)
 }
 
 function confirmFlee() {
+  playSound('flee')
   game.fleeBattle()
   fleeOpen.value = false
   router.push({ name: 'map', params: { runId: run.value?.id } })
@@ -132,6 +154,7 @@ function leaveBattle() {
       <div class="b-meta">
         <span class="tag cyan">第 {{ battle.round }} 回合</span>
         <span class="tag amber">AP {{ battle.ap }}</span>
+        <SoundToggle />
         <button type="button" class="icon-btn" title="撤离" @click="fleeOpen = true">✕</button>
       </div>
     </header>
@@ -200,6 +223,7 @@ function leaveBattle() {
         class="card"
         :class="{ 'is-disabled': canAct && battle.ap < CARDS[key].cost }"
         :disabled="!canAct || battle.ap < CARDS[key].cost"
+        data-sound="none"
         @click="play(index)"
       >
         <span class="c-cost">{{ CARDS[key].cost }}</span>

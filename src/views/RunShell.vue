@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game.js'
 import BottomNav from '../components/BottomNav.vue'
+import SoundToggle from '../components/SoundToggle.vue'
 
 const game = useGameStore()
 const router = useRouter()
@@ -60,6 +61,7 @@ function exitRun() {
 
       <div class="hud-actions">
         <span class="save-hint" :class="{ flash: savedFlash }">{{ savedFlash ? '已保存' : '自动存档' }}</span>
+        <SoundToggle />
         <button type="button" class="icon-btn" title="存档" @click="saveNow">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 3h9l3 3v11H4z"/><path d="M7 3v5h6V3"/><path d="M7 13h6"/>

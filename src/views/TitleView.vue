@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import SoundToggle from '../components/SoundToggle.vue'
 import { useGameStore } from '../stores/game.js'
 
 const router = useRouter()
@@ -55,6 +56,7 @@ function continueRun() {
             {{ hasSave ? '新的远征' : '开始新的远征' }}
           </RouterLink>
           <RouterLink to="/settings/llm" class="text-link">LLM 设置</RouterLink>
+          <SoundToggle />
         </div>
 
         <dl class="telemetry">
