@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ATTR_NAME, GEAR, ITEMS, NODE_TYPES, REGIONS, SKILLS } from '../game-core/data.js'
 import { useGameStore } from '../stores/game.js'
@@ -10,6 +10,8 @@ const run = computed(() => game.run)
 const current = computed(() => game.current)
 const selectedId = ref(null)
 const dungeonBoard = ref(null)
+const settling = ref(null)
+let settleTimer = null
 
 const ACT_NAMES = {
   1: '第一幕 · 白塔的余烬',
@@ -257,8 +259,36 @@ function goBattle() {
 }
 
 function camp() {
-  game.makeCamp()
+  if (!run.value || settling.value) return
+  const before = run.value.worldEvents?.length || 0
+  const result = game.makeCamp()
+  if (!result?.ok) return
+  const events = (run.value.worldEvents || []).slice(0, Math.max(0, (run.value.worldEvents?.length || 0) - before)).slice(0, 10)
+  settling.value = { progress: 0, phase: '扫描空港', done: false, events }
+  clearInterval(settleTimer)
+  settleTimer = setInterval(() => {
+    if (!settling.value) return
+    settling.value.progress = Math.min(100, settling.value.progress + 7)
+    settling.value.phase = settling.value.progress < 35
+      ? '扫描空港'
+      : settling.value.progress < 70
+        ? '推断 NPC 行动'
+        : '整理新事件'
+    if (settling.value.progress >= 100) {
+      settling.value.done = true
+      clearInterval(settleTimer)
+      settleTimer = null
+    }
+  }, 80)
 }
+
+function closeSettle() {
+  settling.value = null
+  clearInterval(settleTimer)
+  settleTimer = null
+}
+
+onBeforeUnmount(() => clearInterval(settleTimer))
 
 function goCity() {
   if (!run.value) return
@@ -351,6 +381,27 @@ function nextNodes(node) {
       星图由种子 <span class="mono">{{ run.mapSeed || run.seed }}</span> 生成。横向滑动查看整层；
       战败后会被拖回空港，第二天星图重新排布。
     </p>
+
+    <Teleport to="body">
+      <Transition name="sheet">
+        <div v-if="settling" class="settle-backdrop">
+          <div class="settle-card">
+            <p class="kicker">DAY SETTLEMENT · CPU</p>
+            <h2>{{ settling.done ? '空港更新完毕' : '空港正在重新计算' }}</h2>
+            <p class="settle-sub">
+              {{ settling.done ? `第 ${run.day} 天，${settling.events.length} 条新动态。` : `${settling.phase} · 正在推断 NPC 之间发生了什么` }}
+            </p>
+            <div class="settle-bar"><i :style="{ width: `${settling.progress}%` }"></i></div>
+            <div class="settle-meter"><span>{{ settling.phase }}</span><b>{{ settling.progress }}%</b></div>
+            <div v-if="settling.done" class="settle-events">
+              <p v-for="(event, index) in settling.events" :key="index">{{ event.text }}</p>
+              <p v-if="!settling.events.length" class="empty">这一夜很安静。</p>
+            </div>
+            <button v-if="settling.done" type="button" class="btn btn-primary" @click="closeSettle">进入第二天</button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <Teleport to="body">
       <Transition name="sheet">
@@ -986,6 +1037,34 @@ function nextNodes(node) {
 .sheet-enter-from, .sheet-leave-to { opacity: 0; }
 .sheet-enter-from .sheet, .sheet-leave-to .sheet { transform: translateY(24px); }
 
+.settle-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 5, 9, .78);
+  backdrop-filter: blur(6px);
+}
+.settle-card {
+  width: min(560px, 100%);
+  padding: 24px;
+  border: 1px solid rgba(124, 231, 255, .28);
+  border-radius: 16px;
+  background:
+    radial-gradient(420px 180px at 20% 0, rgba(124, 231, 255, .1), transparent 70%),
+    rgba(7, 14, 21, .97);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+}
+.settle-card h2 { margin-top: 5px; font-size: max(var(--ui-min), calc(24px * var(--ui-scale))); font-weight: 300; letter-spacing: .06em; }
+.settle-sub { margin-top: 6px; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); }
+.settle-bar { height: 8px; margin-top: 20px; overflow: hidden; border-radius: 5px; background: rgba(255, 255, 255, .07); }
+.settle-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(124, 231, 255, .45), var(--cyan)); transition: width .12s linear; box-shadow: 0 0 16px rgba(124, 231, 255, .45); }
+.settle-meter { display: flex; justify-content: space-between; margin-top: 7px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.settle-events { max-height: 220px; margin: 14px 0; overflow-y: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 8px 0; }
+.settle-events p { padding: 4px 0; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.55; }
+.settle-events .empty { color: var(--dim); text-align: center; }
 @media (min-width: 900px) {
   .sheet-backdrop { align-items: center; padding: 20px; }
   .sheet { border-radius: 20px; }

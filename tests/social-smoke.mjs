@@ -1,0 +1,76 @@
+/**
+ * 恋人关系、表白事件、NPC 关系树、随身背包与自主使用。
+ */
+
+import { randomDraft } from '../src/game-core/character.js'
+import { createRun } from '../src/game-core/run.js'
+import { giftToNpc, npcRelationTree, tickWorld } from '../src/game-core/npc.js'
+import { resolveInboxEvent } from '../src/game-core/npc-events.js'
+import { validateRun } from '../src/game/save.js'
+
+const errors = []
+const check = (condition, label) => { if (!condition) errors.push(label) }
+
+const run = createRun(randomDraft(), 'SOCIAL-TEST')
+const npc = Object.values(run.npcs)[0]
+npc.relation.trust = 70
+npc.relation.closeness = 70
+npc.lover = false
+npc.confessed = false
+npc.alive = true
+npc.hostile = false
+
+const confession = {
+  id: 'social-confession',
+  day: run.day,
+  week: 1,
+  npcId: npc.id,
+  type: 'confession',
+  status: 'pending',
+  title: `${npc.name} 想问你一件事`,
+  text: '“我们这样算什么？”',
+  payload: { confession: true },
+  choices: [
+    { id: 'accept', label: '我们试试' },
+    { id: 'decline', label: '还是做朋友' },
+  ],
+}
+run.inbox.push(confession)
+const accepted = resolveInboxEvent(run, confession.id, 'accept')
+check(accepted.ok, '接受表白失败')
+check(npc.lover === true, '接受表白后没有成为恋人')
+check(npc.loverSince === run.day, '恋人日期没有记录')
+
+const tree = npcRelationTree(run, npc.id)
+check(tree && tree.categories.some((category) => category.id === 'lover'), '关系树没有恋人分支')
+check(tree.categories.some((category) => category.items.some((item) => item.npc.id === 'player')), '关系树里没有玩家恋人节点')
+
+run.inv.pebble = 1
+const gift = giftToNpc(run, npc.id, 'pebble')
+check(gift.ok, '送小礼物失败')
+check(npc.bag.pebble === 1, 'NPC 没有把礼物放进背包')
+
+npc.injured = true
+npc.bag.medkit = 1
+tickWorld(run)
+check(npc.injured === false, 'NPC 受伤后没有自己使用医疗包')
+check(!npc.bag.medkit, 'NPC 使用医疗包后没有扣除')
+
+const imported = validateRun(JSON.parse(JSON.stringify(run)))
+check(imported.ok, '社交状态存档校验失败')
+check(imported.run.npcs[npc.id].lover === true, '存档没有保留恋人状态')
+check(imported.run.npcs[npc.id].bag && !imported.run.npcs[npc.id].bag.medkit, '存档没有保留 NPC 背包变化')
+
+if (errors.length) {
+  console.error('FAILED')
+  errors.forEach((error) => console.error(' -', error))
+  process.exit(1)
+}
+
+console.log(JSON.stringify({
+  ok: true,
+  lover: npc.lover,
+  tree: tree.categories.map((category) => [category.label, category.items.length]),
+  bag: npc.bag,
+  injured: npc.injured,
+}, null, 2))

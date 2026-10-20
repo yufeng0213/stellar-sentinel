@@ -3,7 +3,7 @@
  * 只做模拟，不写长篇文案；对白在 Phase 5 交给 LLM。
  */
 
-import { ITEMS, ORIGINS, REGIONS, SCENTS } from './data.js'
+import { GIFT_KEYS, ITEMS, ORIGINS, REGIONS, SCENTS } from './data.js'
 import {
   TAGS,
   TAG_BY_ID,
@@ -340,6 +340,12 @@ function makeNpc(run, rng, id, seedRole, name) {
     alive: true,
     talkedDay: 0,
     giftLog: [],
+    bag: {},
+    injured: false,
+    lover: false,
+    loverSince: 0,
+    confessed: false,
+    confessedDay: 0,
     lore: { entries: [] },
     longMemory: [],
     combat: {
@@ -380,17 +386,27 @@ export function createNpcWorld(run) {
       if (a.faction !== b.faction && a.home !== b.home && !rng.chance(0.28)) continue
       const affinity = tagAffinity(a.tags, b.tags)
       const overlap = a.interests.filter((interest) => b.interests.includes(interest)).length
+      const trust = clamp(
+        Math.round(30 + affinity.score + (a.faction === b.faction ? 8 : 0) + overlap * 3 + rng.int(-8, 8)),
+        0,
+        88
+      )
+      const closeness = clamp(Math.round(15 + affinity.score * 0.5 + rng.int(0, 30)), 0, 80)
+      const rivalry = clamp(Math.round(20 - affinity.score * 0.6 + rng.int(0, 20)), 0, 80)
+      const roll = rng.next()
+      let kind = 'friend'
+      if (roll < 0.035) kind = 'family'
+      else if (roll < 0.065) kind = 'lover'
+      else if (rivalry > 55) kind = 'rival'
+      else if (trust < 32) kind = 'acquaintance'
       edges.push({
         a: a.id,
         b: b.id,
-        trust: clamp(
-          Math.round(30 + affinity.score + (a.faction === b.faction ? 8 : 0) + overlap * 3 + rng.int(-8, 8)),
-          0,
-          88
-        ),
-        closeness: clamp(Math.round(15 + affinity.score * 0.5 + rng.int(0, 30)), 0, 80),
-        rivalry: clamp(Math.round(20 - affinity.score * 0.6 + rng.int(0, 20)), 0, 80),
+        trust: kind === 'lover' || kind === 'family' ? Math.max(trust, 55) : trust,
+        closeness: kind === 'lover' || kind === 'family' ? Math.max(closeness, 65) : closeness,
+        rivalry: kind === 'lover' || kind === 'family' ? Math.min(rivalry, 18) : rivalry,
         affinity: affinity.score,
+        kind,
       })
       if (edges.length >= 36) break
     }
@@ -420,6 +436,12 @@ export function ensureNpcTags(run) {
   if (!run?.npcs) return run
   const rng = createRng(`${run.seed}:npc-tags-migrate`)
   Object.values(run.npcs).forEach((npc) => {
+    if (!npc.bag || typeof npc.bag !== 'object') npc.bag = {}
+    if (typeof npc.injured !== 'boolean') npc.injured = false
+    if (typeof npc.lover !== 'boolean') npc.lover = false
+    if (typeof npc.loverSince !== 'number') npc.loverSince = 0
+    if (typeof npc.confessed !== 'boolean') npc.confessed = false
+    if (typeof npc.confessedDay !== 'number') npc.confessedDay = 0
     if (npc.tags?.length) return
     const seedRole = FIXED_NPCS.find((item) => item.name === npc.name) || null
     npc.tags = pickNpcTags(rng, seedRole)
@@ -430,10 +452,16 @@ export function ensureNpcTags(run) {
     if (!Array.isArray(npc.longMemory)) npc.longMemory = []
   })
   ;(run.npcEdges || []).forEach((edge) => {
-    if (typeof edge.affinity === 'number') return
-    const a = run.npcs[edge.a]
-    const b = run.npcs[edge.b]
-    if (a && b) edge.affinity = tagAffinity(a.tags || [], b.tags || []).score
+    if (typeof edge.affinity !== 'number') {
+      const a = run.npcs[edge.a]
+      const b = run.npcs[edge.b]
+      if (a && b) edge.affinity = tagAffinity(a.tags || [], b.tags || []).score
+    }
+    if (!edge.kind) {
+      if (edge.rivalry >= 55) edge.kind = 'rival'
+      else if (edge.closeness >= 60 && edge.trust >= 55) edge.kind = 'friend'
+      else edge.kind = 'acquaintance'
+    }
   })
   return run
 }
@@ -480,6 +508,65 @@ export function factionName(key) {
   return FACTIONS[key]?.name || key
 }
 
+const TREE_LABELS = {
+  lover: '恋人',
+  family: '亲人',
+  friend: '好友',
+  rival: '对手',
+  acquaintance: '熟人',
+}
+
+export function npcRelationTree(run, npcId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc) return null
+  const categories = {
+    lover: [],
+    family: [],
+    friend: [],
+    rival: [],
+    acquaintance: [],
+  }
+
+  ;(run.npcEdges || []).forEach((edge) => {
+    if (edge.a !== npcId && edge.b !== npcId) return
+    const otherId = edge.a === npcId ? edge.b : edge.a
+    const other = run.npcs?.[otherId]
+    if (!other || other.active === false) return
+    const kind = categories[edge.kind] ? edge.kind : 'acquaintance'
+    categories[kind].push({ npc: other, edge, kind })
+  })
+
+  const playerNode = {
+    npc: {
+      id: 'player',
+      name: run.player.name,
+      abo: run.player.abo,
+      role: '你',
+      faction: 'player',
+      home: 'dock',
+    },
+    edge: null,
+    kind: npc.lover ? 'lover' : 'player',
+  }
+  if (npc.lover) categories.lover.unshift(playerNode)
+
+  Object.values(categories).forEach((items) => {
+    items.sort((left, right) => (
+      (right.edge?.closeness || 0) - (left.edge?.closeness || 0) ||
+      (right.edge?.trust || 0) - (left.edge?.trust || 0)
+    ))
+  })
+
+  return {
+    npc,
+    player: playerNode,
+    categories: Object.entries(categories)
+      .map(([id, items]) => ({ id, label: TREE_LABELS[id], items }))
+      .filter((category) => category.items.length),
+    all: Object.values(categories).flat(),
+  }
+}
+
 function pushEvent(run, text, kind = 'info') {
   if (!Array.isArray(run.worldEvents)) run.worldEvents = []
   run.worldEvents.unshift({ day: run.day, text, kind })
@@ -514,6 +601,8 @@ export function giftToNpc(run, npcId, itemId) {
 
   run.inv[itemId] -= 1
   if (run.inv[itemId] <= 0) delete run.inv[itemId]
+  if (!npc.bag) npc.bag = {}
+  npc.bag[itemId] = (npc.bag[itemId] || 0) + 1
   npc.giftLog.unshift({ day: run.day, itemId })
   if (npc.giftLog.length > 12) npc.giftLog.length = 12
 
@@ -792,6 +881,29 @@ export function tickWorld(run) {
     })
     run.flags.lastSocial = null
   }
+
+  Object.values(run.npcs).forEach((npc) => {
+    if (!npc.alive || npc.active === false) return
+    if (!npc.bag) npc.bag = {}
+    if (npc.injured) {
+      const medicine = ['medkit', 'ration'].find((key) => (npc.bag[key] || 0) > 0)
+      if (medicine) {
+        npc.bag[medicine] -= 1
+        if (npc.bag[medicine] <= 0) delete npc.bag[medicine]
+        npc.injured = false
+        push(`${npc.name} 受了伤，用掉了你送的${ITEMS[medicine].name}。`, 'good')
+      } else {
+        push(`${npc.name} 带着伤${npc.activity || '在空港'}走动。`, 'info')
+      }
+    } else if (rng.chance(0.12)) {
+      npc.injured = true
+      push(`${npc.name} ${npc.activity || '在空港'}时受了伤。`, 'bad')
+    } else if (rng.chance(0.1)) {
+      const gift = rng.pick(GIFT_KEYS)
+      npc.bag[gift] = (npc.bag[gift] || 0) + 1
+      push(`${npc.name} ${npc.activity || '在空港'}时捡到了${ITEMS[gift].name}。`, 'info')
+    }
+  })
 
   Object.values(run.npcs).forEach((npc) => {
     if (!npc.alive || !npc.stolen) return

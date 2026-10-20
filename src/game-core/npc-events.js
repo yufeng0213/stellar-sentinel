@@ -15,6 +15,7 @@ export const EVENT_TYPES = {
   favor: { label: '求助', color: 'amber', base: 15, major: true },
   quest: { label: '邀请', color: 'violet', base: 15, major: true },
   romance: { label: '靠近', color: 'red', base: 8, major: true },
+  confession: { label: '表白', color: 'red', base: 10, major: true },
   conflict: { label: '冲突', color: 'red', base: 10, major: true },
   gossip: { label: '八卦', color: 'amber', base: 7, major: false },
 }
@@ -116,6 +117,14 @@ function eventEligible(run, npc, type, rng) {
       !hasTag(npc, 'commitmentphobe') &&
       !hasTag(npc, 'solo')
   }
+  if (type === 'confession') {
+    return !npc.lover &&
+      !npc.confessed &&
+      relation.trust >= 50 &&
+      relation.closeness >= 60 &&
+      !hasTag(npc, 'commitmentphobe') &&
+      !hasTag(npc, 'solo')
+  }
   if (type === 'gossip') return relation.trust >= 10 && (run.npcEdges || []).some((edge) => edge.a === npc.id || edge.b === npc.id)
   return false
 }
@@ -131,6 +140,7 @@ function eventWeight(run, npc, type) {
   if (type === 'favor') weight *= 1 + relation.trust / 150
   if (type === 'quest') weight *= 1 + relation.trust / 120
   if (type === 'romance') weight *= 1 + relation.closeness / 90
+  if (type === 'confession') weight *= 2.2
   if (type === 'conflict') weight *= 1 + relation.grievance / 70
   if (type === 'gossip') weight *= 1 + (hasTag(npc, 'gossip') ? 0.8 : 0)
 
@@ -255,11 +265,21 @@ function buildEvent(run, rng, npc, type, weekly = false) {
   } else if (type === 'romance') {
     const region = REGIONS[npc.home]
     base.title = `${npc.name} 想见你`
-    base.text = `“${region?.name || '空港'}的休整点今晚很安静。你要是有空，可以过来。”`
-    base.payload = { place: npc.home }
+    base.text = npc.lover
+      ? `“今天没什么事。就是想见你。”${npc.name}在频道里停了一下，又补了一句，“别带别人。”`
+      : `“${region?.name || '空港'}的休整点今晚很安静。你要是有空，可以过来。”`
+    base.payload = { place: npc.home, lover: Boolean(npc.lover) }
     base.choices = [
       { id: 'accept', label: '赴约' },
       { id: 'decline', label: '改天' },
+    ]
+  } else if (type === 'confession') {
+    base.title = `${npc.name} 想问你一件事`
+    base.text = '“我们这样……算是什么？”他没有看你，手指停在桌沿上，像是在等一个会改变什么答案。'
+    base.payload = { confession: true }
+    base.choices = [
+      { id: 'accept', label: '我们试试' },
+      { id: 'decline', label: '还是做朋友' },
     ]
   } else if (type === 'conflict') {
     const amount = Math.min(60, 20 + Math.round(relation.grievance / 2))
@@ -478,6 +498,23 @@ function resolveRomance(run, npc, event, choice) {
   return '你说改天。他笑了笑，没有追问。'
 }
 
+function resolveConfession(run, npc, event, choice) {
+  if (choice === 'accept') {
+    npc.lover = true
+    npc.loverSince = run.day
+    npc.romance = true
+    npc.relation.closeness = clamp(npc.relation.closeness + 10, 0, 100)
+    npc.relation.trust = clamp(npc.relation.trust + 6, 0, 100)
+    run.flags = run.flags || {}
+    run.flags.lover = { npcId: npc.id, day: run.day }
+    return '你答应了。他愣了一下，随后把这句话重复了一遍，像是要确认它真的发生了。'
+  }
+  npc.confessed = true
+  npc.confessedDay = run.day
+  npc.relation.closeness = clamp(npc.relation.closeness - 6, 0, 100)
+  return '你说还是做朋友。他点点头，把没说完的话收了回去。'
+}
+
 function resolveConflict(run, npc, event, choice) {
   if (choice === 'pay') {
     if (run.player.credits < event.payload.amount) return { error: '信用点不足' }
@@ -518,6 +555,7 @@ export function resolveInboxEvent(run, eventId, choiceId) {
   else if (event.type === 'favor') result = resolveFavor(run, npc, event, choiceId)
   else if (event.type === 'quest') result = resolveQuest(run, npc, event, choiceId)
   else if (event.type === 'romance') result = resolveRomance(run, npc, event, choiceId)
+  else if (event.type === 'confession') result = resolveConfession(run, npc, event, choiceId)
   else if (event.type === 'conflict') result = resolveConflict(run, npc, event, choiceId)
   else if (event.type === 'gossip') result = resolveGossip(run, npc, event, choiceId)
 

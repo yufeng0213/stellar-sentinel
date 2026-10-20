@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { REGIONS } from '../game-core/data.js'
+import { ITEMS, REGIONS } from '../game-core/data.js'
 import { AXES, PERSONALITY_LABELS, canInviteToParty, factionName } from '../game-core/npc.js'
 import { TAG_CATEGORIES } from '../game-core/npc-tags.js'
 import { visitorStoryStatus } from '../game-core/visitor-story.js'
@@ -11,6 +11,9 @@ const router = useRouter()
 const { game, run, npc, tags, backComms, axisPercent } = useNpcPage()
 const reply = ref('')
 const visitorStory = computed(() => (npc.value?.visitor ? visitorStoryStatus(run.value, npc.value) : null))
+const bagItems = computed(() => Object.keys(npc.value?.bag || {})
+  .filter((key) => ITEMS[key] && npc.value.bag[key] > 0)
+  .map((key) => ({ key, ...ITEMS[key], count: npc.value.bag[key] })))
 
 const inviteCheck = computed(() => (
   npc.value ? canInviteToParty(run.value, npc.value.id) : { ok: false, reason: '' }
@@ -72,8 +75,10 @@ function doLeave() {
           <h2>{{ npc.name }}</h2>
           <p class="sub">{{ npc.abo }} · {{ npc.role }}</p>
           <div class="sheet-tags">
+            <span v-if="npc.lover" class="tag red">恋人</span>
             <span v-if="npc.party" class="tag jade">队伍中</span>
             <span v-if="npc.hostile" class="tag red">敌视</span>
+            <span v-if="npc.injured" class="tag amber">受伤</span>
             <span v-if="!npc.alive" class="tag red">已死亡</span>
             <span v-if="npc.bias >= 20" class="tag cyan">初次印象不错</span>
             <span v-else-if="npc.bias <= -15" class="tag">初次印象很差</span>
@@ -119,12 +124,24 @@ function doLeave() {
       <p v-if="!npc.party" class="hint">组队需要信任 50、亲近 30，队伍上限 2 人。</p>
     </section>
 
+    <section v-if="bagItems.length" class="panel npc-block">
+      <h3>随身物品</h3>
+      <p class="hint">他收下的东西。受伤时，如果他带着医疗包或营养膏，会自己使用。</p>
+      <div class="bag-chips">
+        <span v-for="item in bagItems" :key="item.key" class="tag">{{ item.glyph }} {{ item.name }} ×{{ item.count }}</span>
+      </div>
+    </section>
+
     <section class="panel npc-block">
       <h3>深入</h3>
       <div class="npc-links">
         <button type="button" class="link-card" @click="go('npc-lore')">
           <b>探知档案</b>
           <span>按关系阶段逐条解锁这个人的过去</span>
+        </button>
+        <button type="button" class="link-card" @click="go('npc-network')">
+          <b>关系树</b>
+          <span>恋人和亲人、好友与对手的直角分支</span>
         </button>
         <button type="button" class="link-card" @click="go('npc-memory')">
           <b>记忆</b>
@@ -197,6 +214,7 @@ function doLeave() {
 .sheet-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
 .npc-block { padding: 14px 16px; }
 .npc-block h3 { margin-bottom: 10px; color: var(--ink); font-size: max(var(--ui-min), calc(14px * var(--ui-scale))); font-weight: 500; letter-spacing: .06em; }
+.bag-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .axes { display: flex; flex-direction: column; gap: 5px; }
 .axis-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) 28px; align-items: center; gap: 8px; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); }
 .axis-row b { color: var(--ink); font-family: var(--mono); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; text-align: right; }
