@@ -343,6 +343,8 @@ function makeNpc(run, rng, id, seedRole, name) {
     bag: {},
     credits: 30,
     tradeLog: [],
+    wanted: null,
+    gear: {},
     injured: false,
     lover: false,
     loverSince: 0,
@@ -441,6 +443,8 @@ export function ensureNpcTags(run) {
     if (!npc.bag || typeof npc.bag !== 'object') npc.bag = {}
     if (typeof npc.credits !== 'number') npc.credits = 30
     if (!Array.isArray(npc.tradeLog)) npc.tradeLog = []
+    if (npc.wanted === undefined) npc.wanted = null
+    if (!npc.gear || typeof npc.gear !== 'object') npc.gear = {}
     if (typeof npc.injured !== 'boolean') npc.injured = false
     if (typeof npc.lover !== 'boolean') npc.lover = false
     if (typeof npc.loverSince !== 'number') npc.loverSince = 0
@@ -773,6 +777,74 @@ export function sellToNpc(run, npcId, itemId) {
   return { ok: true, itemId, name: ITEMS[itemId].name, credits: price }
 }
 
+export function ensureNpcWanted(run, npc, force = false) {
+  if (!npc) return null
+  if (!force && npc.wanted?.day === run.day && npc.wanted?.status === 'open') return npc.wanted
+  const rng = createRng(`${run.seed}:wanted:${npc.id}:${run.day}`)
+  const candidates = Object.keys(ITEMS).filter((itemId) => {
+    const item = ITEMS[itemId]
+    if (!item || !['mat', 'gift', 'use'].includes(item.kind)) return false
+    return !(npc.injured && ['medkit', 'ration'].includes(itemId))
+  })
+  const itemId = rng.pick(candidates)
+  npc.wanted = itemId ? {
+    itemId,
+    price: Math.max(6, Math.round(tradeBasePrice(itemId) * 1.2)),
+    day: run.day,
+    status: 'open',
+  } : null
+  return npc.wanted
+}
+
+export function fulfillNpcWanted(run, npcId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc || !npc.alive) return { ok: false, message: '找不到这个人' }
+  if (npc.hostile) return { ok: false, message: '他现在不想和你做买卖' }
+  const wanted = ensureNpcWanted(run, npc)
+  if (!wanted || wanted.status !== 'open') return { ok: false, message: '他今天没有收购单' }
+  if ((run.inv[wanted.itemId] || 0) < 1) return { ok: false, message: `你没有${ITEMS[wanted.itemId].name}` }
+  if ((npc.credits || 0) < wanted.price) return { ok: false, message: '他身上的信用点不够' }
+  run.inv[wanted.itemId] -= 1
+  if (run.inv[wanted.itemId] <= 0) delete run.inv[wanted.itemId]
+  run.player.credits += wanted.price
+  npc.credits -= wanted.price
+  npc.bag[wanted.itemId] = (npc.bag[wanted.itemId] || 0) + 1
+  npc.wanted = { ...wanted, status: 'done' }
+  npc.relation.trust = clamp(npc.relation.trust + 2, 0, 100)
+  return { ok: true, itemId: wanted.itemId, name: ITEMS[wanted.itemId].name, credits: wanted.price }
+}
+
+export function npcCombatStats(npc) {
+  const base = npc?.combat || { hp: 20, morale: 10, attack: 4 }
+  const bonus = Object.values(npc?.gear || {}).reduce((sum, gear) => {
+    Object.entries(gear?.bonus || {}).forEach(([key, value]) => { sum[key] = (sum[key] || 0) + value })
+    return sum
+  }, {})
+  return {
+    hp: Math.round(base.hp + (bonus.vit || 0) * 4 + (bonus.wil || 0) * 2),
+    morale: Math.round(base.morale + (bonus.wil || 0)),
+    attack: Math.round(base.attack + (bonus.per || 0) * 0.5 + (bonus.tec || 0) * 0.5 + (bonus.psi || 0) * 0.5),
+    traits: [...(base.traits || [])],
+  }
+}
+
+export function giveNpcGear(run, npcId, uid) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc || !npc.alive) return { ok: false, message: '找不到这个人' }
+  const index = (run.gear || []).findIndex((gear) => gear.uid === uid)
+  if (index < 0) return { ok: false, message: '你没有这件装备' }
+  const gear = run.gear[index]
+  const previous = npc.gear?.[gear.slot]
+  run.gear.splice(index, 1)
+  if (run.equipment?.[gear.slot] === uid) run.equipment[gear.slot] = null
+  if (previous) run.gear.push(previous)
+  npc.gear = npc.gear || {}
+  npc.gear[gear.slot] = gear
+  npc.relation.trust = clamp(npc.relation.trust + 3, 0, 100)
+  npc.relation.closeness = clamp(npc.relation.closeness + 2, 0, 100)
+  return { ok: true, gear, previous: previous || null }
+}
+
 export const TALK_TOPICS = {
   life: { label: '近况', trust: 2, closeness: 1 },
   interest: { label: '兴趣', trust: 1, closeness: 2 },
@@ -1023,6 +1095,7 @@ export function tickWorld(run) {
   Object.values(run.npcs).forEach((npc) => {
     if (!npc.alive || npc.active === false) return
     if (!npc.bag) npc.bag = {}
+    ensureNpcWanted(run, npc)
     if (npc.injured) {
       const medicine = ['medkit', 'ration'].find((key) => (npc.bag[key] || 0) > 0)
       if (medicine) {
@@ -1067,6 +1140,28 @@ export function tickWorld(run) {
     buyer.tradeLog.unshift({ day: run.day, itemId, credits: -price, with: seller.id })
     trades += 1
     push(`${seller.name} 把${ITEMS[itemId].name}卖给了${buyer.name}，收了 ${price} 信用点。`, 'info')
+  })
+
+  let duels = 0
+  rng.shuffle(run.npcEdges || []).forEach((edge) => {
+    if (duels >= 1 || edge.rivalry < 55 || !rng.chance(0.12)) return
+    const a = run.npcs[edge.a]
+    const b = run.npcs[edge.b]
+    if (!a?.alive || !b?.alive || a.active === false || b.active === false) return
+    const statsA = npcCombatStats(a)
+    const statsB = npcCombatStats(b)
+    const scoreA = statsA.attack + rng.int(1, 12) + Math.round(edge.trust / 20)
+    const scoreB = statsB.attack + rng.int(1, 12) + Math.round(edge.trust / 20)
+    if (scoreA === scoreB) return
+    const winner = scoreA > scoreB ? a : b
+    const loser = winner === a ? b : a
+    loser.injured = true
+    winner.credits = (winner.credits || 0) + 6
+    loser.credits = Math.max(0, (loser.credits || 0) - 6)
+    edge.rivalry = clamp(edge.rivalry + 6, 0, 100)
+    edge.trust = clamp(edge.trust - 4, 0, 100)
+    duels += 1
+    push(`${winner.name} 和 ${loser.name} 在空港外动了手。${loser.name}受了伤，${winner.name}拿走了 6 信用点。`, 'bad')
   })
 
   Object.values(run.npcs).forEach((npc) => {

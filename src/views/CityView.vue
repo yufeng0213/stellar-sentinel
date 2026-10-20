@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { activeEscorts } from '../game-core/escort.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
@@ -10,12 +11,18 @@ const city = computed(() => run.value?.city || null)
 const visitors = computed(() => (city.value?.visitorIds || [])
   .map((id) => run.value?.npcs?.[id])
   .filter((npc) => npc && npc.active !== false))
+const escorts = computed(() => (run.value ? activeEscorts(run.value) : []))
 
 onMounted(() => game.enterCity())
 
 function open(name) {
   if (!run.value) return
   router.push({ name, params: { runId: run.value.id } })
+}
+
+function finishEscort(escort) {
+  const result = game.completeEscort(escort.npcId)
+  if (result.ok) game.notify(`护送完成 · ${result.credits} 信用点`, 'good')
 }
 </script>
 
@@ -44,6 +51,25 @@ function open(name) {
           >{{ npc.name.slice(0, 1) }}</RouterLink>
           <span v-if="!visitors.length" class="hint">还没有新面孔。</span>
         </div>
+      </div>
+    </section>
+
+    <section v-if="escorts.length" class="panel escort-box">
+      <div class="escort-head">
+        <div>
+          <p class="kicker">ESCORT · ACTIVE</p>
+          <h3>有人等着你送他回诊所</h3>
+        </div>
+        <span class="tag amber">{{ escorts.length }} 项</span>
+      </div>
+      <div class="escort-list">
+        <article v-for="escort in escorts" :key="escort.id" class="escort-row">
+          <div>
+            <b>{{ run.npcs[escort.npcId]?.name || '某人' }}</b>
+            <span>D{{ escort.deadline }} 前送到诊所 · 奖励 {{ escort.reward }} 信用点</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" @click="finishEscort(escort)">送到诊所</button>
+        </article>
       </div>
     </section>
 
@@ -124,6 +150,13 @@ function open(name) {
   color: var(--cyan);
   font-size: max(var(--ui-min), calc(14px * var(--ui-scale)));
 }
+.escort-box { padding: 14px 16px; border-color: rgba(255, 196, 107, .3); background: rgba(255, 196, 107, .045); }
+.escort-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.escort-head h3 { margin-top: 3px; font-size: max(var(--ui-min), calc(16px * var(--ui-scale))); font-weight: 400; }
+.escort-list { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+.escort-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .4); }
+.escort-row b { display: block; font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.escort-row span { display: block; margin-top: 2px; color: var(--dim); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;

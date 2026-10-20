@@ -7,13 +7,18 @@ import { createRun } from '../src/game-core/run.js'
 import {
   breakUpWithNpc,
   buyFromNpc,
+  ensureNpcWanted,
+  fulfillNpcWanted,
   giftToNpc,
+  giveNpcGear,
+  npcCombatStats,
   npcRelationTree,
   npcTradeOffers,
   romanceStatus,
   sellToNpc,
   tickWorld,
 } from '../src/game-core/npc.js'
+import { completeEscort, startEscort } from '../src/game-core/escort.js'
 import { resolveInboxEvent } from '../src/game-core/npc-events.js'
 import { buildSettlementMessages, localSettlementReport } from '../src/game/settlement.js'
 import { validateRun } from '../src/game/save.js'
@@ -132,6 +137,28 @@ const helped = resolveInboxEvent(run, medicineEvent.id, 'accept')
 check(helped.ok, '医疗求助处理失败')
 check(npc.injured === false, '医疗求助没有治好 NPC')
 check((run.inv.medkit || 0) === 0, '医疗求助没有扣除医疗包')
+
+run.inv.pebble = 1
+ensureNpcWanted(run, npc, true)
+npc.wanted = { itemId: 'pebble', price: 12, day: run.day, status: 'open' }
+npc.credits = 50
+const wantedResult = fulfillNpcWanted(run, npc.id)
+check(wantedResult.ok && run.player.credits >= 12, 'NPC 收购单没有完成')
+check(!run.inv.pebble, 'NPC 收购单没有扣除物品')
+
+const gear = { uid: 'test-blade', key: 'blade', name: '共鸣刃', slot: 'weapon', bonus: { per: 2 }, quality: '标准' }
+run.gear.push(gear)
+const beforeAttack = npcCombatStats(npc).attack
+const gaveGear = giveNpcGear(run, npc.id, gear.uid)
+check(gaveGear.ok && npc.gear.weapon?.uid === gear.uid, '装备没有送给 NPC')
+check(!run.gear.some((item) => item.uid === gear.uid), '送出的装备还在玩家背包')
+check(npcCombatStats(npc).attack >= beforeAttack, 'NPC 装备没有影响战斗属性')
+
+npc.injured = true
+const escort = startEscort(run, npc.id)
+check(escort.ok, '护送任务没有创建')
+const escortDone = completeEscort(run, npc.id)
+check(escortDone.ok && npc.injured === false, '护送没有让 NPC 伤愈')
 
 const imported = validateRun(JSON.parse(JSON.stringify(run)))
 check(imported.ok, '社交状态存档校验失败')

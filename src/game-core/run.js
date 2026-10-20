@@ -11,6 +11,7 @@ import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
 import { createCityState } from './city.js'
 import { createDoorState } from './door.js'
+import { createEscortState } from './escort.js'
 import { generateDungeonName, resetDungeon } from './dungeon.js'
 import { createReputationState } from './faction.js'
 import { createStoryState } from './story.js'
@@ -145,6 +146,7 @@ export function createRun(draft, seedInput) {
     story: createStoryState(),
     city: createCityState(),
     door: createDoorState(),
+    escorts: createEscortState(),
     ...createReputationState(),
     dungeon: { name: generateDungeonName({ seed, mapSeed: map.seed }), source: 'local', day: 1 },
     visited: [map.startId],

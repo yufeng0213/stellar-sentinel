@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { ITEMS } from '../game-core/data.js'
+import { GEAR_GLYPH, ITEMS } from '../game-core/data.js'
 import { useNpcPage } from '../composables/useNpcPage.js'
 
 const { game, run, npc, backNpc } = useNpcPage()
@@ -17,11 +17,20 @@ const giftItems = computed(() => {
     })
 })
 
+const gearItems = computed(() => (run.value?.gear || []))
+
 function give(itemId) {
   if (!npc.value) return
   const result = game.giftNpc(npc.value.id, itemId)
   reply.value = result.reply || result.message || ''
   if (result.ok) game.notify(result.gain > 0 ? `好感变化 +${result.gain}` : '他没什么反应', result.gain > 0 ? 'good' : '')
+}
+
+function giveGear(gear) {
+  if (!npc.value) return
+  const result = game.giveNpcGear(npc.value.id, gear.uid)
+  reply.value = result.ok ? `他把${result.gear.name}装备上了。` : result.message
+  if (result.ok) game.notify(`已送出 ${result.gear.name}`, 'good')
 }
 </script>
 
@@ -50,6 +59,19 @@ function give(itemId) {
         </button>
       </div>
       <p v-else class="empty">背包里没有可以送的东西。</p>
+
+      <h3 class="gift-label">装备</h3>
+      <div v-if="gearItems.length" class="gift-grid">
+        <button v-for="gear in gearItems" :key="gear.uid" type="button" class="gift" @click="giveGear(gear)">
+          <span class="i-glyph">{{ GEAR_GLYPH[gear.key] }}</span>
+          <span class="gift-body">
+            <b>{{ gear.name }}</b>
+            <small>{{ gear.quality }} · {{ gear.slot }} · 送给他装备</small>
+          </span>
+        </button>
+      </div>
+      <p v-else class="empty">背包里没有可送出的装备。</p>
+
       <p v-if="reply" class="reply">{{ reply }}</p>
     </section>
   </div>
@@ -65,6 +87,7 @@ function give(itemId) {
 .gift-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 7px; }
 .gift { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: rgba(5, 10, 16, .42); color: var(--ink); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); text-align: left; cursor: pointer; }
 .gift:hover { border-color: var(--line-2); }
+.gift-label { margin: 16px 0 8px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); font-weight: 500; letter-spacing: .1em; }
 .gift-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .gift-body b { font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; }
 .gift-body small { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }

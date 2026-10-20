@@ -7,6 +7,7 @@ import { createNpcWorld, ensureNpcTags } from '../game-core/npc.js'
 import { createCityState } from '../game-core/city.js'
 import { ensureDoor } from '../game-core/door.js'
 import { ensureDungeon } from '../game-core/dungeon.js'
+import { ensureEscorts } from '../game-core/escort.js'
 import { ensureReputation } from '../game-core/faction.js'
 import { createStoryState } from '../game-core/story.js'
 
@@ -79,6 +80,7 @@ export function validateRun(input) {
   ensureDoor(data)
   ensureDungeon(data)
   ensureReputation(data)
+  ensureEscorts(data)
   if (!data.story.flags || typeof data.story.flags !== 'object') data.story.flags = {}
 
   Object.values(data.npcChats).forEach((messages) => {

@@ -14,6 +14,7 @@ const visitorStory = computed(() => (npc.value?.visitor ? visitorStoryStatus(run
 const bagItems = computed(() => Object.keys(npc.value?.bag || {})
   .filter((key) => ITEMS[key] && npc.value.bag[key] > 0)
   .map((key) => ({ key, ...ITEMS[key], count: npc.value.bag[key] })))
+const npcGear = computed(() => Object.values(npc.value?.gear || {}))
 
 const inviteCheck = computed(() => (
   npc.value ? canInviteToParty(run.value, npc.value.id) : { ok: false, reason: '' }
@@ -146,6 +147,14 @@ function doBreakUp() {
       <p class="hint">他收下的东西。受伤时，如果他带着医疗包或营养膏，会自己使用。</p>
       <div class="bag-chips">
         <span v-for="item in bagItems" :key="item.key" class="tag">{{ item.glyph }} {{ item.name }} ×{{ item.count }}</span>
+      </div>
+    </section>
+
+    <section v-if="npcGear.length" class="panel npc-block">
+      <h3>装备</h3>
+      <p class="hint">你送给他的装备会进入他的战斗属性，也会在 NPC 自主冲突中使用。</p>
+      <div class="bag-chips">
+        <span v-for="gear in npcGear" :key="gear.uid" class="tag cyan">{{ gear.name }} · {{ gear.quality }}</span>
       </div>
     </section>
 

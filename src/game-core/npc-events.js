@@ -5,6 +5,7 @@
 
 import { ITEMS, REGIONS } from './data.js'
 import { recordWeeklyMemories } from './memory.js'
+import { activeEscorts, startEscort } from './escort.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -17,6 +18,7 @@ export const EVENT_TYPES = {
   romance: { label: '靠近', color: 'red', base: 8, major: true },
   confession: { label: '表白', color: 'red', base: 10, major: true },
   jealousy: { label: '吃醋', color: 'red', base: 8, major: true },
+  escort: { label: '护送', color: 'amber', base: 9, major: true },
   conflict: { label: '冲突', color: 'red', base: 10, major: true },
   gossip: { label: '八卦', color: 'amber', base: 7, major: false },
 }
@@ -136,6 +138,11 @@ function eventEligible(run, npc, type, rng) {
       other.id !== npc.id && other.alive && other.lover
     ))
   }
+  if (type === 'escort') {
+    return npc.injured &&
+      relation.trust >= 20 &&
+      !activeEscorts(run).some((escort) => escort.npcId === npc.id)
+  }
   if (type === 'gossip') return relation.trust >= 10 && (run.npcEdges || []).some((edge) => edge.a === npc.id || edge.b === npc.id)
   return false
 }
@@ -149,6 +156,7 @@ function eventWeight(run, npc, type) {
   if (type === 'message') weight *= 1 + relation.trust / 180
   if (type === 'gift') weight *= 1 + npc.personality.generosity / 160
   if (type === 'favor') weight *= (1 + relation.trust / 150) * (npc.injured ? 2 : 1)
+  if (type === 'escort' && npc.injured) weight *= 2.5
   if (type === 'quest') weight *= 1 + relation.trust / 120
   if (type === 'romance') weight *= 1 + relation.closeness / 90
   if (type === 'confession') weight *= 2.2
@@ -304,6 +312,14 @@ function buildEvent(run, rng, npc, type, weekly = false) {
     base.choices = [
       { id: 'honest', label: '坦白' },
       { id: 'deny', label: '否认' },
+    ]
+  } else if (type === 'escort') {
+    base.title = `${npc.name} 需要你送他回去`
+    base.text = '“我走不快……能不能送我回空港诊所？”他靠着墙，伤口没有再流血，但脸色很差。'
+    base.payload = { npcId: npc.id, reward: 35 }
+    base.choices = [
+      { id: 'accept', label: '送他回城' },
+      { id: 'decline', label: '让他自己处理' },
     ]
   } else if (type === 'conflict') {
     const amount = Math.min(60, 20 + Math.round(relation.grievance / 2))
@@ -563,6 +579,16 @@ function resolveJealousy(run, npc, event, choice) {
   return '你说没有。他看着你，像是已经知道了答案，但最后什么也没拆穿。'
 }
 
+function resolveEscort(run, npc, event, choice) {
+  if (choice === 'decline') {
+    npc.relation.trust = clamp(npc.relation.trust - 3, 0, 100)
+    return '你说现在走不开。他点点头，自己扶着墙往诊所方向去了。'
+  }
+  const result = startEscort(run, npc.id)
+  if (!result.ok) return { error: result.message }
+  return `你答应送${npc.name}回空港诊所。到城门后可以完成护送，领取 ${result.escort.reward} 信用点。`
+}
+
 function resolveConflict(run, npc, event, choice) {
   if (choice === 'pay') {
     if (run.player.credits < event.payload.amount) return { error: '信用点不足' }
@@ -605,6 +631,7 @@ export function resolveInboxEvent(run, eventId, choiceId) {
   else if (event.type === 'romance') result = resolveRomance(run, npc, event, choiceId)
   else if (event.type === 'confession') result = resolveConfession(run, npc, event, choiceId)
   else if (event.type === 'jealousy') result = resolveJealousy(run, npc, event, choiceId)
+  else if (event.type === 'escort') result = resolveEscort(run, npc, event, choiceId)
   else if (event.type === 'conflict') result = resolveConflict(run, npc, event, choiceId)
   else if (event.type === 'gossip') result = resolveGossip(run, npc, event, choiceId)
 

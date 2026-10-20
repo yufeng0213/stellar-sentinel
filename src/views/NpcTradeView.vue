@@ -1,12 +1,17 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ITEMS } from '../game-core/data.js'
-import { npcTradeOffers } from '../game-core/npc.js'
+import { ensureNpcWanted, npcTradeOffers } from '../game-core/npc.js'
 import { useNpcPage } from '../composables/useNpcPage.js'
 
 const { game, run, npc, backNpc } = useNpcPage()
 const reply = ref('')
 const offers = computed(() => (run.value && npc.value ? npcTradeOffers(run.value, npc.value.id) : []))
+const wanted = computed(() => (npc.value?.wanted?.status === 'open' ? npc.value.wanted : null))
+
+onMounted(() => {
+  if (run.value && npc.value) ensureNpcWanted(run.value, npc.value)
+})
 const sellItems = computed(() => {
   if (!run.value) return []
   return Object.keys(run.value.inv || {})
@@ -30,6 +35,12 @@ function sell(item) {
   reply.value = result.ok ? `你卖出了${result.name}，得到 ${result.credits} 信用点。` : result.message
   if (result.ok) game.notify(`卖出 ${result.name}`, 'good')
 }
+
+function fulfillWanted() {
+  const result = game.fulfillNpcWanted(npc.value.id)
+  reply.value = result.ok ? `你满足了收购单，得到 ${result.credits} 信用点。` : result.message
+  if (result.ok) game.notify(`收购单完成 · ${result.name}`, 'good')
+}
 </script>
 
 <template>
@@ -45,6 +56,17 @@ function sell(item) {
         <span class="tag amber">你 {{ run.player.credits }} 信用点</span>
         <span class="tag jade">他 {{ npc.credits || 0 }} 信用点</span>
       </div>
+    </section>
+
+    <section v-if="wanted" class="panel wanted-card">
+      <div>
+        <p class="kicker">BUY ORDER · D{{ run.day }}</p>
+        <h3>他想收：{{ ITEMS[wanted.itemId]?.name }}</h3>
+        <p>他今天在收{{ ITEMS[wanted.itemId]?.name }}，愿意出 {{ wanted.price }} 信用点。你持有 {{ run.inv[wanted.itemId] || 0 }} 件。</p>
+      </div>
+      <button type="button" class="btn btn-primary" :disabled="(run.inv[wanted.itemId] || 0) < 1 || (npc.credits || 0) < wanted.price" @click="fulfillWanted">
+        卖给他 · {{ wanted.price }}
+      </button>
     </section>
 
     <section class="panel trade-block">
@@ -100,6 +122,9 @@ function sell(item) {
 .back-link { display: inline-flex; margin-bottom: 9px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .trade-head h1 { margin-top: 3px; font-size: max(var(--ui-min), calc(32px * var(--ui-scale))); font-weight: 300; letter-spacing: .1em; }
 .trade-wallet { display: flex; flex-wrap: wrap; gap: 6px; }
+.wanted-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 16px; border-color: rgba(255, 196, 107, .28); background: rgba(255, 196, 107, .045); }
+.wanted-card h3 { margin-top: 3px; color: var(--amber); font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 400; }
+.wanted-card p { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.6; }
 .trade-block { padding: 16px; }
 .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .section-head h2 { margin-top: 3px; font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 400; }

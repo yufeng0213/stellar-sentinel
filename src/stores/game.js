@@ -15,6 +15,7 @@ import { recordEnding } from '../game/collection.js'
 import { ensureDoor, resolveDoorFinale, resolveDoorStep } from '../game-core/door.js'
 import { endingFor, getEnding, localEpilogue } from '../game-core/ending.js'
 import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dungeon.js'
+import { completeEscort, ensureEscorts } from '../game-core/escort.js'
 import {
   adjustReputation,
   buyFactionShopItem,
@@ -63,10 +64,13 @@ import {
   breakUpWithNpc,
   buyFromNpc,
   confessToNpc,
+  fulfillNpcWanted,
   giftToNpc,
+  giveNpcGear,
   intimidateNpc,
   inviteToParty as inviteToPartyCore,
   leaveParty as leavePartyCore,
+  npcCombatStats,
   resolveAmbushPeacefully,
   sellToNpc,
   talkToNpc,
@@ -191,6 +195,7 @@ export const useGameStore = defineStore('game', {
       ensureDoor(stored)
       ensureDungeon(stored)
       ensureReputation(stored)
+      ensureEscorts(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
           if (!message.streaming) return
@@ -816,6 +821,42 @@ export const useGameStore = defineStore('game', {
       return result
     },
 
+    fulfillNpcWanted(npcId) {
+      if (!this.run) return { ok: false }
+      const result = fulfillNpcWanted(this.run, npcId)
+      if (result.ok) {
+        addLog(this.run, `满足 ${this.run.npcs[npcId]?.name || 'NPC'} 的收购单：${result.name}，得到 ${result.credits} 信用点。`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    completeEscort(npcId) {
+      if (!this.run) return { ok: false }
+      const result = completeEscort(this.run, npcId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    giveNpcGear(npcId, uid) {
+      if (!this.run) return { ok: false }
+      const result = giveNpcGear(this.run, npcId, uid)
+      if (result.ok) {
+        addLog(this.run, `把${result.gear.name}交给了${this.run.npcs[npcId]?.name || 'NPC'}。`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
     adjustFaction(factionId, delta, reason = '') {
       if (!this.run) return { ok: false }
       const result = adjustReputation(this.run, factionId, delta, reason)
@@ -944,6 +985,7 @@ export const useGameStore = defineStore('game', {
       const npc = this.run.npcs?.[this.run.pendingAmbush]
       const current = this.run.map.nodes[this.run.location]
       if (!npc || !current) return null
+      const combat = npcCombatStats(npc)
 
       const node = {
         id: `ambush-${npc.id}-${this.run.day}`,
@@ -954,10 +996,10 @@ export const useGameStore = defineStore('game', {
         subtitle: '私人恩怨',
         enemy: {
           name: npc.name,
-          hp: npc.combat.hp,
-          morale: npc.combat.morale,
-          attack: npc.combat.attack,
-          traits: [...npc.combat.traits],
+          hp: combat.hp,
+          morale: combat.morale,
+          attack: combat.attack,
+          traits: [...combat.traits],
         },
       }
 
