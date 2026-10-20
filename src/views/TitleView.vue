@@ -76,7 +76,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.29.0 · NPC ECON</dd>
+            <dd class="mono">0.30.0 · GEAR</dd>
           </div>
         </dl>
       </section>

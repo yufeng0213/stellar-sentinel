@@ -249,6 +249,8 @@ export function buyBlackMarketIntel(run) {
   run.story = run.story || {}
   run.story.flags = run.story.flags || {}
   run.story.flags.intel = true
+  run.story.flags.bossIntel = true
+  run.story.flags.bossWeakness = 'psi'
   adjustReputation(run, 'market', 3, '黑市情报')
   return {
     ok: true,

@@ -453,6 +453,9 @@ function nextNodes(node) {
                 }">{{ stateLabel(selected.id) }}</span>
                 <span v-if="selected.type === 'gather'" class="tag">剩余 {{ remaining }} 次</span>
                 <span v-if="selected.type === 'boss'" class="tag red">首领</span>
+                <span v-if="selected.type === 'boss' && run.story?.flags?.bossIntel" class="tag amber">
+                  弱点 {{ ATTR_NAME[run.story.flags.bossWeakness] || '未知' }}
+                </span>
               </div>
 
               <!-- 采集 -->

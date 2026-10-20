@@ -14,7 +14,9 @@ import {
 import { recordEnding } from '../game/collection.js'
 import { ensureDoor, resolveDoorFinale, resolveDoorStep } from '../game-core/door.js'
 import { endingFor, getEnding, localEpilogue } from '../game-core/ending.js'
+import { ensureBlueprints } from '../game-core/blueprint.js'
 import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dungeon.js'
+import { ensureGear, upgradeGear as upgradeGearCore } from '../game-core/gear.js'
 import { completeEscort, ensureEscorts } from '../game-core/escort.js'
 import {
   adjustReputation,
@@ -192,6 +194,8 @@ export const useGameStore = defineStore('game', {
       if (stored.weekly === undefined) stored.weekly = null
       if (!stored.story || typeof stored.story !== 'object') stored.story = createStoryState()
       if (!stored.city || typeof stored.city !== 'object') stored.city = createCityState()
+      ensureBlueprints(stored)
+      ensureGear(stored)
       ensureDoor(stored)
       ensureDungeon(stored)
       ensureReputation(stored)
@@ -850,6 +854,18 @@ export const useGameStore = defineStore('game', {
       const result = giveNpcGear(this.run, npcId, uid)
       if (result.ok) {
         addLog(this.run, `把${result.gear.name}交给了${this.run.npcs[npcId]?.name || 'NPC'}。`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    upgradeGear(uid) {
+      if (!this.run) return { ok: false }
+      const result = upgradeGearCore(this.run, uid)
+      if (result.ok) {
+        addLog(this.run, `强化 ${result.gear.name}：${result.cost.nextQuality}。`, 'good')
         this.save()
       } else {
         this.notify(result.message, 'bad')

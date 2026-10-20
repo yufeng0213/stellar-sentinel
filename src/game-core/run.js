@@ -9,11 +9,13 @@ import { createNpcWorld, tickWorld } from './npc.js'
 import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
 import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
+import { createBlueprintState, recipeKnown } from './blueprint.js'
 import { createCityState } from './city.js'
 import { createDoorState } from './door.js'
 import { createEscortState } from './escort.js'
 import { generateDungeonName, resetDungeon } from './dungeon.js'
 import { createReputationState } from './faction.js'
+import { gearTierFor, rollGearAffixes } from './gear.js'
 import { createStoryState } from './story.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -112,11 +114,16 @@ export function makeGear(run, key, quality) {
   Object.keys(base.bonus).forEach((attrKey) => {
     bonus[attrKey] = Math.max(0, base.bonus[attrKey] + delta)
   })
+  const tier = gearTierFor(key)
   return {
     uid: `g-${run.seed}-${run.gear.length + 1}`,
     key,
     name: base.name,
     slot: base.slot,
+    setId: base.setId || null,
+    tier,
+    affixes: rollGearAffixes(run, key, quality, tier),
+    upgradeLevel: 0,
     bonus,
     quality,
     note: base.note,
@@ -147,6 +154,7 @@ export function createRun(draft, seedInput) {
     city: createCityState(),
     door: createDoorState(),
     escorts: createEscortState(),
+    ...createBlueprintState(),
     ...createReputationState(),
     dungeon: { name: generateDungeonName({ seed, mapSeed: map.seed }), source: 'local', day: 1 },
     visited: [map.startId],
@@ -522,6 +530,7 @@ function checkQuality(total, dc, crit) {
 export function craft(run, recipeId) {
   const recipe = RECIPES.find((item) => item.id === recipeId)
   if (!recipe) return { ok: false, message: '没有这个配方' }
+  if (!recipeKnown(run, recipeId)) return { ok: false, message: '还没有掌握这张图纸' }
   if (run.ap < 1) return { ok: false, message: '行动点不足' }
   if (!hasMats(run, recipe)) return { ok: false, message: '材料不足' }
 

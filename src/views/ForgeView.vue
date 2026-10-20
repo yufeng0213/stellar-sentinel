@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { GEAR, ITEMS, RECIPES } from '../game-core/data.js'
+import { blueprintTierLabel, recipeKnown, recipeSourceLabel } from '../game-core/blueprint.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
@@ -15,7 +16,14 @@ function materialState(recipe) {
 }
 
 function canCraft(recipe) {
-  return !!run.value && run.value.ap > 0 && materialState(recipe).every((item) => item.enough)
+  return !!run.value &&
+    recipeKnown(run.value, recipe.id) &&
+    run.value.ap > 0 &&
+    materialState(recipe).every((item) => item.enough)
+}
+
+function known(recipe) {
+  return !!run.value && recipeKnown(run.value, recipe.id)
 }
 
 function craft(recipe) {
@@ -37,20 +45,20 @@ function craftNote(recipe) {
         <div>
           <p class="kicker">FORGE</p>
           <h2>锻造工坊</h2>
-          <p class="hint">随身工具包 · 品质由技艺判定决定（粗糙 / 标准 / 精良）</p>
+          <p class="hint">随身工具包 · 品质由技艺判定决定（粗糙 / 标准 / 精良，强化可到原型）</p>
         </div>
         <span class="tag cyan">AP {{ run.ap }} / {{ run.apMax }}</span>
       </header>
 
       <div class="recipe-list">
-        <article v-for="recipe in RECIPES" :key="recipe.id" class="recipe">
+        <article v-for="recipe in RECIPES" :key="recipe.id" class="recipe" :class="{ 'is-locked': !known(recipe) }">
           <span class="r-glyph">⚒</span>
           <div class="r-body">
             <div class="r-top">
               <b>{{ recipe.name }}</b>
-              <span>技艺 DC {{ recipe.dc }}</span>
+              <span>{{ known(recipe) ? `技艺 DC ${recipe.dc}` : '未掌握图纸' }} · {{ blueprintTierLabel(recipe) }}</span>
             </div>
-            <p class="r-note">{{ craftNote(recipe) }}</p>
+            <p class="r-note">{{ known(recipe) ? craftNote(recipe) : `${recipeSourceLabel(recipe)} · 取得图纸后才能锻造` }}</p>
             <div class="mats">
               <span
                 v-for="mat in materialState(recipe)"
@@ -68,13 +76,13 @@ function craftNote(recipe) {
             :disabled="!canCraft(recipe)"
             @click="craft(recipe)"
           >
-            锻造
+            {{ known(recipe) ? '锻造' : '未掌握' }}
           </button>
         </article>
       </div>
 
       <p class="footnote">
-        锻造消耗 1 AP。材料不足时按钮不可用；失败会消耗材料。装备成品会自动进入对应栏位。
+        锻造消耗 1 AP。未掌握的图纸会显示来源，击败首领后才能锻造原型装备。材料不足时按钮不可用；失败会消耗材料。
       </p>
     </section>
   </div>
@@ -87,6 +95,7 @@ function craftNote(recipe) {
 .forge-head .hint { margin-top: 3px; }
 
 .recipe-list { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
+.recipe.is-locked { opacity: .48; border-style: dashed; }
 .recipe {
   display: flex;
   align-items: center;

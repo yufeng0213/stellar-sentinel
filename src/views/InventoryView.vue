@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { ATTRS, GEAR_GLYPH, ITEMS, SLOTS } from '../game-core/data.js'
+import { gearSetState, upgradeCost } from '../game-core/gear.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
@@ -28,6 +29,19 @@ const gifts = computed(() => {
 })
 
 const gears = computed(() => (run.value ? run.value.gear : []))
+const sets = computed(() => (run.value ? gearSetState(run.value) : []))
+
+function upgrade(gear) {
+  const cost = upgradeCost(gear)
+  if (!cost) return
+  const result = game.upgradeGear(gear.uid)
+  if (result.ok) game.notify(`${gear.name} 强化到 ${cost.nextQuality}`, 'good')
+}
+
+function costText(gear) {
+  const cost = upgradeCost(gear)
+  return cost ? `${cost.credits} 信用点 / ${cost.scrap} 废料` : '已到顶'
+}
 
 function effectText(item) {
   const effect = item.effect || {}
@@ -100,19 +114,37 @@ function isEquipped(gear) {
       </div>
       <div v-else class="empty">还没有小礼物。采集或市场里偶尔能碰到。</div>
 
+      <section v-if="sets.length" class="set-panel">
+        <p class="kicker">SET BONUS</p>
+        <div v-for="set in sets" :key="set.id" class="set-row">
+          <b>{{ set.name }}</b>
+          <span>{{ set.count }} 件</span>
+          <em v-if="set.two">{{ set.two.name }}：{{ set.two.desc }}</em>
+          <em v-if="set.four">{{ set.four.name }}：{{ set.four.desc }}</em>
+        </div>
+      </section>
+
       <h3 class="sec-label">装备</h3>
       <div v-if="gears.length" class="gear-list">
         <div v-for="gear in gears" :key="gear.uid" class="gear" :class="{ 'is-on': isEquipped(gear) }">
           <span class="g-glyph">{{ GEAR_GLYPH[gear.key] }}</span>
           <div class="g-body">
             <b>{{ gear.name }}</b>
-            <span class="q" :class="gear.quality === '精良' ? 'q2' : gear.quality === '粗糙' ? 'q0' : 'q1'">{{ gear.quality }}</span>
+            <span class="q" :class="gear.quality === '精良' || gear.quality === '原型' ? 'q2' : gear.quality === '粗糙' ? 'q0' : 'q1'">{{ gear.quality }}</span>
             <p>{{ SLOTS[gear.slot] }} · {{ gear.note }}</p>
+            <p v-if="gear.affixes?.length" class="g-affix">
+              {{ gear.affixes.map((affix) => `${affix.name}：${affix.desc}`).join(' / ') }}
+            </p>
           </div>
           <span class="g-bonus">{{ bonusText(gear.bonus) }}</span>
-          <button type="button" class="btn btn-sm" @click="game.equip(gear.uid)">
-            {{ isEquipped(gear) ? '卸下' : '装备' }}
-          </button>
+          <div class="g-actions">
+            <button type="button" class="btn btn-sm" @click="game.equip(gear.uid)">
+              {{ isEquipped(gear) ? '卸下' : '装备' }}
+            </button>
+            <button type="button" class="btn btn-sm" :disabled="!upgradeCost(gear)" :title="costText(gear)" @click="upgrade(gear)">
+              强化
+            </button>
+          </div>
         </div>
       </div>
       <div v-else class="empty">背包里没有装备。锻造页可以做一把。</div>
@@ -218,6 +250,13 @@ function isEquipped(gear) {
 .g-body p { margin-top: 1px; color: var(--dim); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.5; overflow-wrap: anywhere; }
 .g-bonus { flex: none; color: var(--jade); font-family: var(--mono); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); }
 .gear .btn { flex: none; }
+.g-affix { color: var(--violet) !important; font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))) !important; line-height: 1.5 !important; margin-top: 3px; }
+.g-actions { display: flex; flex-direction: column; gap: 3px; flex: none; }
+.set-panel { margin-top: 16px; padding: 11px 12px; border: 1px solid rgba(185, 164, 255, .25); border-radius: 10px; background: rgba(185, 164, 255, .045); }
+.set-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin-top: 6px; }
+.set-row b { color: var(--violet); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.set-row span { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.set-row em { width: 100%; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); font-style: normal; }
 
 .empty {
   padding: 22px 12px;

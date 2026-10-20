@@ -73,6 +73,7 @@ function makeEnemy(rng, region, type) {
     hp: baseHp + rng.int(0, 6),
     morale: type === 'boss' ? 40 : 18 + rng.int(0, 8),
     attack: 4 + region.danger * 2 + rng.int(0, 3),
+    weakness: type === 'boss' ? 'psi' : null,
     traits: [...traits],
   }
 }

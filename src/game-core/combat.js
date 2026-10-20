@@ -4,7 +4,9 @@
  * 规则全部在本地，LLM 不参与命中、伤害与士气。
  */
 
+import { unlockBossBlueprint } from './blueprint.js'
 import { GIFT_KEYS, ITEMS, REGIONS } from './data.js'
+import { gearEffects } from './gear.js'
 import { addLog, effectiveAttr } from './run.js'
 import { createRng } from './rng.js'
 
@@ -334,6 +336,7 @@ export function createBattle(run, node) {
   const deck = [...BASE_DECK]
   const party = Array.isArray(run.party) ? run.party.slice(0, 2) : []
   party.forEach(() => deck.push('assist'))
+  const effects = gearEffects(run)
 
   const battle = {
     nodeId: node.id,
@@ -343,7 +346,9 @@ export function createBattle(run, node) {
     round: 1,
     ap: 3,
     apMax: 3,
-    guard: 0,
+    guard: effects.shield || 0,
+    attacksThisTurn: 0,
+    bossWeakness: node.enemy?.weakness || null,
     focus: 0,
     evasion: 0,
     counter: 0,
@@ -411,6 +416,7 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
   const equippedWeapon = hasGear(run, 'blade')
   const equippedHead = hasGear(run, 'visor')
   const equippedBody = hasGear(run, 'robe')
+  const effects = gearEffects(run)
 
   battle.ap -= card.cost
   battle.hand.splice(handIndex, 1)
@@ -437,7 +443,13 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
       if ((run.player.perks?.lowHpDamage || 0) && run.player.hp < run.player.hpMax * 0.5) {
         situational += run.player.perks.lowHpDamage
       }
+      situational += effects.attack || 0
+      if (run.player.mental < 30) situational += effects.lowMental || 0
+      if (battle.nodeType === 'boss') situational += effects.boss || 0
+      if (battle.nodeType === 'boss' && run.story?.flags?.bossIntel && card.attr === battle.bossWeakness) situational += 3
+      if ((effects.firstAttack || 0) && battle.attacksThisTurn === 0) situational += effects.firstAttack
       const damage = attackDamage(card, check, target, equippedWeapon, situational)
+      battle.attacksThisTurn += 1
       damageEnemy(battle, target, damage)
 
       if (card.status && !target.downed) {
@@ -557,6 +569,7 @@ export function endTurn(battle, run) {
 
   battle.discard.push(...battle.hand)
   battle.hand = []
+  battle.attacksThisTurn = 0
 
   battle.enemies.forEach((enemy) => {
     if (enemy.downed || enemy.surrendered || enemy.fled) return
@@ -603,7 +616,7 @@ export function endTurn(battle, run) {
         battle.counter = 0
       }
     } else if (intent.type === 'psychic' || intent.type === 'drain') {
-      const reduction = (hasGear(run, 'charm') ? 1 : 0) + (run.player.perks?.mentalResist || 0)
+      const reduction = (hasGear(run, 'charm') ? 1 : 0) + (run.player.perks?.mentalResist || 0) + (effects.mentalResist || 0)
       const damage = Math.max(1, intent.value - reduction)
       run.player.mental = clamp(run.player.mental - damage, 0, run.player.mentalMax)
       addBattleLog(battle, `${enemy.name} 的${intent.type === 'drain' ? '汲取' : '精神侵蚀'}，精神 -${damage}。`, 'bad')
@@ -741,11 +754,21 @@ export function resolveBattle(run, battle, choice) {
     return { ok: false, message: '未知处置' }
   }
 
+  const gearCreditBonus = gearEffects(run).credits || 0
+  if (credits && gearCreditBonus) credits = Math.round(credits * (1 + gearCreditBonus))
   run.player.credits += credits
   run.player.mental = clamp(run.player.mental + mental, 0, run.player.mentalMax)
+  let blueprint = null
+  if (boss) {
+    const unlocked = unlockBossBlueprint(run)
+    if (unlocked?.ok) {
+      blueprint = unlocked.recipe
+      text += ` 你在残骸里找到了${unlocked.recipe.name}的图纸。`
+    }
+  }
   markNodeResolved(run, battle, { resolved: true, outcome: choice })
 
-  battle.reward = { choice, credits, mental, text }
+  battle.reward = { choice, credits, mental, text, blueprint }
   addLog(run, `${text}${credits ? ` 信用点 +${credits}。` : ''}`, 'story')
   return { ok: true, reward: battle.reward }
 }

@@ -88,20 +88,52 @@ export const ITEMS = {
 export const GIFT_KEYS = ['pebble', 'postcard', 'bell', 'button', 'dice', 'flower', 'toy', 'letter']
 
 export const GEAR = {
-  blade: { name: '共鸣刃', slot: 'weapon', bonus: { per: 1 }, note: '刃口会随心跳轻微震动。' },
-  visor: { name: '感知面罩', slot: 'head', bonus: { per: 2 }, note: '把过量的信息过滤成线条。' },
-  robe: { name: '向导长袍', slot: 'body', bonus: { psi: 2, soc: 1 }, note: '内衬缝着旧塔的屏蔽丝。' },
-  gloves: { name: '锻工手套', slot: 'hands', bonus: { tec: 2 }, note: '掌心的老茧比甲片可靠。' },
-  charm: { name: '裂隙护符', slot: 'trinket', bonus: { wil: 2 }, note: '一小块不会熄灭的黑。' },
-  cloak: { name: '静默披风', slot: 'body', bonus: { per: 1, wil: 1 }, note: '走起来没有声音。' },
-  scope: { name: '长距瞄具', slot: 'head', bonus: { per: 1, tec: 1 }, note: '把远处的轮廓拉近。' },
-  coil: { name: '共振线圈', slot: 'trinket', bonus: { psi: 2 }, note: '贴着皮肤时会轻轻发热。' },
-  bracers: { name: '合金护腕', slot: 'hands', bonus: { vit: 1, tec: 1 }, note: '挡过一刀，凹痕还在。' },
+  blade: { name: '共鸣刃', slot: 'weapon', bonus: { per: 1 }, setId: 'tower', note: '刃口会随心跳轻微震动。' },
+  visor: { name: '感知面罩', slot: 'head', bonus: { per: 2 }, setId: 'tower', note: '把过量的信息过滤成线条。' },
+  robe: { name: '向导长袍', slot: 'body', bonus: { psi: 2, soc: 1 }, setId: 'tower', note: '内衬缝着旧塔的屏蔽丝。' },
+  gloves: { name: '锻工手套', slot: 'hands', bonus: { tec: 2 }, setId: 'drifters', note: '掌心的老茧比甲片可靠。' },
+  charm: { name: '裂隙护符', slot: 'trinket', bonus: { wil: 2 }, setId: 'whisper', note: '一小块不会熄灭的黑。' },
+  cloak: { name: '静默披风', slot: 'body', bonus: { per: 1, wil: 1 }, setId: 'drifters', note: '走起来没有声音。' },
+  scope: { name: '长距瞄具', slot: 'head', bonus: { per: 1, tec: 1 }, setId: 'drifters', note: '把远处的轮廓拉近。' },
+  coil: { name: '共振线圈', slot: 'trinket', bonus: { psi: 2 }, setId: 'drifters', note: '贴着皮肤时会轻轻发热。' },
+  bracers: { name: '合金护腕', slot: 'hands', bonus: { vit: 1, tec: 1 }, setId: 'tower', note: '挡过一刀，凹痕还在。' },
+  aegis: { name: '塔卫重盾', slot: 'body', bonus: { vit: 2, wil: 1 }, setId: 'tower', note: '从白塔门框上拆下来的整块装甲。' },
+  void: { name: '裂隙切割器', slot: 'weapon', bonus: { per: 2, psi: 2 }, setId: 'whisper', note: '刃口附近的光会轻微弯折。' },
 }
 
 export const GEAR_GLYPH = {
   blade: '†', visor: '◉', robe: '▧', gloves: '⬡', charm: '✦',
-  cloak: '⌁', scope: '⊙', coil: '∿', bracers: '⊓',
+  cloak: '⌁', scope: '⊙', coil: '∿', bracers: '⊓', aegis: '▣', void: '⟡',
+}
+
+export const GEAR_SETS = {
+  tower: {
+    name: '白塔制式',
+    items: ['blade', 'visor', 'robe', 'bracers', 'aegis'],
+    two: { name: '白塔协议', desc: '战斗开始获得 4 点护盾。', effect: { shield: 4 } },
+    four: { name: '封锁线', desc: '对首领造成的伤害 +2。', effect: { boss: 2 } },
+  },
+  drifters: {
+    name: '漂流者套装',
+    items: ['gloves', 'cloak', 'scope', 'coil'],
+    two: { name: '拾荒本能', desc: '战斗信用点收益 +20%。', effect: { credits: 0.2 } },
+    four: { name: '无主之地', desc: '每回合第一张攻击牌伤害 +2。', effect: { firstAttack: 2 } },
+  },
+  whisper: {
+    name: '低语者遗物',
+    items: ['charm', 'void'],
+    two: { name: '静默共鸣', desc: '受到的侵蚀伤害 -1。', effect: { mentalResist: 1 } },
+    four: { name: '回声', desc: '暂未开放。', effect: {} },
+  },
+}
+
+export const GEAR_AFFIXES = {
+  ferocious: { name: '凶猛', desc: '攻击牌伤害 +2', effect: { attack: 2 } },
+  bulwark: { name: '壁垒', desc: '战斗开始获得 3 点护盾', effect: { shield: 3 } },
+  hunter: { name: '猎首', desc: '对首领造成的伤害 +3', effect: { boss: 3 } },
+  resolute: { name: '坚忍', desc: '精神低于 30 时攻击伤害 +2', effect: { lowMental: 2 } },
+  scavenger: { name: '拾荒', desc: '战斗信用点收益 +15%', effect: { credits: 0.15 } },
+  warded: { name: '静默护壁', desc: '受到的侵蚀伤害 -1', effect: { mentalResist: 1 } },
 }
 export const SLOTS = { weapon: '主手', head: '头部', body: '身体', hands: '手部', trinket: '饰品' }
 
@@ -118,7 +150,11 @@ export const RECIPES = [
   { id: 'scope', out: 'scope', name: '长距瞄具', type: 'gear', dc: 15, mats: { alloy: 2, chip: 1 } },
   { id: 'coil', out: 'coil', name: '共振线圈', type: 'gear', dc: 16, mats: { shard: 1, cold: 2 } },
   { id: 'bracers', out: 'bracers', name: '合金护腕', type: 'gear', dc: 13, mats: { alloy: 2, scrap: 2 } },
+  { id: 'aegis', out: 'aegis', name: '塔卫重盾', type: 'gear', tier: 'prototype', source: 'boss', dc: 17, mats: { alloy: 3, relic: 1, cold: 1 } },
+  { id: 'void', out: 'void', name: '裂隙切割器', type: 'gear', tier: 'prototype', source: 'boss', dc: 18, mats: { shard: 2, cold: 2, relic: 1 } },
 ]
+
+export const BOSS_BLUEPRINT = 'void'
 
 export const REGIONS = {
   dock: {
