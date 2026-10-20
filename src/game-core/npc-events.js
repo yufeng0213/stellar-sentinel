@@ -6,6 +6,7 @@
 import { ITEMS, REGIONS } from './data.js'
 import { recordWeeklyMemories } from './memory.js'
 import { activeEscorts, startEscort } from './escort.js'
+import { PERSONA_EVENTS, personaEventFor } from './npc-persona-events.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -19,6 +20,7 @@ export const EVENT_TYPES = {
   confession: { label: '表白', color: 'red', base: 10, major: true },
   jealousy: { label: '吃醋', color: 'red', base: 8, major: true },
   escort: { label: '护送', color: 'amber', base: 9, major: true },
+  persona: { label: '专属', color: 'violet', base: 8, major: true },
   conflict: { label: '冲突', color: 'red', base: 10, major: true },
   gossip: { label: '八卦', color: 'amber', base: 7, major: false },
 }
@@ -116,6 +118,12 @@ function eventEligible(run, npc, type, rng) {
 
   const relation = npc.relation
   if (type === 'message') return true
+  if (type === 'persona') {
+    const personaEvent = personaEventFor(npc)
+    return !!personaEvent &&
+      relation.trust >= personaEvent.minTrust &&
+      !(npc.personaDone || []).includes(personaEvent.id)
+  }
   if (type === 'gift') return relation.trust >= 10 && (npc.personality.generosity >= 28 || hasTag(npc, 'gift'))
   if (type === 'favor') return relation.trust >= 20
   if (type === 'quest') return relation.trust >= 30 && relation.closeness >= 15 && questTargets(run).length > 0
@@ -154,6 +162,7 @@ function eventWeight(run, npc, type) {
   weight *= npc.tagEffects?.eventWeight?.[type] || 1
 
   if (type === 'message') weight *= 1 + relation.trust / 180
+  if (type === 'persona') weight *= 1 + relation.closeness / 100
   if (type === 'gift') weight *= 1 + npc.personality.generosity / 160
   if (type === 'favor') weight *= (1 + relation.trust / 150) * (npc.injured ? 2 : 1)
   if (type === 'escort' && npc.injured) weight *= 2.5
@@ -252,6 +261,13 @@ function buildEvent(run, rng, npc, type, weekly = false) {
       { id: 'ignore', label: '暂不回复' },
     ]
     base.payload = { reply: '收到。' }
+  } else if (type === 'persona') {
+    const definition = personaEventFor(npc)
+    if (!definition) return null
+    base.title = definition.title
+    base.text = definition.text
+    base.payload = { personaId: definition.id }
+    base.choices = definition.choices.map((choice) => ({ id: choice.id, label: choice.label }))
   } else if (type === 'gift') {
     const itemId = giftItemFor(npc)
     base.title = `${npc.name} 送来一件东西`
@@ -486,6 +502,24 @@ function resolveMessage(run, npc, event, choice) {
   return '你没有回复。消息停在那里。'
 }
 
+function resolvePersona(run, npc, event, choice) {
+  const definition = Object.values(PERSONA_EVENTS).find((item) => item.id === event.payload.personaId)
+  const picked = definition?.choices.find((item) => item.id === choice)
+  if (!definition || !picked) return { error: '这个专属事件已经失效' }
+  const outcome = picked.outcome || {}
+  if (typeof outcome.trust === 'number') npc.relation.trust = clamp(npc.relation.trust + outcome.trust, 0, 100)
+  if (typeof outcome.closeness === 'number') npc.relation.closeness = clamp(npc.relation.closeness + outcome.closeness, 0, 100)
+  if (typeof outcome.grievance === 'number') npc.relation.grievance = clamp(npc.relation.grievance + outcome.grievance, 0, 100)
+  if (typeof outcome.fear === 'number') npc.relation.fear = clamp(npc.relation.fear + outcome.fear, 0, 100)
+  if (typeof outcome.mental === 'number') run.player.mental = clamp(run.player.mental + outcome.mental, 0, run.player.mentalMax)
+  if (typeof outcome.hp === 'number') run.player.hp = clamp(run.player.hp + outcome.hp, 1, run.player.hpMax)
+  if (typeof outcome.credits === 'number') run.player.credits = Math.max(0, run.player.credits + outcome.credits)
+  if (outcome.itemId) addItem(run, outcome.itemId, outcome.itemCount || 1)
+  if (outcome.flag) run.flags[outcome.flag] = (run.flags[outcome.flag] || 0) + 1
+  npc.personaDone = [...new Set([...(npc.personaDone || []), definition.id])]
+  return outcome.text || '这段对话停在这里。'
+}
+
 function resolveGift(run, npc, event, choice) {
   if (choice === 'accept') {
     addItem(run, event.payload.itemId, 1)
@@ -637,6 +671,7 @@ export function resolveInboxEvent(run, eventId, choiceId) {
 
   let result = ''
   if (event.type === 'message') result = resolveMessage(run, npc, event, choiceId)
+  else if (event.type === 'persona') result = resolvePersona(run, npc, event, choiceId)
   else if (event.type === 'gift') result = resolveGift(run, npc, event, choiceId)
   else if (event.type === 'favor') result = resolveFavor(run, npc, event, choiceId)
   else if (event.type === 'quest') result = resolveQuest(run, npc, event, choiceId)

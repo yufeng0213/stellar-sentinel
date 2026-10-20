@@ -353,6 +353,7 @@ function makeNpc(run, rng, id, seedRole, name) {
     confessedDay: 0,
     lore: { entries: [] },
     longMemory: [],
+    personaDone: [],
     combat: {
       hp: Math.max(8, 20 + Math.round(personality.aggression / 8) + rng.int(0, 8) + (tagEffects.combat.hp || 0)),
       morale: Math.max(4, 12 + Math.round(personality.loyalty / 10) + rng.int(0, 6) + (tagEffects.combat.morale || 0)),
@@ -452,6 +453,7 @@ export function ensureNpcTags(run) {
     if (typeof npc.loverSince !== 'number') npc.loverSince = 0
     if (typeof npc.confessed !== 'boolean') npc.confessed = false
     if (typeof npc.confessedDay !== 'number') npc.confessedDay = 0
+    if (!Array.isArray(npc.personaDone)) npc.personaDone = []
     ensureNpcArchetype(run, npc)
     if (npc.tags?.length) return
     const seedRole = FIXED_NPCS.find((item) => item.name === npc.name) || null
