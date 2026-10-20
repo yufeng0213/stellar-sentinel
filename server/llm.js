@@ -203,7 +203,7 @@ function buildChatRequest(config, messages, temperature) {
     .filter((message) => message.role !== 'system')
     .map((message) => ({
       role: message.role === 'assistant' ? 'assistant' : 'user',
-      content: String(message.content || '').slice(0, 4000),
+      content: String(message.content || '').slice(0, 100000),
     }))
 
   if (config.provider === 'anthropic') {
@@ -219,7 +219,7 @@ function buildChatRequest(config, messages, temperature) {
         model: config.model,
         system,
         messages: conversation,
-        max_tokens: 1600,
+        max_tokens: 8192,
         temperature: temp,
         stream: true,
       },
@@ -235,7 +235,7 @@ function buildChatRequest(config, messages, temperature) {
         model: config.model,
         messages: system ? [{ role: 'system', content: system }, ...conversation] : conversation,
         stream: true,
-        options: { temperature: temp, num_predict: 1600 },
+        options: { temperature: temp, num_predict: 8192 },
       },
     }
   }
@@ -250,7 +250,7 @@ function buildChatRequest(config, messages, temperature) {
     body: {
       model: config.model,
       messages: system ? [{ role: 'system', content: system }, ...conversation] : conversation,
-      max_tokens: 1600,
+      max_tokens: 8192,
       temperature: temp,
       stream: true,
     },
@@ -271,7 +271,7 @@ export async function streamChat({ messages, temperature }, onDelta, signal) {
 
   const request = buildChatRequest(config, messages, temperature)
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 90000)
+  const timer = setTimeout(() => controller.abort(), 180000)
   const abort = () => controller.abort()
   if (signal) signal.addEventListener('abort', abort)
 

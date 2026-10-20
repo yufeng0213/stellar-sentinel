@@ -122,18 +122,17 @@ export function buildLoreMessages(run, npc, tier, slot) {
   const region = REGIONS[npc.home]
   const tags = tagDefsFor(npc.tags || [])
   const existing = (npc.lore?.entries || [])
-    .filter((entry) => entry.tier === tier.id)
-    .map((entry) => `- ${entry.slotLabel || entry.slot}：${entry.text}`)
+    .map((entry) => `- ${entry.tierName || entry.tier} / ${entry.slotLabel || entry.slot}：${entry.text}`)
     .join('\n') || '- 无'
 
   const personality = Object.entries(PERSONALITY_LABELS)
     .map(([key, label]) => `${label} ${npc.personality[key]}`)
     .join('，')
-  const longMemory = longMemoryText(npc, 2)
+  const longMemory = longMemoryText(npc, 6)
 
   const system = [
     '你是《星穹哨向》的档案员，负责根据 NPC 的标签、关系与既有记录，补写一小段人物档案。',
-    '只输出一段 70-140 字的中文正文，不要标题、列表、代码块、引号或解释。',
+    '只输出一段 140-260 字的中文正文，不要标题、列表、代码块、引号或解释。',
     '不要写数值、奖励或系统信息；不要替玩家行动；不要写露骨性内容。',
     '如果已有档案，不要重复或矛盾，只补充新的侧面。',
   ].join('\n')
@@ -150,6 +149,14 @@ export function buildLoreMessages(run, npc, tier, slot) {
     longMemory,
     '【已有档案】',
     existing,
+    '【最近世界动态】',
+    (run.worldEvents || []).slice(0, 16).map((event) => `- D${event.day}：${event.text}`).join('\n') || '- 暂无。',
+    '【队伍】',
+    (run.party || []).map((id) => run.npcs?.[id]?.name).filter(Boolean).join('、') || '无',
+    '【派系声望】',
+    Object.entries(run.reputation || {}).map(([key, value]) => `${key} ${value}`).join('，') || '暂无记录',
+    '【主线】',
+    run.story ? `CH${run.story.chapter || 1}「${run.story.title || ''}」：${run.story.objective || ''}` : '无',
     '【要求】写这一段档案，保持和标签、关系一致；不要直接复述标签名。',
   ].join('\n')
 
@@ -198,5 +205,5 @@ export function stripLore(text) {
     .replace(/^["“]|["”]$/g, '')
     .replace(/^\s*档案[:：]\s*/, '')
     .trim()
-    .slice(0, 500)
+    .slice(0, 2000)
 }

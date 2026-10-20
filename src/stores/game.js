@@ -226,7 +226,7 @@ export const useGameStore = defineStore('game', {
 
       if (useLlm && this.run.llm.calls < this.run.llm.maxCalls) {
         const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), 90000)
+        const timer = setTimeout(() => controller.abort(), 180000)
         try {
           const { messages } = buildStoryOpeningMessages(this.run, awakening)
           text = await streamNpcChat(messages, () => {}, controller.signal)
@@ -882,7 +882,7 @@ export const useGameStore = defineStore('game', {
       let fallback = false
       let errorMessage = ''
       const controller = new AbortController()
-      let timeout = setTimeout(() => controller.abort(), 30000)
+      let timeout = setTimeout(() => controller.abort(), 60000)
       const armTimeout = (ms) => {
         clearTimeout(timeout)
         timeout = setTimeout(() => controller.abort(), ms)
@@ -898,7 +898,7 @@ export const useGameStore = defineStore('game', {
           full += delta
           placeholder.text = full
           // 有增量就重置看门狗；流停住 10 秒就结束，避免按钮永远卡在“…” 
-          armTimeout(20000)
+          armTimeout(30000)
         }, controller.signal)
         this.run.llm.calls += 1
       } catch (error) {

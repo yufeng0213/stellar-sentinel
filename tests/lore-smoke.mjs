@@ -40,7 +40,7 @@ check(lockedTarget.ok === false, '未解锁层级仍可探知')
 
 const messages = buildLoreMessages(run, npc, publicTarget.tier, publicTarget.slot)
 check(messages.messages.length === 2, '档案 prompt 不是两段')
-check(messages.messages[0].content.includes('70-140'), '档案 prompt 缺少长度约束')
+check(messages.messages[0].content.includes('140-260'), '档案 prompt 缺少长度约束')
 check(messages.messages[1].content.includes('本次条目'), '档案 prompt 缺少条目说明')
 
 const local = localLore(run, npc, publicTarget.tier, publicTarget.slot)

@@ -59,7 +59,7 @@ const event = {
 }
 const narrative = buildEventNarrativeMessages(run, event, npc)
 check(narrative.messages.length === 2, '事件叙述 prompt 不是两段')
-check(narrative.messages[0].content.includes('2-3 句'), '事件叙述 prompt 缺少长度约束')
+check(narrative.messages[0].content.includes('4-6 句'), '事件叙述 prompt 缺少长度约束')
 check(narrative.messages[1].content.includes('测试送礼'), '事件叙述 prompt 缺少事件标题')
 const local = localEventNarrative(run, event, npc)
 check(typeof local === 'string' && local.length > 10, '本地事件叙述为空')

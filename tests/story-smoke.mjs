@@ -58,7 +58,7 @@ const { messages } = buildStoryOpeningMessages(run, awakening)
 const prompt = messages.map((item) => item.content).join('\n')
 check(prompt.includes(scene.place), 'LLM prompt 缺少场景')
 check(prompt.includes(run.player.name), 'LLM prompt 缺少角色名')
-check(prompt.includes('180–260'), 'LLM prompt 缺少长度要求')
+check(prompt.includes('400–700'), 'LLM prompt 缺少长度要求')
 check(!stripStoryOpening('```\n开场：你醒了。\n```').includes('```'), '开场文本没有清理代码块')
 check(stripStoryOpening('开场：你醒了。').includes('你醒了'), '开场文本清理误删正文')
 

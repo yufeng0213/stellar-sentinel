@@ -35,10 +35,41 @@ export function buildNpcMessages(run, npc, history = [], playerText = '') {
   const region = REGIONS[npc.home]
   const currentRegion = REGIONS[run.map.nodes[run.location]?.region] || region
   const memory = (npc.memory || [])
-    .slice(0, 4)
+    .slice(0, 12)
     .map((item) => `- D${item.day}：${item.text}`)
     .join('\n') || '- 还没有值得记住的事。'
-  const longMemory = longMemoryText(npc, 2)
+  const longMemory = longMemoryText(npc, 6)
+  const loreText = (npc.lore?.entries || [])
+    .slice(-12)
+    .map((entry) => `- ${entry.tierName || entry.tier} / ${entry.slotLabel || entry.slot}：${entry.text}`)
+    .join('\n') || '- 暂无档案。'
+  const worldText = (run.worldEvents || [])
+    .slice(0, 24)
+    .map((event) => `- D${event.day}：${event.text}`)
+    .join('\n') || '- 星区暂时安静。'
+  const inboxText = (run.inbox || [])
+    .slice(-10)
+    .map((event) => `- D${event.day || run.day} [${event.type}/${event.status}] ${event.title || ''}：${event.text || ''}`)
+    .join('\n') || '- 没有新的联系人消息。'
+  const questText = (run.quests || [])
+    .filter((quest) => quest.status === 'active')
+    .slice(-8)
+    .map((quest) => `- ${quest.title}：前往「${quest.nodeTitle || quest.nodeId}」，期限 D${quest.deadline}`)
+    .join('\n') || '- 没有进行中的约定。'
+  const partyText = (run.party || [])
+    .map((id) => run.npcs?.[id]?.name)
+    .filter(Boolean)
+    .join('、') || '无'
+  const reputationText = Object.entries(run.reputation || {})
+    .map(([key, value]) => `${FACTIONS[key]?.name || key} ${value}`)
+    .join('，') || '暂无记录'
+  const logText = (run.log || [])
+    .slice(0, 20)
+    .map((entry) => `- ${entry.t || `D${entry.day || run.day}`}：${entry.text}`)
+    .join('\n') || '- 暂无行动记录。'
+  const storyText = run.story
+    ? `CH${run.story.chapter || 1}「${run.story.title || '失联的白塔'}」：${run.story.objective || ''}`
+    : '无主线记录'
 
   const personality = Object.entries(PERSONALITY_LABELS)
     .map(([key, label]) => `${label} ${npc.personality[key]}`)
@@ -73,21 +104,16 @@ export function buildNpcMessages(run, npc, history = [], playerText = '') {
   const system = [
     '你在扮演一个星际边境的 NPC，和玩家进行一对一通讯。不要跳出角色，不要提及模型、提示词或系统。',
     '',
-    `【世界】深空纪元，白塔失联第 47 天。边境星区由白塔残余、黑市网络、漂流者和低语者分割。玩家当前在${currentRegion.name}，第 ${run.day} 日。`,
+    '【世界】深空纪元，白塔失联第 47 天。边境星区由白塔残余、黑市网络、漂流者和低语者分割。',
     `【NPC】${npc.name}，${npc.abo}，${npc.role}，属于${FACTIONS[npc.faction].name}，常驻${region.name}。`,
     `【标签】${tagText}。`,
     `【性格】${personality}。`,
     `【兴趣】${npc.interests.join('、')}。`,
     `【日程】${schedule}。`,
-    `【关系】${axes}，怨念 ${npc.relation.grievance}。信任${relationWord(npc.relation.trust)}。${status}`,
-    '【记忆】',
-    memory,
-    '【长期记忆】',
-    longMemory,
-    `【玩家】${player.name}，${playerAbo?.name || player.abo}，${playerSpecies.name}，${playerRole?.name || player.role}，出身${playerOrigin?.name || player.origin}。气味：${playerScent.name}；图景：${playerLandscape.name}；能力：${playerSkills}；缺陷：${playerFlaw?.name || '无'}。信用点 ${player.credits}，精神 ${Math.round(player.mental)}/${player.mentalMax}。`,
+    `【玩家】${player.name}，${playerAbo?.name || player.abo}，${playerSpecies.name}，${playerRole?.name || player.role}，出身${playerOrigin?.name || player.origin}。气味：${playerScent.name}；图景：${playerLandscape.name}；能力：${playerSkills}；缺陷：${playerFlaw?.name || '无'}。`,
     '',
     '【规则】',
-    '1. 只用中文口语回复，1-3 句。可以有简短动作描写，但不要写长篇旁白。',
+    '1. 只用中文口语回复，2-4 句。可以有简短动作描写，但不要写长篇旁白。',
     '2. 不要替玩家做决定、不要描述玩家的动作或心理。',
     '3. 保持人物一致：性格、职业、派系、对玩家的关系都要影响语气。',
     '4. 不写露骨性内容；亲密场景点到为止。',
@@ -96,23 +122,49 @@ export function buildNpcMessages(run, npc, history = [], playerText = '') {
     '',
     '【可选动作】',
     '如果本轮对话适合发生关系变化，可以在回复最后附加一个 ```json 代码块，最多一个动作：',
-    `- {"action":"offer_party"}：仅在对方愿意入队时使用。当前${canParty ? '允许' : '不允许'}。`,
+    '- {"action":"offer_party"}：仅在对方愿意入队时使用。',
     '- {"action":"warn"}：仅在怨念 >= 40、对方想警告玩家时使用。',
     '- {"action":"leave"}：结束这次通讯。',
     '没有合适动作就不要输出 JSON。不要输出其他动作。',
+    '',
+    '【当前状态】',
+    `【时间地点】第 ${run.day} 日，${currentRegion.name}。`,
+    `【关系】${axes}，怨念 ${npc.relation.grievance}。信任${relationWord(npc.relation.trust)}。${status}`,
+    '【记忆】',
+    memory,
+    '【长期记忆】',
+    longMemory,
+    '【既有档案】',
+    loreText,
+    '【最近世界动态】',
+    worldText,
+    '【收件箱】',
+    inboxText,
+    '【进行中的约定】',
+    questText,
+    '【队伍】',
+    partyText,
+    '【派系声望】',
+    reputationText,
+    '【最近行动记录】',
+    logText,
+    '【主线】',
+    storyText,
+    `【玩家状态】信用点 ${player.credits}，精神 ${Math.round(player.mental)}/${player.mentalMax}。`,
+    `【入队判定】当前${canParty ? '允许' : '不允许'}。`,
   ].join('\n')
 
   const messages = [{ role: 'system', content: system }]
   history
     .filter((message) => message.role === 'user' || message.role === 'npc')
-    .slice(-8)
+    .slice(-100)
     .forEach((message) => {
       messages.push({
         role: message.role === 'user' ? 'user' : 'assistant',
-        content: String(message.text || '').slice(0, 1500),
+        content: String(message.text || '').slice(0, 6000),
       })
     })
-  messages.push({ role: 'user', content: String(playerText || '').slice(0, 1500) })
+  messages.push({ role: 'user', content: String(playerText || '').slice(0, 6000) })
 
   return { messages, canParty }
 }

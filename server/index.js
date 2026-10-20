@@ -23,7 +23,13 @@ const BASE_PATH = (() => {
 
 const app = express()
 app.disable('x-powered-by')
-app.use(express.json({ limit: '2mb' }))
+app.use(express.json({ limit: '32mb' }))
+
+// DeepSeek 支持百万级上下文。这里给足历史与单条内容预算，
+// 同时保留一个很高的硬上限，避免异常请求把上游打爆。
+const LLM_MAX_MESSAGES = 120
+const LLM_MAX_MESSAGE_CHARS = 400000
+const LLM_MAX_CONTEXT_CHARS = 900000
 
 if (BASE_PATH) {
   app.get(BASE_PATH, (req, res, next) => {
@@ -80,10 +86,23 @@ app.post('/api/llm/test', async (req, res) => {
 
 app.post('/api/llm/chat', async (req, res) => {
   const allowed = new Set(['system', 'user', 'assistant'])
-  const messages = (Array.isArray(req.body?.messages) ? req.body.messages : [])
+  const incoming = (Array.isArray(req.body?.messages) ? req.body.messages : [])
     .filter((message) => message && allowed.has(message.role) && typeof message.content === 'string' && message.content.trim())
-    .slice(-24)
-    .map((message) => ({ role: message.role, content: message.content.slice(0, 4000) }))
+    .slice(-LLM_MAX_MESSAGES)
+    .map((message) => ({ role: message.role, content: message.content.slice(0, LLM_MAX_MESSAGE_CHARS) }))
+
+  const systemMessages = incoming.filter((message) => message.role === 'system')
+  const conversation = incoming.filter((message) => message.role !== 'system')
+  const messages = [...systemMessages]
+  let usedChars = messages.reduce((sum, message) => sum + message.content.length, 0)
+  const kept = []
+  for (let index = conversation.length - 1; index >= 0; index -= 1) {
+    const message = conversation[index]
+    if (usedChars + message.content.length > LLM_MAX_CONTEXT_CHARS) break
+    kept.unshift(message)
+    usedChars += message.content.length
+  }
+  messages.push(...kept)
 
   if (!messages.some((message) => message.role === 'user')) {
     res.status(400).json({ ok: false, error: '缺少玩家消息' })

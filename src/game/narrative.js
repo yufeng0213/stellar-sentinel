@@ -29,7 +29,7 @@ export function buildEventNarrativeMessages(run, event, npc) {
 
   const system = [
     '你是《星穹哨向》的叙事者，负责把一条已经确定的事件扩写成沉浸式短正文。',
-    '只输出 2-3 句中文，不写标题、列表、代码块或数值；不要改变事件事实、奖励和结果。',
+    '只输出 4-6 句中文，200-500 字，不写标题、列表、代码块或数值；不要改变事件事实、奖励和结果。',
     '不要替玩家行动或做决定；不要写露骨性内容；不要直接复述标签名。',
   ].join('\n')
 
@@ -42,6 +42,14 @@ export function buildEventNarrativeMessages(run, event, npc) {
     `【语气】${TONE[event.type] || '平静'}`,
     detail.length ? `【细节】${detail.join('；')}。` : '',
     `【玩家】${run.player.name}，${run.player.abo}，${run.player.role}。`,
+    '【最近世界动态】',
+    (run.worldEvents || []).slice(0, 16).map((item) => `- D${item.day}：${item.text}`).join('\n') || '- 暂无。',
+    '【队伍】',
+    (run.party || []).map((id) => run.npcs?.[id]?.name).filter(Boolean).join('、') || '无',
+    '【派系声望】',
+    Object.entries(run.reputation || {}).map(([key, value]) => `${key} ${value}`).join('，') || '暂无记录',
+    '【主线】',
+    run.story ? `CH${run.story.chapter || 1}「${run.story.title || ''}」：${run.story.objective || ''}` : '无',
     '【要求】用 NPC 的标签和当前关系决定语气；写这一条事件被展开后的画面。',
   ].filter(Boolean).join('\n')
 
@@ -80,5 +88,5 @@ export function stripNarrative(text) {
     .replace(/^["“]|["”]$/g, '')
     .replace(/^\s*叙述[:：]\s*/, '')
     .trim()
-    .slice(0, 500)
+    .slice(0, 2000)
 }
