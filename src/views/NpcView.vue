@@ -15,6 +15,7 @@ const bagItems = computed(() => Object.keys(npc.value?.bag || {})
   .filter((key) => ITEMS[key] && npc.value.bag[key] > 0)
   .map((key) => ({ key, ...ITEMS[key], count: npc.value.bag[key] })))
 const npcGear = computed(() => Object.values(npc.value?.gear || {}))
+const archetype = computed(() => npc.value?.archetype || null)
 
 const inviteCheck = computed(() => (
   npc.value ? canInviteToParty(run.value, npc.value.id) : { ok: false, reason: '' }
@@ -91,6 +92,7 @@ function doBreakUp() {
           <h2>{{ npc.name }}</h2>
           <p class="sub">{{ npc.abo }} · {{ npc.role }}</p>
           <div class="sheet-tags">
+            <span v-if="archetype" class="tag violet">{{ archetype.glyph }} {{ archetype.name }}</span>
             <span v-if="npc.lover" class="tag red">恋人</span>
             <span v-if="npc.party" class="tag jade">队伍中</span>
             <span v-if="npc.hostile" class="tag red">敌视</span>
@@ -101,6 +103,19 @@ function doBreakUp() {
           </div>
         </div>
       </div>
+    </section>
+
+    <section v-if="archetype" class="panel npc-block archetype-block">
+      <div class="archetype-head">
+        <span class="archetype-glyph">{{ archetype.glyph }}</span>
+        <div>
+          <p class="kicker">PERSONA</p>
+          <h3>{{ archetype.name }}</h3>
+          <p class="archetype-tagline">{{ archetype.tagline }}</p>
+        </div>
+      </div>
+      <p class="archetype-desc">{{ archetype.desc }}</p>
+      <p class="hint">说话方式：{{ archetype.voice }}</p>
     </section>
 
     <section class="panel npc-block">
@@ -245,6 +260,12 @@ function doBreakUp() {
 .npc-block { padding: 14px 16px; }
 .npc-block h3 { margin-bottom: 10px; color: var(--ink); font-size: max(var(--ui-min), calc(14px * var(--ui-scale))); font-weight: 500; letter-spacing: .06em; }
 .bag-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.archetype-block { border-color: rgba(185, 164, 255, .22); background: rgba(185, 164, 255, .045); }
+.archetype-head { display: flex; align-items: center; gap: 10px; }
+.archetype-glyph { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border: 1px solid rgba(185, 164, 255, .35); border-radius: 9px; color: var(--violet); font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); }
+.archetype-head h3 { margin: 2px 0 0; }
+.archetype-tagline { margin-top: 2px; color: var(--violet); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.archetype-desc { margin-top: 8px; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.7; }
 .axes { display: flex; flex-direction: column; gap: 5px; }
 .axis-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) 28px; align-items: center; gap: 8px; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); }
 .axis-row b { color: var(--ink); font-family: var(--mono); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; text-align: right; }

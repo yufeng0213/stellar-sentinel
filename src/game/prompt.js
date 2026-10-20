@@ -107,6 +107,8 @@ export function buildNpcMessages(run, npc, history = [], playerText = '') {
     '【世界】深空纪元，白塔失联第 47 天。边境星区由白塔残余、黑市网络、漂流者和低语者分割。',
     `【NPC】${npc.name}，${npc.abo}，${npc.role}，属于${FACTIONS[npc.faction].name}，常驻${region.name}。`,
     `【标签】${tagText}。`,
+    `【人设】${npc.archetype?.name || '未定型'}：${npc.archetype?.tagline || ''}。${npc.archetype?.prompt || ''}`,
+    `【说话方式】${npc.archetype?.voice || '自然、克制，符合当前关系。'}`,
     `【性格】${personality}。`,
     `【兴趣】${npc.interests.join('、')}。`,
     `【日程】${schedule}。`,

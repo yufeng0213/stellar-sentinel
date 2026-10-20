@@ -17,6 +17,7 @@ import {
   talkToNpc,
 } from '../src/game-core/npc.js'
 import { camp, createRun } from '../src/game-core/run.js'
+import { buildNpcMessages } from '../src/game/prompt.js'
 
 const errors = []
 const check = (condition, label) => { if (!condition) errors.push(label) }
@@ -42,6 +43,12 @@ const biases = list.map((npc) => npc.bias)
 check(Math.max(...biases) > 0, '没有初始印象好的 NPC')
 check(Math.min(...biases) < 0, '没有初始印象差的 NPC')
 check(new Set(list.map((npc) => npc.name)).size === 18, 'NPC 名字重复')
+check(list.every((npc) => npc.archetype?.id && npc.archetype?.name), 'NPC 缺少人设原型')
+check(new Set(list.map((npc) => npc.archetype.id)).size >= 5, 'NPC 人设原型分布太窄')
+const promptNpc = list[0]
+const prompt = buildNpcMessages(run, promptNpc, [], '你好')
+check(prompt.messages[0].content.includes('【人设】'), 'NPC prompt 没有注入人设原型')
+check(prompt.messages[0].content.includes(promptNpc.archetype.name), 'NPC prompt 人设名称缺失')
 
 // 同 seed 世界一致
 const twin = createRun(draft(), 'NPC-TEST-01')

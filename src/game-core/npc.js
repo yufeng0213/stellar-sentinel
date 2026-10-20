@@ -11,6 +11,7 @@ import {
   playerTagKeys,
   tagAffinity,
 } from './npc-tags.js'
+import { applyNpcArchetype, ensureNpcArchetype, pickNpcArchetype } from './npc-archetypes.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -366,6 +367,7 @@ function makeNpc(run, rng, id, seedRole, name) {
     npc.schedule = [...seedRole.schedule]
   }
 
+  applyNpcArchetype(npc, pickNpcArchetype(run, id, name, tags))
   return npc
 }
 
@@ -450,6 +452,7 @@ export function ensureNpcTags(run) {
     if (typeof npc.loverSince !== 'number') npc.loverSince = 0
     if (typeof npc.confessed !== 'boolean') npc.confessed = false
     if (typeof npc.confessedDay !== 'number') npc.confessedDay = 0
+    ensureNpcArchetype(run, npc)
     if (npc.tags?.length) return
     const seedRole = FIXED_NPCS.find((item) => item.name === npc.name) || null
     npc.tags = pickNpcTags(rng, seedRole)

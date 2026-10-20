@@ -207,6 +207,18 @@ function pickWeighted(rng, list) {
 }
 
 function messageText(npc) {
+  const archetype = npc.archetype?.id
+  if (archetype === 'gloomy_ghost') return '“你今天回来得比平时晚。”他停了一下，又补了一句，“我没在等。”'
+  if (archetype === 'dry_ghost') return '“我在门口。你回来的时候不用绕路。”'
+  if (archetype === 'jiahao') return '“刚处理完一点事。”他顿了顿，“不算什么大事。真的。”'
+  if (archetype === 'sunshine') return '“今天有好好吃饭吗？没有的话我给你留了一份。”'
+  if (archetype === 'tycoon') return '“车已经在楼下了。别让我等太久。”'
+  if (archetype === 'tsundere') return '“谁在等你了。只是刚好看到你的消息。”'
+  if (archetype === 'tease') return '“这么久才回。是不是在想怎么回我？”'
+  if (archetype === 'cold_elite') return '“确认一下你还安全。没有别的事。”'
+  if (archetype === 'loyal_dog') return '“你回来了吗？我今天一直在这里。”'
+  if (archetype === 'homemaker') return '“药带了吗？外面降温了。”'
+  if (archetype === 'rough') return '“还活着就回个话。”'
   if (hasTag(npc, 'gossip')) return `“听说你最近在星图上跑得很勤。我这边有点消息，要不要听？”`
   if (hasTag(npc, 'romantic')) return '“今天的光很淡。你那边还安静吗？”'
   if (hasTag(npc, 'hotblooded')) return '“活着就回个话。别让我去废墟里找你。”'
