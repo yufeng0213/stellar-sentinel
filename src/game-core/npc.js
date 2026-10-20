@@ -341,6 +341,8 @@ function makeNpc(run, rng, id, seedRole, name) {
     talkedDay: 0,
     giftLog: [],
     bag: {},
+    credits: 30,
+    tradeLog: [],
     injured: false,
     lover: false,
     loverSince: 0,
@@ -437,6 +439,8 @@ export function ensureNpcTags(run) {
   const rng = createRng(`${run.seed}:npc-tags-migrate`)
   Object.values(run.npcs).forEach((npc) => {
     if (!npc.bag || typeof npc.bag !== 'object') npc.bag = {}
+    if (typeof npc.credits !== 'number') npc.credits = 30
+    if (!Array.isArray(npc.tradeLog)) npc.tradeLog = []
     if (typeof npc.injured !== 'boolean') npc.injured = false
     if (typeof npc.lover !== 'boolean') npc.lover = false
     if (typeof npc.loverSince !== 'number') npc.loverSince = 0
@@ -715,6 +719,60 @@ export function giftToNpc(run, npcId, itemId) {
   return { ok: true, gain, reply }
 }
 
+function tradeBasePrice(itemId) {
+  const item = ITEMS[itemId]
+  if (!item) return 10
+  if (item.kind === 'use') return 35
+  if (item.kind === 'gift') return 12
+  return 22
+}
+
+export function npcTradeOffers(run, npcId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc) return []
+  return Object.keys(npc.bag || {})
+    .filter((itemId) => (npc.bag[itemId] || 0) > 0 && ITEMS[itemId])
+    .filter((itemId) => !(npc.injured && ['medkit', 'ration'].includes(itemId)))
+    .map((itemId) => ({
+      itemId,
+      ...ITEMS[itemId],
+      count: npc.bag[itemId],
+      price: Math.max(4, Math.round(tradeBasePrice(itemId) * (1 - npc.relation.closeness / 400))),
+    }))
+}
+
+export function buyFromNpc(run, npcId, itemId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc || !npc.alive) return { ok: false, message: '找不到这个人' }
+  if (npc.hostile) return { ok: false, message: '他现在不想和你做买卖' }
+  const offer = npcTradeOffers(run, npcId).find((item) => item.itemId === itemId)
+  if (!offer) return { ok: false, message: '他没有这件东西' }
+  if (run.player.credits < offer.price) return { ok: false, message: '信用点不足' }
+  run.player.credits -= offer.price
+  npc.credits = (npc.credits || 0) + offer.price
+  npc.bag[itemId] -= 1
+  if (npc.bag[itemId] <= 0) delete npc.bag[itemId]
+  run.inv[itemId] = (run.inv[itemId] || 0) + 1
+  npc.relation.trust = clamp(npc.relation.trust + 1, 0, 100)
+  return { ok: true, item: offer, credits: offer.price }
+}
+
+export function sellToNpc(run, npcId, itemId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc || !npc.alive) return { ok: false, message: '找不到这个人' }
+  if (npc.hostile) return { ok: false, message: '他现在不想和你做买卖' }
+  if ((run.inv[itemId] || 0) < 1 || !ITEMS[itemId]) return { ok: false, message: '你没有这件东西' }
+  const price = Math.max(2, Math.floor(tradeBasePrice(itemId) * 0.55))
+  if ((npc.credits || 0) < price) return { ok: false, message: '他身上没有足够的信用点' }
+  run.inv[itemId] -= 1
+  if (run.inv[itemId] <= 0) delete run.inv[itemId]
+  run.player.credits += price
+  npc.credits -= price
+  npc.bag[itemId] = (npc.bag[itemId] || 0) + 1
+  npc.relation.closeness = clamp(npc.relation.closeness + 1, 0, 100)
+  return { ok: true, itemId, name: ITEMS[itemId].name, credits: price }
+}
+
 export const TALK_TOPICS = {
   life: { label: '近况', trust: 2, closeness: 1 },
   interest: { label: '兴趣', trust: 1, closeness: 2 },
@@ -983,6 +1041,32 @@ export function tickWorld(run) {
       npc.bag[gift] = (npc.bag[gift] || 0) + 1
       push(`${npc.name} ${npc.activity || '在空港'}时捡到了${ITEMS[gift].name}。`, 'info')
     }
+  })
+
+  let trades = 0
+  rng.shuffle(run.npcEdges || []).forEach((edge) => {
+    if (trades >= 2 || !rng.chance(0.18)) return
+    const a = run.npcs[edge.a]
+    const b = run.npcs[edge.b]
+    if (!a?.alive || !b?.alive || a.active === false || b.active === false) return
+    const seller = (a.bag && Object.keys(a.bag).length) ? a : (b.bag && Object.keys(b.bag).length) ? b : null
+    const buyer = seller === a ? b : a
+    if (!seller || !buyer) return
+    const itemId = rng.pick(Object.keys(seller.bag).filter((key) => ITEMS[key] && !(seller.injured && ['medkit', 'ration'].includes(key))))
+    if (!itemId || !seller.bag[itemId]) return
+    const price = Math.max(2, Math.round(tradeBasePrice(itemId) * (edge.kind === 'family' || edge.kind === 'lover' ? 0.65 : 0.9)))
+    if ((buyer.credits || 0) < price) return
+    seller.bag[itemId] -= 1
+    if (seller.bag[itemId] <= 0) delete seller.bag[itemId]
+    buyer.bag[itemId] = (buyer.bag[itemId] || 0) + 1
+    seller.credits = (seller.credits || 0) + price
+    buyer.credits = (buyer.credits || 0) - price
+    seller.tradeLog = seller.tradeLog || []
+    buyer.tradeLog = buyer.tradeLog || []
+    seller.tradeLog.unshift({ day: run.day, itemId, credits: price, with: buyer.id })
+    buyer.tradeLog.unshift({ day: run.day, itemId, credits: -price, with: seller.id })
+    trades += 1
+    push(`${seller.name} 把${ITEMS[itemId].name}卖给了${buyer.name}，收了 ${price} 信用点。`, 'info')
   })
 
   Object.values(run.npcs).forEach((npc) => {

@@ -68,6 +68,11 @@ function giftItemFor(npc) {
 }
 
 function favorAsk(run, npc, rng) {
+  if (npc.injured) {
+    const medicine = ['medkit', 'ration'].find((id) => (run.inv[id] || 0) > 0)
+    if (medicine) return { kind: 'medicine', itemId: medicine }
+    return { kind: 'credits', credits: 20 + rng.int(0, 15), treatment: true }
+  }
   const candidates = Object.keys(run.inv || {}).filter((id) => ITEMS[id])
   if (candidates.length && rng.chance(0.55)) {
     return { kind: 'item', itemId: rng.pick(candidates) }
@@ -143,7 +148,7 @@ function eventWeight(run, npc, type) {
 
   if (type === 'message') weight *= 1 + relation.trust / 180
   if (type === 'gift') weight *= 1 + npc.personality.generosity / 160
-  if (type === 'favor') weight *= 1 + relation.trust / 150
+  if (type === 'favor') weight *= (1 + relation.trust / 150) * (npc.injured ? 2 : 1)
   if (type === 'quest') weight *= 1 + relation.trust / 120
   if (type === 'romance') weight *= 1 + relation.closeness / 90
   if (type === 'confession') weight *= 2.2
@@ -240,11 +245,13 @@ function buildEvent(run, rng, npc, type, weekly = false) {
     const ask = favorAsk(run, npc, rng)
     base.payload = ask
     base.title = `${npc.name} 想请你帮忙`
-    base.text = ask.kind === 'item'
-      ? `“你手上那件${ITEMS[ask.itemId].name}，能不能先借我？我很快还。”`
-      : `“借我 ${ask.credits} 信用点。下周之前还你。”`
+    base.text = ask.kind === 'medicine'
+      ? `“我受了点伤……你手上还有${ITEMS[ask.itemId].name}吗？我可以用东西换。”`
+      : ask.kind === 'item'
+        ? `“你手上那件${ITEMS[ask.itemId].name}，能不能先借我？我很快还。”`
+        : `“借我 ${ask.credits} 信用点。${ask.treatment ? '我需要去诊所处理一下伤口。' : '下周之前还你。'}”`
     base.choices = [
-      { id: 'accept', label: ask.kind === 'item' ? '借给他' : '借给他' },
+      { id: 'accept', label: ask.kind === 'medicine' ? '给他药' : '借给他' },
       { id: 'decline', label: '拒绝' },
     ]
   } else if (type === 'quest') {
@@ -468,11 +475,21 @@ function resolveFavor(run, npc, event, choice) {
     npc.relation.closeness = clamp(npc.relation.closeness - 1, 0, 100)
     return '你拒绝了。他说“没事”，但语气冷了一点。'
   }
+  if (event.payload.kind === 'medicine') {
+    if (!takeItem(run, event.payload.itemId, 1)) return { error: `你没有${ITEMS[event.payload.itemId].name}` }
+    npc.injured = false
+    npc.relation.trust = clamp(npc.relation.trust + 7, 0, 100)
+    npc.relation.closeness = clamp(npc.relation.closeness + 4, 0, 100)
+    return `你把${ITEMS[event.payload.itemId].name}给了他。他当场处理了伤口，动作很熟练。`
+  }
   if (event.payload.kind === 'item') {
     if (!takeItem(run, event.payload.itemId, 1)) return { error: `你没有${ITEMS[event.payload.itemId].name}` }
+    npc.bag = npc.bag || {}
+    npc.bag[event.payload.itemId] = (npc.bag[event.payload.itemId] || 0) + 1
   } else {
     if (run.player.credits < event.payload.credits) return { error: '信用点不足' }
     run.player.credits -= event.payload.credits
+    if (event.payload.treatment) npc.injured = false
   }
   npc.relation.trust = clamp(npc.relation.trust + 5, 0, 100)
   npc.relation.closeness = clamp(npc.relation.closeness + 2, 0, 100)

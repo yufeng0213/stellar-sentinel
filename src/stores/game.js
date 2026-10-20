@@ -61,12 +61,14 @@ import {
   createNpcWorld,
   ensureNpcTags,
   breakUpWithNpc,
+  buyFromNpc,
   confessToNpc,
   giftToNpc,
   intimidateNpc,
   inviteToParty as inviteToPartyCore,
   leaveParty as leavePartyCore,
   resolveAmbushPeacefully,
+  sellToNpc,
   talkToNpc,
 } from '../game-core/npc.js'
 import { stealFromNpc, stealFromShop } from '../game-core/steal.js'
@@ -783,6 +785,30 @@ export const useGameStore = defineStore('game', {
       const result = breakUpWithNpc(this.run, npcId)
       if (result.ok) {
         addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    buyFromNpc(npcId, itemId) {
+      if (!this.run) return { ok: false }
+      const result = buyFromNpc(this.run, npcId, itemId)
+      if (result.ok) {
+        addLog(this.run, `从 ${this.run.npcs[npcId]?.name || 'NPC'} 那里买下 ${result.item.name}，花费 ${result.credits} 信用点。`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    sellToNpc(npcId, itemId) {
+      if (!this.run) return { ok: false }
+      const result = sellToNpc(this.run, npcId, itemId)
+      if (result.ok) {
+        addLog(this.run, `把 ${result.name} 卖给 ${this.run.npcs[npcId]?.name || 'NPC'}，得到 ${result.credits} 信用点。`, 'good')
         this.save()
       } else {
         this.notify(result.message, 'bad')

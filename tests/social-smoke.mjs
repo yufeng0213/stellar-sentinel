@@ -6,9 +6,12 @@ import { randomDraft } from '../src/game-core/character.js'
 import { createRun } from '../src/game-core/run.js'
 import {
   breakUpWithNpc,
+  buyFromNpc,
   giftToNpc,
   npcRelationTree,
+  npcTradeOffers,
   romanceStatus,
+  sellToNpc,
   tickWorld,
 } from '../src/game-core/npc.js'
 import { resolveInboxEvent } from '../src/game-core/npc-events.js'
@@ -96,10 +99,44 @@ const reportPrompt = buildSettlementMessages(run, reportEvents)
 check(reportPrompt.messages.length === 2, '夜报 prompt 不是两段')
 check(reportPrompt.messages[1].content.includes('叶卡'), '夜报 prompt 缺少事件')
 
+npc.injured = false
+npc.credits = 100
+npc.bag.medkit = 1
+const offers = npcTradeOffers(run, npc.id)
+check(offers.some((offer) => offer.itemId === 'medkit'), 'NPC 交易列表没有背包物品')
+run.player.credits = 100
+const bought = buyFromNpc(run, npc.id, 'medkit')
+check(bought.ok && (run.inv.medkit || 0) === 1, '从 NPC 购买失败')
+check(npc.credits > 100, 'NPC 没有收到信用点')
+run.player.credits = 0
+const sold = sellToNpc(run, npc.id, 'medkit')
+check(sold.ok && run.player.credits > 0, '卖给 NPC 失败')
+check((npc.bag.medkit || 0) === 1, 'NPC 没有收下卖出的物品')
+
+npc.injured = true
+run.inv.medkit = 1
+const medicineEvent = {
+  id: 'social-medicine',
+  day: run.day,
+  week: 1,
+  npcId: npc.id,
+  type: 'favor',
+  status: 'pending',
+  title: `${npc.name} 想请你帮忙`,
+  text: '需要医疗包',
+  payload: { kind: 'medicine', itemId: 'medkit' },
+  choices: [{ id: 'accept', label: '给他药' }, { id: 'decline', label: '拒绝' }],
+}
+run.inbox.push(medicineEvent)
+const helped = resolveInboxEvent(run, medicineEvent.id, 'accept')
+check(helped.ok, '医疗求助处理失败')
+check(npc.injured === false, '医疗求助没有治好 NPC')
+check((run.inv.medkit || 0) === 0, '医疗求助没有扣除医疗包')
+
 const imported = validateRun(JSON.parse(JSON.stringify(run)))
 check(imported.ok, '社交状态存档校验失败')
 check(imported.run.npcs[npc.id].lover === true, '存档没有保留恋人状态')
-check(imported.run.npcs[npc.id].bag && !imported.run.npcs[npc.id].bag.medkit, '存档没有保留 NPC 背包变化')
+check(imported.run.npcs[npc.id].bag && Object.keys(imported.run.npcs[npc.id].bag).length > 0, '存档没有保留 NPC 背包变化')
 
 if (errors.length) {
   console.error('FAILED')

@@ -30,6 +30,7 @@ import NpcGiftView from '../views/NpcGiftView.vue'
 import NpcChatView from '../views/NpcChatView.vue'
 import NpcStoryView from '../views/NpcStoryView.vue'
 import NpcNetworkView from '../views/NpcNetworkView.vue'
+import NpcTradeView from '../views/NpcTradeView.vue'
 import { useGameStore } from '../stores/game.js'
 
 const router = createRouter({
@@ -77,6 +78,7 @@ const router = createRouter({
         { path: 'npc/:npcId/chat', name: 'npc-chat', component: NpcChatView },
         { path: 'npc/:npcId/story', name: 'npc-story', component: NpcStoryView },
         { path: 'npc/:npcId/network', name: 'npc-network', component: NpcNetworkView },
+        { path: 'npc/:npcId/trade', name: 'npc-trade', component: NpcTradeView },
         { path: 'character', name: 'character', component: CharacterView },
       ],
     },

@@ -160,6 +160,10 @@ function doBreakUp() {
           <b>关系树</b>
           <span>恋人和亲人、好友与对手的直角分支</span>
         </button>
+        <button type="button" class="link-card" @click="go('npc-trade')">
+          <b>交易</b>
+          <span>买他的背包，或把东西卖给他</span>
+        </button>
         <button type="button" class="link-card" @click="go('npc-memory')">
           <b>记忆</b>
           <span>短期印象与每周长期记忆</span>
