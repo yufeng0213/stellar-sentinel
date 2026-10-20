@@ -12,6 +12,7 @@ const savedFlash = ref(false)
 
 const run = computed(() => game.run)
 const isBattle = computed(() => route.name === 'battle')
+const isStory = computed(() => route.name === 'story')
 const pips = computed(() => {
   if (!game.run) return []
   return Array.from({ length: game.run.apMax }, (_, index) => ({
@@ -80,7 +81,7 @@ function exitRun() {
       <div v-else class="missing">正在载入远征…</div>
     </main>
 
-    <BottomNav v-if="run && !isBattle" />
+    <BottomNav v-if="run && !isBattle && !isStory" />
   </div>
 </template>
 

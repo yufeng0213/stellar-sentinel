@@ -276,6 +276,7 @@ function nextNodes(node) {
         </p>
       </div>
       <div class="head-actions">
+        <span v-if="run.story" class="tag violet">主线 {{ run.story.chapter }} · {{ run.story.title }}</span>
         <span class="tag cyan">AP {{ run.ap }} / {{ run.apMax }}</span>
         <button type="button" class="btn btn-sm" :disabled="run.ap > 0" @click="camp">扎营</button>
       </div>

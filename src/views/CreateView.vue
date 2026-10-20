@@ -177,13 +177,14 @@ function next() {
     return
   }
   const run = game.newRun(draft)
-  router.push({ name: 'map', params: { runId: run.id } })
+  router.push({ name: 'story', params: { runId: run.id } })
 }
 
 function resume() {
   const run = game.resume()
   if (!run) return game.notify('没有找到存档', 'bad')
-  router.push({ name: 'map', params: { runId: run.id } })
+  const target = run.story?.stage === 'select' ? 'story' : 'map'
+  router.push({ name: target, params: { runId: run.id } })
 }
 
 function backToTitle() {

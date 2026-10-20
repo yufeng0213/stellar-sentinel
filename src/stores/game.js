@@ -46,6 +46,8 @@ import {
 import { stealFromNpc, stealFromShop } from '../game-core/steal.js'
 import { streamNpcChat } from '../game/llm.js'
 import { buildLoreMessages, localLore, loreTarget, stripLore } from '../game/lore.js'
+import { buildStoryOpeningMessages, stripStoryOpening } from '../game/story.js'
+import { createStoryState, getAwakening, localOpening, resolveOpeningChoice, startAwakening } from '../game-core/story.js'
 import {
   buildEventNarrativeMessages,
   localEventNarrative,
@@ -155,6 +157,7 @@ export const useGameStore = defineStore('game', {
       if (!stored.eventPity || typeof stored.eventPity !== 'object') stored.eventPity = {}
       if (typeof stored.lastEventDay !== 'number') stored.lastEventDay = 0
       if (stored.weekly === undefined) stored.weekly = null
+      if (!stored.story || typeof stored.story !== 'object') stored.story = createStoryState()
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
           if (!message.streaming) return
@@ -171,6 +174,69 @@ export const useGameStore = defineStore('game', {
       this.run = createRun(draft)
       this.save()
       return this.run
+    },
+
+    startStoryAwakening(id) {
+      if (!this.run) return { ok: false, message: '还没有远征' }
+      const result = startAwakening(this.run, id)
+      if (result.ok) this.save()
+      return result
+    },
+
+    async generateStoryOpening(useLlm = true) {
+      if (!this.run?.story?.awakening) return { ok: false, message: '还没有选择醒来地点' }
+      const awakening = getAwakening(this.run.story.awakening)
+      if (!awakening) return { ok: false, message: '醒来地点不存在' }
+      if (this.run.story.opening?.source === 'llm' && this.run.story.opening.text) {
+        return { ok: true, text: this.run.story.opening.text, source: 'llm', cached: true }
+      }
+
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: 120 }
+      let text = ''
+      let source = 'local'
+      let error = ''
+
+      if (useLlm && this.run.llm.calls < this.run.llm.maxCalls) {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 30000)
+        try {
+          const { messages } = buildStoryOpeningMessages(this.run, awakening)
+          text = await streamNpcChat(messages, () => {}, controller.signal)
+          if (stripStoryOpening(text)) {
+            source = 'llm'
+            this.run.llm.calls += 1
+          }
+        } catch (cause) {
+          error = cause.name === 'AbortError' ? '模型响应超时' : cause.message
+        } finally {
+          clearTimeout(timer)
+        }
+      } else if (useLlm) {
+        error = '本局模型调用预算已用完'
+      }
+
+      if (!stripStoryOpening(text)) {
+        text = localOpening(this.run, awakening)
+        source = 'local'
+      }
+
+      this.run.story.opening = {
+        text: stripStoryOpening(text),
+        source,
+        day: this.run.day,
+      }
+      this.save()
+      return { ok: true, text: this.run.story.opening.text, source, error }
+    },
+
+    resolveStoryChoice(choiceId) {
+      if (!this.run) return { ok: false }
+      const result = resolveOpeningChoice(this.run, choiceId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.save()
+      }
+      return result
     },
 
     travelTo(nodeId) {

@@ -3,6 +3,7 @@ import TitleView from '../views/TitleView.vue'
 import CreateView from '../views/CreateView.vue'
 import LlmSettingsView from '../views/LlmSettingsView.vue'
 import RunShell from '../views/RunShell.vue'
+import StoryView from '../views/StoryView.vue'
 import MapView from '../views/MapView.vue'
 import InventoryView from '../views/InventoryView.vue'
 import ForgeView from '../views/ForgeView.vue'
@@ -30,6 +31,7 @@ const router = createRouter({
           path: '',
           redirect: (to) => ({ name: 'map', params: { runId: to.params.runId } }),
         },
+        { path: 'story', name: 'story', component: StoryView },
         { path: 'map', name: 'map', component: MapView },
         { path: 'battle/:nodeId', name: 'battle', component: BattleView },
         { path: 'inventory', name: 'inventory', component: InventoryView },
