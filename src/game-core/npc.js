@@ -1,0 +1,796 @@
+/**
+ * NPC 世界：性格、四轴关系、自主日程、NPC-NPC 关系网。
+ * 只做模拟，不写长篇文案；对白在 Phase 5 交给 LLM。
+ */
+
+import { ITEMS, ORIGINS, REGIONS, SCENTS } from './data.js'
+import {
+  TAGS,
+  TAG_BY_ID,
+  aggregateTagEffects,
+  playerTagKeys,
+  tagAffinity,
+} from './npc-tags.js'
+import { createRng } from './rng.js'
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
+
+export const FACTIONS = {
+  tower: { name: '白塔残余', color: 'cyan' },
+  market: { name: '黑市网络', color: 'amber' },
+  drifters: { name: '漂流者', color: 'jade' },
+  whisper: { name: '低语者', color: 'violet' },
+}
+
+export const INTERESTS = ['交易', '传闻', '武器', '星图', '共鸣', '遗物', '植物', '机械', '旧技术', '冥想']
+
+export const PERSONALITY_LABELS = {
+  aggression: '攻击性',
+  generosity: '慷慨',
+  curiosity: '好奇',
+  loyalty: '忠诚',
+  grudge: '记仇',
+}
+
+export const AXES = [
+  { key: 'trust', name: '信任' },
+  { key: 'respect', name: '尊重' },
+  { key: 'closeness', name: '亲近' },
+  { key: 'fear', name: '畏惧' },
+]
+
+const ITEM_TAGS = {
+  scrap: ['机械'],
+  chip: ['旧技术', '传闻'],
+  ore: ['机械', '星图'],
+  cold: ['旧技术', '共鸣'],
+  spore: ['植物', '冥想'],
+  resin: ['植物', '冥想'],
+  shard: ['遗物', '共鸣'],
+  stim: ['冥想'],
+  ration: ['交易'],
+  fiber: ['植物', '机械'],
+  alloy: ['机械', '武器'],
+  relic: ['遗物', '共鸣'],
+  anti: ['冥想'],
+  medkit: ['植物'],
+}
+
+const ITEM_VALUE = {
+  scrap: 8,
+  chip: 12,
+  ore: 14,
+  cold: 15,
+  spore: 10,
+  resin: 12,
+  shard: 22,
+  stim: 12,
+  ration: 8,
+  fiber: 10,
+  alloy: 15,
+  relic: 20,
+  anti: 14,
+  medkit: 14,
+}
+
+const ORIGIN_INTERESTS = {
+  colonist: ['机械', '植物'],
+  cadet: ['旧技术', '传闻'],
+  broker: ['交易', '传闻'],
+  survivor: ['遗物', '共鸣'],
+}
+
+const CATEGORY_INTERESTS = {
+  军事: ['武器', '星图'],
+  技术: ['机械', '旧技术'],
+  地下: ['交易', '传闻'],
+  劳作: ['机械', '植物'],
+  信仰: ['遗物', '冥想'],
+  荒野: ['星图', '植物'],
+  学院: ['旧技术', '传闻'],
+}
+
+const TRAIT_INTERESTS = {
+  nose: '植物',
+  hands: '机械',
+  dealer: '交易',
+  night: '传闻',
+  resonance: '共鸣',
+  calm: '冥想',
+}
+
+const ORIGIN_FACTION = {
+  colonist: 'drifters',
+  cadet: 'tower',
+  broker: 'market',
+  survivor: 'whisper',
+}
+
+const ROLE_POOL = [
+  { role: '掮客', faction: 'market', interests: ['交易', '传闻'], home: 'dock', aggr: 32, gen: 68, cur: 55, loy: 38, grudge: 48 },
+  { role: '退役哨兵', faction: 'tower', interests: ['武器', '星图'], home: 'dock', aggr: 68, gen: 34, cur: 42, loy: 74, grudge: 55 },
+  { role: '未登记向导', faction: 'drifters', interests: ['共鸣', '遗物'], home: 'rift', aggr: 22, gen: 54, cur: 78, loy: 46, grudge: 28 },
+  { role: '机械师', faction: 'drifters', interests: ['机械', '旧技术'], home: 'ruins', aggr: 38, gen: 52, cur: 62, loy: 60, grudge: 35 },
+  { role: '拾荒者', faction: 'drifters', interests: ['星图', '机械'], home: 'mine', aggr: 52, gen: 40, cur: 50, loy: 30, grudge: 40 },
+  { role: '信使', faction: 'market', interests: ['传闻', '星图'], home: 'dock', aggr: 30, gen: 48, cur: 70, loy: 42, grudge: 32 },
+  { role: '走私客', faction: 'market', interests: ['交易', '武器'], home: 'mine', aggr: 58, gen: 45, cur: 48, loy: 35, grudge: 50 },
+  { role: '医师', faction: 'tower', interests: ['冥想', '植物'], home: 'grove', aggr: 20, gen: 62, cur: 55, loy: 66, grudge: 25 },
+  { role: '赏金猎人', faction: 'tower', interests: ['武器', '传闻'], home: 'ruins', aggr: 76, gen: 30, cur: 45, loy: 52, grudge: 60 },
+  { role: '低语者祭司', faction: 'whisper', interests: ['遗物', '共鸣'], home: 'rift', aggr: 28, gen: 50, cur: 80, loy: 58, grudge: 45 },
+  { role: '采集者', faction: 'drifters', interests: ['植物', '星图'], home: 'grove', aggr: 34, gen: 56, cur: 58, loy: 50, grudge: 30 },
+  { role: '旧塔技工', faction: 'tower', interests: ['旧技术', '机械'], home: 'dock', aggr: 40, gen: 44, cur: 60, loy: 68, grudge: 38 },
+  { role: '商队护卫', faction: 'market', interests: ['武器', '交易'], home: 'ruins', aggr: 62, gen: 38, cur: 45, loy: 56, grudge: 46 },
+  { role: '旧塔书记', faction: 'tower', interests: ['旧技术', '传闻'], home: 'dock', aggr: 22, gen: 50, cur: 66, loy: 72, grudge: 22 },
+  { role: '拾荒童', faction: 'drifters', interests: ['机械', '星图'], home: 'mine', aggr: 26, gen: 55, cur: 76, loy: 34, grudge: 26 },
+]
+
+const NAME_POOL = ['闻莺', '白矾', '祁夜', '砂原', '陆沉', '阿灰', '南枝', '鹫', '灯', '霜', '渡鸦', '旧枪', '米岚', '塔利亚', '七', '迟', '赫', '桥', '砂砾', '白榆', '洛', '鸦', '青', '荼']
+
+const FIXED_NPCS = [
+  {
+    name: '灰雀', abo: 'beta', role: '掮客', faction: 'market', home: 'dock',
+    interests: ['交易', '传闻'], personality: { aggression: 30, generosity: 70, curiosity: 55, loyalty: 35, grudge: 50 },
+    schedule: ['在三号货舱算账', '去矿脉收货', '在空港酒吧听消息'],
+    tags: ['blackmarket', 'suspicious', 'patient', 'trader', 'gossip', 'keycollector', 'marketloyal'],
+  },
+  {
+    name: '叶卡', abo: 'alpha', role: '退役哨兵', faction: 'tower', home: 'dock',
+    interests: ['武器', '星图'], personality: { aggression: 70, generosity: 34, curiosity: 42, loyalty: 76, grudge: 55 },
+    schedule: ['在旧哨站擦枪', '沿废墟巡逻', '守着空港的北门'],
+    tags: ['soldier', 'brave', 'protective', 'guard', 'scarred', 'towerloyal', 'loyal'],
+  },
+  {
+    name: '回声', abo: 'omega', role: '未登记向导', faction: 'drifters', home: 'rift',
+    interests: ['共鸣', '遗物'], personality: { aggression: 20, generosity: 55, curiosity: 82, loyalty: 45, grudge: 26 },
+    schedule: ['在裂隙边缘冥想', '听精神回声', '在静默区等人'],
+    tags: ['curious', 'aloof', 'researcher', 'sensitivepsionics', 'lostfamily', 'whisperloyal', 'solo'],
+  },
+]
+
+function playerInterests(run) {
+  const origin = ORIGINS[run.player.origin]
+  const tags = new Set(ORIGIN_INTERESTS[run.player.origin] || CATEGORY_INTERESTS[origin?.category] || [])
+  run.player.traits.forEach((trait) => {
+    const tag = TRAIT_INTERESTS[trait]
+    if (tag) tags.add(tag)
+  })
+  return [...tags]
+}
+
+function playerAggression(run) {
+  const abo = { alpha: 60, beta: 50, omega: 42 }[run.player.abo] || 50
+  const role = run.player.role === 'sentinel' ? 6 : -4
+  const origin = run.player.origin === 'survivor' ? 6 : 0
+  return clamp(abo + role + origin, 0, 100)
+}
+
+function memoryLine(run, npc) {
+  const region = REGIONS[npc.home]
+  return [
+    `常在${region.name}活动。`,
+    `对${npc.interests[0]}很在意。`,
+    `${FACTIONS[npc.faction].name}的人。`,
+  ][run.day % 3]
+}
+
+const TAG_SLOTS = ['background', 'personality', 'personality', 'profession', 'quirk', 'social']
+
+function tagConflicts(def, chosen) {
+  return chosen.some((other) => (
+    def.conflicts.includes(other.id) ||
+    other.conflicts.includes(def.id) ||
+    def.excludes.includes(other.id) ||
+    other.excludes.includes(def.id)
+  ))
+}
+
+function weightedTag(rng, category, chosen) {
+  const pool = TAGS.filter((def) => def.category === category && !chosen.includes(def.id))
+  if (!pool.length) return null
+  const weights = pool.map((def) => Math.max(1, 4 - def.rarity))
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+  let roll = rng.next() * total
+  for (let index = 0; index < pool.length; index += 1) {
+    roll -= weights[index]
+    if (roll <= 0) return pool[index]
+  }
+  return pool[pool.length - 1]
+}
+
+function pickNpcTags(rng, seedRole) {
+  if (seedRole?.tags?.length) return [...new Set(seedRole.tags)].slice(0, 8)
+
+  const chosen = []
+  const add = (category) => {
+    for (let attempt = 0; attempt < 14; attempt += 1) {
+      const def = weightedTag(rng, category, chosen)
+      if (!def) break
+      if (tagConflicts(def, chosen.map((id) => TAG_BY_ID[id]))) continue
+      chosen.push(def.id)
+      return true
+    }
+    const fallback = rng.shuffle(
+      TAGS.filter((def) => (
+        def.category === category &&
+        !chosen.includes(def.id) &&
+        !tagConflicts(def, chosen.map((id) => TAG_BY_ID[id]))
+      ))
+    )[0]
+    if (!fallback) return false
+    chosen.push(fallback.id)
+    return true
+  }
+
+  TAG_SLOTS.forEach(add)
+  if (chosen.length < 7 && rng.chance(0.45)) add('shadow')
+  if (chosen.length < 7 && rng.chance(0.35)) add('values')
+  if (chosen.length < 5) {
+    add('quirk')
+    add('values')
+    add('body')
+  }
+
+  if (!chosen.some((id) => TAG_BY_ID[id]?.category === 'social')) {
+    const social = TAGS.find((def) => (
+      def.category === 'social' &&
+      !chosen.includes(def.id) &&
+      !tagConflicts(def, chosen.map((id) => TAG_BY_ID[id]))
+    ))
+    if (social) chosen[chosen.length - 1] = social.id
+  }
+
+  return chosen.slice(0, 7)
+}
+
+function makeNpc(run, rng, id, seedRole, name) {
+  const base = seedRole || rng.pick(ROLE_POOL)
+  const tags = pickNpcTags(rng, seedRole)
+  const tagEffects = aggregateTagEffects(tags)
+
+  const personality = seedRole && seedRole.personality
+    ? { ...seedRole.personality }
+    : {
+        aggression: clamp(base.aggr + rng.int(-12, 12), 5, 95),
+        generosity: clamp(base.gen + rng.int(-12, 12), 5, 95),
+        curiosity: clamp(base.cur + rng.int(-12, 12), 5, 95),
+        loyalty: clamp(base.loy + rng.int(-12, 12), 5, 95),
+        grudge: clamp(base.grudge + rng.int(-12, 12), 5, 95),
+      }
+
+  Object.entries(tagEffects.personality).forEach(([key, value]) => {
+    personality[key] = clamp((personality[key] ?? 50) + value, 0, 100)
+  })
+
+  const baseInterests = seedRole?.interests
+    ? [...seedRole.interests]
+    : [...base.interests, rng.pick(INTERESTS)]
+  const tagInterests = tags.flatMap((tagId) => TAG_BY_ID[tagId]?.interests || [])
+  const interests = [...new Set([...baseInterests, ...tagInterests])]
+
+  const abo = seedRole?.abo || rng.pick(['alpha', 'beta', 'beta', 'omega'])
+  const home = seedRole?.home || base.home
+  const faction = seedRole?.faction || base.faction
+
+  const overlap = interests.filter((interest) => playerInterests(run).includes(interest)).length
+  const compat = 100 - Math.abs(personality.aggression - playerAggression(run))
+  const factionBonus = ORIGIN_FACTION[run.player.origin] === faction ? 7 : 0
+  const scent = SCENTS[run.player.scent]
+  const scentBonus = scent?.faction === faction ? 5 : scent?.faction ? -2 : 0
+  const perkBias = run.player.perks?.npcBias || 0
+  const empathyBonus = run.player.skills?.includes('empathy') ? 2 : 0
+  const tagMatch = tagAffinity(playerTagKeys(run), tags)
+  const bias = clamp(
+    Math.round(
+      (compat - 55) * 0.32 + overlap * 9 + factionBonus + scentBonus + perkBias +
+      empathyBonus + (tagMatch.score >= 0 ? tagMatch.score * 0.35 : tagMatch.score * 1.4) + rng.int(-16, 16)
+    ),
+    -46,
+    48
+  )
+
+  const relationBonus = tagEffects.relation
+
+  const npc = {
+    id,
+    name,
+    abo,
+    role: base.role,
+    faction,
+    home,
+    tags,
+    tagEffects,
+    tagBias: tagMatch.score,
+    personality,
+    interests,
+    schedule: seedRole?.schedule || [
+      base.interests[0] === '交易' ? '在空港看货' : `在${REGIONS[home].name}活动`,
+      base.interests[1] === '武器' ? '检查装备' : '打听消息',
+      '回到自己的落脚点',
+    ],
+    relation: {
+      trust: clamp(Math.round(18 + bias * 0.55 + rng.int(-4, 6) + (relationBonus.trust || 0)), 2, 72),
+      respect: clamp(Math.round(20 + bias * 0.25 + rng.int(0, 10) + (relationBonus.respect || 0)), 5, 66),
+      closeness: clamp(Math.round(8 + bias * 0.4 + rng.int(0, 6) + (relationBonus.closeness || 0)), 0, 62),
+      fear: clamp(Math.round(relationBonus.fear || 0), 0, 30),
+      grievance: clamp(Math.max(0, -bias) + rng.int(0, 6) + (relationBonus.grievance || 0), 0, 46),
+    },
+    bias,
+    memory: [
+      { day: 1, text: `${TAG_BY_ID[tags[0]]?.name || '标签'}：${TAG_BY_ID[tags[0]]?.desc || ''}` },
+      { day: 1, text: memoryLine(run, { home, interests, faction }) },
+    ],
+    party: false,
+    hostile: false,
+    alive: true,
+    talkedDay: 0,
+    giftLog: [],
+    lore: { entries: [] },
+    longMemory: [],
+    combat: {
+      hp: Math.max(8, 20 + Math.round(personality.aggression / 8) + rng.int(0, 8) + (tagEffects.combat.hp || 0)),
+      morale: Math.max(4, 12 + Math.round(personality.loyalty / 10) + rng.int(0, 6) + (tagEffects.combat.morale || 0)),
+      attack: Math.max(1, 4 + Math.round(personality.aggression / 18) + rng.int(0, 3) + (tagEffects.combat.attack || 0)),
+      traits: [
+        personality.aggression > 60 ? 'aggressive' : personality.curiosity > 68 ? 'psychic' : 'guarded',
+      ],
+    },
+  }
+
+  if (seedRole) {
+    npc.schedule = [...seedRole.schedule]
+  }
+
+  return npc
+}
+
+export function createNpcWorld(run) {
+  const rng = createRng(`${run.seed}:npcs`)
+  const npcs = {}
+  const names = rng.shuffle(NAME_POOL)
+
+  for (let index = 0; index < 18; index += 1) {
+    const id = `npc-${index + 1}`
+    const seedRole = FIXED_NPCS[index] || null
+    const name = seedRole?.name || names[index % names.length] || `无名的${index}`
+    npcs[id] = makeNpc(run, rng, id, seedRole, name)
+  }
+
+  const edges = []
+  const list = Object.values(npcs)
+  for (let i = 0; i < list.length; i += 1) {
+    for (let j = i + 1; j < list.length; j += 1) {
+      const a = list[i]
+      const b = list[j]
+      if (a.faction !== b.faction && a.home !== b.home && !rng.chance(0.28)) continue
+      const affinity = tagAffinity(a.tags, b.tags)
+      const overlap = a.interests.filter((interest) => b.interests.includes(interest)).length
+      edges.push({
+        a: a.id,
+        b: b.id,
+        trust: clamp(
+          Math.round(30 + affinity.score + (a.faction === b.faction ? 8 : 0) + overlap * 3 + rng.int(-8, 8)),
+          0,
+          88
+        ),
+        closeness: clamp(Math.round(15 + affinity.score * 0.5 + rng.int(0, 30)), 0, 80),
+        rivalry: clamp(Math.round(20 - affinity.score * 0.6 + rng.int(0, 20)), 0, 80),
+        affinity: affinity.score,
+      })
+      if (edges.length >= 36) break
+    }
+    if (edges.length >= 36) break
+  }
+
+  if (run.player.flaws?.includes('feud') || run.player.flaw === 'feud') {
+    const target = list.slice().sort((a, b) => b.personality.aggression - a.personality.aggression)[0]
+    if (target) {
+      target.relation.grievance = 65
+      target.relation.trust = Math.min(target.relation.trust, 8)
+      target.hostile = true
+      target.memory.unshift({ day: 1, text: '你欠他一笔还没还的账。' })
+    }
+  }
+
+  return {
+    npcs,
+    npcEdges: edges,
+    party: [],
+    worldEvents: [],
+    pendingAmbush: null,
+  }
+}
+
+export function ensureNpcTags(run) {
+  if (!run?.npcs) return run
+  const rng = createRng(`${run.seed}:npc-tags-migrate`)
+  Object.values(run.npcs).forEach((npc) => {
+    if (npc.tags?.length) return
+    const seedRole = FIXED_NPCS.find((item) => item.name === npc.name) || null
+    npc.tags = pickNpcTags(rng, seedRole)
+    npc.tagEffects = aggregateTagEffects(npc.tags)
+    npc.tagBias = tagAffinity(playerTagKeys(run), npc.tags).score
+    if (!npc.memory) npc.memory = []
+    if (!npc.lore || !Array.isArray(npc.lore.entries)) npc.lore = { entries: [] }
+    if (!Array.isArray(npc.longMemory)) npc.longMemory = []
+  })
+  ;(run.npcEdges || []).forEach((edge) => {
+    if (typeof edge.affinity === 'number') return
+    const a = run.npcs[edge.a]
+    const b = run.npcs[edge.b]
+    if (a && b) edge.affinity = tagAffinity(a.tags || [], b.tags || []).score
+  })
+  return run
+}
+
+export function npcList(run) {
+  return Object.values(run.npcs || {})
+}
+
+export function factionName(key) {
+  return FACTIONS[key]?.name || key
+}
+
+function pushEvent(run, text, kind = 'info') {
+  if (!Array.isArray(run.worldEvents)) run.worldEvents = []
+  run.worldEvents.unshift({ day: run.day, text, kind })
+  if (run.worldEvents.length > 40) run.worldEvents.length = 40
+}
+
+function addMemory(npc, day, text) {
+  npc.memory.unshift({ day, text })
+  if (npc.memory.length > 8) npc.memory.length = 8
+}
+
+function markSocial(run, npcId, kind, delta) {
+  run.flags = run.flags || {}
+  run.flags.lastSocial = { npcId, kind, delta, day: run.day }
+}
+
+export function giftToNpc(run, npcId, itemId) {
+  const npc = run.npcs?.[npcId]
+  if (!npc || !npc.alive) return { ok: false, message: '找不到这个人' }
+  if (!ITEMS[itemId] || (run.inv[itemId] || 0) < 1) return { ok: false, message: '你没有这件东西' }
+  if (npc.hostile) return { ok: false, message: '他现在不想收你的东西' }
+
+  const recent = npc.giftLog.filter((entry) => run.day - entry.day <= 2)
+  const saturation = Math.min(0.8, recent.length * 0.22)
+  const matches = (ITEM_TAGS[itemId] || []).filter((tag) => npc.interests.includes(tag)).length
+  const interestFactor = matches > 0 ? 1.65 : 0.55
+  const biasFactor = clamp(1 + npc.bias / 100, 0.55, 1.4)
+  const base = ITEM_VALUE[itemId] || 10
+
+  let gain = Math.round(base * interestFactor * biasFactor * (1 - saturation))
+  if (npc.bias < -18 && base >= 18) gain = Math.min(gain, 2)
+
+  run.inv[itemId] -= 1
+  if (run.inv[itemId] <= 0) delete run.inv[itemId]
+  npc.giftLog.unshift({ day: run.day, itemId })
+  if (npc.giftLog.length > 12) npc.giftLog.length = 12
+
+  const relation = npc.relation
+  relation.closeness = clamp(relation.closeness + gain, 0, 100)
+  relation.trust = clamp(relation.trust + Math.ceil(gain / 3), 0, 100)
+  relation.respect = clamp(relation.respect + Math.floor(gain / 4), 0, 100)
+
+  let reply = gain >= 8
+    ? '他收下了，态度明显松了一点。'
+    : gain > 0
+      ? '他收下了，但没有多说什么。'
+      : '他看了一眼，把东西推了回来。'
+
+  if (matches > 0) {
+    reply = '他挑了下眉，这东西正合他的兴趣。'
+  }
+  if (npc.bias < -18 && base >= 18) {
+    relation.grievance = clamp(relation.grievance + 4, 0, 100)
+    reply = '他收下了，但把这当成收买。'
+  }
+
+  addMemory(npc, run.day, `你送了 ${ITEMS[itemId].name}。`)
+  markSocial(run, npcId, 'gift', gain)
+  return { ok: true, gain, reply }
+}
+
+export const TALK_TOPICS = {
+  life: { label: '近况', trust: 2, closeness: 1 },
+  interest: { label: '兴趣', trust: 1, closeness: 2 },
+  district: { label: '星区', trust: 0, closeness: 1, respect: 1 },
+  probe: { label: '试探', trust: -1, closeness: 0, fear: 2 },
+}
+
+export function talkToNpc(run, npcId, topic = 'life') {
+  const npc = run.npcs?.[npcId]
+  if (!npc || !npc.alive) return { ok: false, message: '找不到这个人' }
+  if (npc.talkedDay === run.day) return { ok: false, message: '今天已经聊过了' }
+  if (npc.hostile) return { ok: false, message: '他把手放在了武器上。' }
+
+  const meta = TALK_TOPICS[topic] || TALK_TOPICS.life
+  const rng = createRng(`${run.seed}:talk:${npcId}:${run.day}:${topic}`)
+  npc.talkedDay = run.day
+
+  const relation = npc.relation
+  const interestMatch = topic === 'interest' &&
+    npc.interests.some((interest) => playerInterests(run).includes(interest))
+
+  const empathy = (run.player.skills?.includes('empathy') ? 1 : 0) +
+    (run.player.perks?.empathy || 0) +
+    (run.player.traits?.includes('resonance') ? 1 : 0)
+  relation.trust = clamp(relation.trust + meta.trust + (interestMatch ? 2 : 0) + empathy, 0, 100)
+  relation.closeness = clamp(relation.closeness + meta.closeness + (interestMatch ? 1 : 0), 0, 100)
+  if (meta.respect) relation.respect = clamp(relation.respect + meta.respect, 0, 100)
+  if (meta.fear) relation.fear = clamp(relation.fear + meta.fear, 0, 100)
+
+  const lines = {
+    life: [
+      `“最近？${REGIONS[npc.home].name}没什么新鲜的。”`,
+      '“能活一天算一天。”',
+      `“${FACTIONS[npc.faction].name}最近动作很多，你小心点。”`,
+    ],
+    interest: interestMatch
+      ? [`“你也对${npc.interests[0]}感兴趣？”他明显来了精神。`]
+      : [`“${npc.interests[0]}？说说看。”`, '“这个我不太懂，但可以听。”'],
+    district: [
+      `“${REGIONS[npc.home].name}的边界最近不太稳。”`,
+      '“别在裂谷里待太久。”',
+    ],
+    probe: [
+      '“你问得太多了。”',
+      '“有些名字，说出来就会有人死。”',
+    ],
+  }
+
+  let reply = rng.pick(lines[topic] || lines.life)
+  if (relation.grievance > 55) reply = '“我们没什么好说的。”'
+
+  let reveal = null
+  if (topic === 'probe' && rng.chance(0.45)) {
+    const edge = (run.npcEdges || []).find((item) => item.a === npcId || item.b === npcId)
+    if (edge) {
+      const otherId = edge.a === npcId ? edge.b : edge.a
+      const other = run.npcs[otherId]
+      if (other) reveal = `他提到了${other.name}。`
+    }
+  }
+
+  addMemory(npc, run.day, `你们聊了${meta.label}。`)
+  markSocial(run, npcId, 'talk', (meta.trust || 0) + (meta.closeness || 0))
+  return { ok: true, reply: reveal ? `${reply} ${reveal}` : reply, topic: meta.label }
+}
+
+export function intimidateNpc(run, npcId) {
+  const npc = run.npcs?.[npcId]
+  if (!npc || !npc.alive) return { ok: false, message: '找不到这个人' }
+
+  const relation = npc.relation
+  relation.fear = clamp(relation.fear + 10 + (run.player.perks?.fear || 0), 0, 100)
+  relation.respect = clamp(relation.respect + 3, 0, 100)
+  relation.trust = clamp(relation.trust - 6, 0, 100)
+  relation.closeness = clamp(relation.closeness - 4, 0, 100)
+  relation.grievance = clamp(relation.grievance + 12, 0, 100)
+  markSocial(run, npcId, 'intimidate', -6)
+
+  if (relation.grievance >= 60 && !npc.hostile) {
+    npc.hostile = true
+    pushEvent(run, `${npc.name} 记住了你。`, 'bad')
+  }
+
+  addMemory(npc, run.day, '你威胁了他。')
+  return { ok: true, reply: '他没有退，但手已经按在武器上了。' }
+}
+
+export function apologizeToNpc(run, npcId) {
+  const npc = run.npcs?.[npcId]
+  if (!npc || !npc.alive) return { ok: false, message: '找不到这个人' }
+  if (run.player.credits < 40) return { ok: false, message: '需要 40 信用点' }
+
+  run.player.credits -= 40
+  const relation = npc.relation
+  relation.grievance = clamp(relation.grievance - 15, 0, 100)
+  relation.trust = clamp(relation.trust + 3, 0, 100)
+  if (relation.grievance < 35) npc.hostile = false
+  addMemory(npc, run.day, '你道了歉。')
+  return { ok: true, reply: '他收下了信用点，态度没有变好，但也没有更坏。' }
+}
+
+export function canInviteToParty(run, npcId) {
+  const npc = run.npcs?.[npcId]
+  if (!npc) return { ok: false, reason: '找不到这个人' }
+  if (!npc.alive) return { ok: false, reason: '他已经不在了' }
+  if (npc.hostile) return { ok: false, reason: '他正在敌视你' }
+  if (npc.party) return { ok: false, reason: '他已经在队伍里' }
+  if ((run.party || []).length >= 2) return { ok: false, reason: '队伍已满' }
+  if (npc.relation.trust < 50) return { ok: false, reason: '信任不足（需要 50）' }
+  if (npc.relation.closeness < 30) return { ok: false, reason: '还不够熟（亲近需要 30）' }
+  if (npc.relation.grievance >= 25) return { ok: false, reason: '他还在记恨你' }
+  return { ok: true }
+}
+
+export function inviteToParty(run, npcId) {
+  const npc = run.npcs?.[npcId]
+  const check = canInviteToParty(run, npcId)
+  if (!check.ok) return { ok: false, message: check.reason }
+
+  npc.party = true
+  if (!Array.isArray(run.party)) run.party = []
+  run.party.push(npcId)
+  npc.relation.closeness = clamp(npc.relation.closeness + 4, 0, 100)
+  addMemory(npc, run.day, '他加入了你的队伍。')
+  pushEvent(run, `${npc.name} 加入了你的队伍。`, 'good')
+  return { ok: true, reply: '他点了点头，跟在你身后。' }
+}
+
+export function leaveParty(run, npcId) {
+  const npc = run.npcs?.[npcId]
+  if (!npc || !npc.party) return { ok: false, message: '他不在队伍里' }
+
+  npc.party = false
+  run.party = (run.party || []).filter((id) => id !== npcId)
+  npc.relation.trust = clamp(npc.relation.trust - 5, 0, 100)
+  addMemory(npc, run.day, '他离开了队伍。')
+  pushEvent(run, `${npc.name} 离开了你的队伍。`, 'info')
+  return { ok: true, reply: '他没说什么，转身走了。' }
+}
+
+export function applyNpcBattleOutcome(run, npcId, choice) {
+  const npc = run.npcs?.[npcId]
+  if (!npc) return
+
+  const relation = npc.relation
+  if (choice === 'spare') {
+    npc.hostile = false
+    relation.trust = clamp(relation.trust + 6, 0, 100)
+    relation.grievance = clamp(relation.grievance - 25, 0, 100)
+    relation.fear = clamp(relation.fear + 4, 0, 100)
+    addMemory(npc, run.day, '你放过了他。')
+  } else if (choice === 'disarm') {
+    relation.respect = clamp(relation.respect + 5, 0, 100)
+    relation.trust = clamp(relation.trust - 5, 0, 100)
+  } else if (choice === 'interrogate') {
+    relation.fear = clamp(relation.fear + 8, 0, 100)
+    relation.trust = clamp(relation.trust - 10, 0, 100)
+  } else if (choice === 'recruit') {
+    npc.hostile = false
+    relation.grievance = clamp(relation.grievance - 20, 0, 100)
+    relation.trust = clamp(relation.trust + 10, 0, 100)
+    if ((run.party || []).length < 2) {
+      npc.party = true
+      if (!Array.isArray(run.party)) run.party = []
+      run.party.push(npcId)
+    }
+    addMemory(npc, run.day, '你招募了他。')
+  } else if (choice === 'execute') {
+    npc.alive = false
+    npc.party = false
+    run.party = (run.party || []).filter((id) => id !== npcId)
+    addMemory(npc, run.day, '你杀了他。')
+    run.flags.ruthless = (run.flags.ruthless || 0) + 1
+  }
+  if (relation.grievance < 35) npc.hostile = false
+}
+
+export function resolveAmbushPeacefully(run, npcId) {
+  const npc = run.npcs?.[npcId]
+  if (!npc) return { ok: false }
+  const credits = Math.min(60, Math.round(run.player.credits * 0.2))
+  run.player.credits -= credits
+  run.player.mental = clamp(run.player.mental - 6, 0, run.player.mentalMax)
+  npc.relation.grievance = clamp(npc.relation.grievance - 10, 0, 100)
+  run.pendingAmbush = null
+  pushEvent(run, `你给了 ${npc.name} ${credits} 信用点，他没有再动手。`, 'bad')
+  addMemory(npc, run.day, '你退让了。')
+  return { ok: true, credits }
+}
+
+export function startAmbush(run, npcId) {
+  const npc = run.npcs?.[npcId]
+  if (!npc) return null
+  run.pendingAmbush = null
+  return npc
+}
+
+export function tickWorld(run) {
+  if (!run.npcs) return []
+  const rng = createRng(`${run.seed}:world:${run.day}`)
+  const events = []
+  const push = (text, kind = 'info') => {
+    events.push(text)
+    pushEvent(run, text, kind)
+  }
+
+  Object.values(run.npcs).forEach((npc) => {
+    if (!npc.alive) return
+    npc.activity = npc.schedule[(run.day + Number(npc.id.split('-')[1])) % npc.schedule.length]
+  })
+
+  rng.shuffle(Object.values(run.npcs).filter((npc) => npc.alive))
+    .slice(0, 2)
+    .forEach((npc) => {
+      if (npc.activity) push(`${npc.name} ${npc.activity}。`)
+    })
+
+  ;(run.npcEdges || []).forEach((edge) => {
+    if (!rng.chance(0.35)) return
+    const a = run.npcs[edge.a]
+    const b = run.npcs[edge.b]
+    if (!a?.alive || !b?.alive) return
+    if (typeof edge.affinity !== 'number') edge.affinity = tagAffinity(a.tags || [], b.tags || []).score
+    const targetTrust = clamp(45 + edge.affinity * 1.2, 0, 100)
+    edge.trust = clamp(edge.trust + Math.round((targetTrust - edge.trust) * 0.08) + rng.int(-2, 3), 0, 100)
+    edge.rivalry = clamp(edge.rivalry + Math.round(-edge.affinity * 0.08) + rng.int(-2, 2), 0, 100)
+    if (edge.trust > 78 && rng.chance(0.3)) {
+      push(`${a.name} 和 ${b.name} 走得更近了。`, 'good')
+    } else if (edge.rivalry > 70 && rng.chance(0.3)) {
+      push(`${a.name} 和 ${b.name} 起了冲突。`, 'bad')
+    }
+  })
+
+  const social = run.flags?.lastSocial
+  if (social && run.day - social.day <= 1) {
+    const edges = (run.npcEdges || []).filter((edge) => edge.a === social.npcId || edge.b === social.npcId)
+    const targets = rng.shuffle(edges).slice(0, 2)
+    targets.forEach((edge) => {
+      const otherId = edge.a === social.npcId ? edge.b : edge.a
+      const other = run.npcs[otherId]
+      if (!other?.alive) return
+      const delta = social.delta >= 0 ? (edge.trust > 55 ? 2 : 1) : (edge.rivalry > 50 ? -3 : -1)
+      other.relation.trust = clamp(other.relation.trust + delta, 0, 100)
+    })
+    run.flags.lastSocial = null
+  }
+
+  Object.values(run.npcs).forEach((npc) => {
+    if (!npc.alive || !npc.stolen) return
+    if (!rng.chance(0.45)) return
+    const count = npc.stolen
+    npc.stolen = 0
+    npc.relation.grievance = clamp(npc.relation.grievance + 8 + count * 4, 0, 100)
+    npc.relation.trust = Math.max(0, npc.relation.trust - 6)
+    if (npc.relation.grievance >= 60) npc.hostile = true
+    push(`${npc.name} 发现东西少了，开始怀疑你。`, 'bad')
+  })
+
+  if (run.pendingAmbush) {
+    // 已有未处理的伏击，不再叠加
+  } else {
+    Object.values(run.npcs).forEach((npc) => {
+      if (!npc.alive) return
+      if (npc.relation.grievance >= 60) npc.hostile = true
+      if (npc.relation.grievance < 30) npc.hostile = false
+      if (!npc.hostile || !rng.chance(0.4)) return
+
+      if (run.pendingAmbush) return
+
+      if (npc.personality.aggression >= 60) {
+        run.pendingAmbush = npc.id
+        push(`${npc.name} 在你的路上等着。`, 'bad')
+      } else if (rng.chance(0.55)) {
+        const items = Object.keys(run.inv || {}).filter((key) => ITEMS[key])
+        if (items.length) {
+          const item = rng.pick(items)
+          run.inv[item] -= 1
+          if (run.inv[item] <= 0) delete run.inv[item]
+          push(`${npc.name} 拿走了你的 ${ITEMS[item].name}。`, 'bad')
+        } else {
+          const credits = Math.min(30, run.player.credits)
+          run.player.credits -= credits
+          push(`${npc.name} 摸走了你 ${credits} 信用点。`, 'bad')
+        }
+      } else {
+        run.player.mental = clamp(run.player.mental - 4, 0, run.player.mentalMax)
+        push(`${npc.name} 堵住你，警告了一顿。`, 'bad')
+      }
+    })
+  }
+
+  ;[...(run.party || [])].forEach((id) => {
+    const npc = run.npcs[id]
+    if (!npc) return
+    if (npc.relation.trust < 35 || npc.relation.grievance > 35) {
+      npc.party = false
+      run.party = run.party.filter((member) => member !== id)
+      push(`${npc.name} 离开了你的队伍。`, 'bad')
+    }
+  })
+
+  return events
+}

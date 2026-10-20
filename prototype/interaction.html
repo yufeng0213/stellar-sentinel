@@ -1,0 +1,3491 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#04070b" />
+<title>星穹哨向 · 交互原型 0.2</title>
+<style>
+/* ============================================================
+   星穹哨向 · 全屏应用外壳
+   - 桌面：角色 / 舞台 / 通讯 三栏，各自局部滚动
+   - 手机：底部导航切换整屏页面，不产生整页滚动
+   ============================================================ */
+:root {
+  --bg: #04070b;
+  --ink: #e9f4fb;
+  --muted: #93a7b8;
+  --dim: #5d7082;
+  --line: rgba(126, 196, 224, 0.13);
+  --line-2: rgba(126, 196, 224, 0.28);
+  --cyan: #7ce7ff;
+  --amber: #ffc46b;
+  --jade: #8adeb8;
+  --violet: #b9a4ff;
+  --red: #ff8a8a;
+  --sans: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+html { overscroll-behavior: none; }
+
+body {
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  background:
+    radial-gradient(1100px 700px at 12% -12%, rgba(38, 96, 128, 0.26), transparent 62%),
+    radial-gradient(900px 620px at 92% -4%, rgba(82, 54, 128, 0.22), transparent 60%),
+    radial-gradient(800px 620px at 50% 112%, rgba(24, 80, 92, 0.16), transparent 62%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 8% 18%, rgba(255,255,255,.55), transparent),
+    radial-gradient(1px 1px at 26% 72%, rgba(255,255,255,.35), transparent),
+    radial-gradient(1px 1px at 41% 32%, rgba(255,255,255,.5), transparent),
+    radial-gradient(1px 1px at 58% 84%, rgba(255,255,255,.3), transparent),
+    radial-gradient(1px 1px at 66% 12%, rgba(255,255,255,.45), transparent),
+    radial-gradient(1px 1px at 79% 56%, rgba(255,255,255,.32), transparent),
+    radial-gradient(1px 1px at 90% 26%, rgba(255,255,255,.45), transparent),
+    radial-gradient(1px 1px at 94% 76%, rgba(255,255,255,.3), transparent),
+    radial-gradient(1px 1px at 15% 48%, rgba(255,255,255,.22), transparent);
+  opacity: .8;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: .035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+#app { position: relative; z-index: 1; height: 100%; }
+
+h1, h2, h3, h4, p, dl, dd, ul { margin: 0; }
+ul { padding: 0; list-style: none; }
+button { font: inherit; color: inherit; touch-action: manipulation; }
+input { font: inherit; }
+svg { display: block; }
+::selection { background: rgba(124, 231, 255, 0.26); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(126, 196, 224, 0.2); border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.hidden { display: none !important; }
+
+/* ===== 基础组件 ===== */
+.mono { font-family: var(--mono); }
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background:
+    linear-gradient(165deg, rgba(16, 26, 38, 0.82), rgba(6, 11, 17, 0.9));
+  box-shadow:
+    0 24px 60px -24px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+}
+
+.kicker {
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 15px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: rgba(124, 231, 255, 0.06);
+  color: var(--ink);
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .16s ease, border-color .16s ease, opacity .16s ease, transform .12s ease;
+}
+.btn:active:not(:disabled) { transform: scale(.98); }
+.btn:disabled { opacity: .36; cursor: not-allowed; }
+.btn-primary {
+  border-color: rgba(255, 196, 107, 0.5);
+  background: linear-gradient(180deg, rgba(255, 196, 107, 0.24), rgba(255, 196, 107, 0.08));
+  color: #ffe2b4;
+  box-shadow: 0 8px 24px -10px rgba(255, 196, 107, 0.55);
+}
+.btn-ghost { border-color: var(--line); background: transparent; color: var(--muted); }
+.btn-sm { height: 28px; padding: 0 10px; border-radius: 8px; font-size: 11.5px; }
+.btn-block { width: 100%; }
+
+@media (hover: hover) {
+  .btn:hover:not(:disabled) { background: rgba(124, 231, 255, 0.12); border-color: rgba(124, 231, 255, 0.42); }
+  .btn-primary:hover:not(:disabled) { background: linear-gradient(180deg, rgba(255, 196, 107, 0.32), rgba(255, 196, 107, 0.12)); border-color: rgba(255, 196, 107, 0.7); }
+  .btn-ghost:hover:not(:disabled) { color: var(--ink); }
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.tag.cyan { border-color: rgba(124, 231, 255, .28); color: var(--cyan); }
+.tag.amber { border-color: rgba(255, 196, 107, .28); color: var(--amber); }
+.tag.jade { border-color: rgba(138, 222, 184, .28); color: var(--jade); }
+.tag.red { border-color: rgba(255, 138, 138, .3); color: var(--red); }
+.tag.violet { border-color: rgba(185, 164, 255, .3); color: var(--violet); }
+
+/* ============================================================
+   一、角色创建：四步向导
+   ============================================================ */
+.create-shell {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+
+.wizard {
+  width: min(960px, 100%);
+  height: min(780px, 100%);
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px 18px;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(700px 300px at 85% -10%, rgba(124, 231, 255, 0.09), transparent 65%),
+    linear-gradient(170deg, rgba(11, 19, 28, 0.94), rgba(4, 8, 13, 0.96));
+  box-shadow: 0 40px 120px -40px #000, inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+}
+
+.wizard-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+}
+
+.brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+
+.sigil {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+}
+.sigil::before, .sigil::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgba(124, 231, 255, 0.5);
+  transform: rotate(45deg);
+}
+.sigil::after {
+  inset: 11px;
+  border-color: rgba(255, 196, 107, 0.75);
+  border-radius: 50%;
+}
+.sigil i { width: 4px; height: 4px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
+
+.brand-text { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.brand-text b { font-size: 15px; font-weight: 600; letter-spacing: 0.2em; white-space: nowrap; }
+.brand-text small { margin-top: 3px; color: var(--dim); font-family: var(--mono); font-size: 8px; letter-spacing: 0.28em; }
+
+.wizard-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+
+.wsteps { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; }
+.wstep {
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  transition: all .2s ease;
+}
+.wstep.is-done { border-color: rgba(138, 222, 184, .26); color: rgba(138, 222, 184, .8); }
+.wstep.is-on {
+  border-color: rgba(255, 196, 107, .5);
+  background: rgba(255, 196, 107, .12);
+  color: var(--amber);
+}
+
+.wizard-progress {
+  flex: none;
+  height: 2px;
+  margin: 0 0 2px;
+  border-radius: 2px;
+  background: rgba(126, 196, 224, 0.08);
+  overflow: hidden;
+}
+.wizard-progress i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--cyan), var(--amber));
+  box-shadow: 0 0 10px rgba(124, 231, 255, .5);
+  transition: width .35s cubic-bezier(.22,.61,.36,1);
+}
+
+.wizard-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 2px 8px;
+  display: flex;
+  flex-direction: column;
+}
+.wizard-body > .step {
+  width: 100%;
+}
+
+.wizard-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.wizard-hint {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wizard-foot .btn { min-width: 92px; }
+.wizard-foot .btn-primary { min-width: 128px; }
+
+.step { animation: step-in .28s cubic-bezier(.22,.61,.36,1); }
+@keyframes step-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.step-title {
+  margin-top: 8px;
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 300;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+}
+.step-title em { color: var(--amber); font-style: normal; }
+.step-sub { margin-top: 7px; max-width: 44em; color: var(--muted); font-size: 12.5px; line-height: 1.8; }
+
+.field { display: flex; align-items: center; gap: 9px; margin-top: 18px; }
+.field > span { flex: none; width: 40px; color: var(--dim); font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; }
+.field input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(4, 8, 13, 0.72);
+  color: var(--ink);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  outline: none;
+  transition: border-color .18s ease;
+}
+.field input:focus { border-color: rgba(124, 231, 255, 0.45); }
+.field .btn { flex: none; }
+
+.abo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.abo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 10, 16, 0.55);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.abo-top { display: flex; align-items: center; gap: 8px; }
+.abo-letter {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 1px solid rgba(var(--accent), .35);
+  border-radius: 9px;
+  background: rgba(var(--accent), .08);
+  color: rgb(var(--accent));
+  font-family: var(--mono);
+  font-size: 15px;
+}
+.abo b { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; }
+.abo .abo-tag { margin-left: auto; color: var(--dim); font-family: var(--mono); font-size: 9px; white-space: nowrap; }
+.abo p { color: var(--muted); font-size: 11px; line-height: 1.7; }
+.abo.is-on {
+  border-color: rgba(var(--accent), .55);
+  background: linear-gradient(165deg, rgba(var(--accent), .12), rgba(var(--accent), .02));
+  box-shadow: inset 0 0 0 1px rgba(var(--accent), .08);
+}
+.abo.is-on .abo-tag { color: rgb(var(--accent)); }
+
+.role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.role {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 10, 16, 0.55);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease;
+}
+.role-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 1px solid rgba(124, 231, 255, .28);
+  border-radius: 10px;
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 15px;
+}
+.role-body b { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; }
+.role-body p { margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.7; }
+.role.is-on { border-color: rgba(124, 231, 255, .45); background: rgba(124, 231, 255, .07); }
+.role.is-on .role-mark { border-color: rgba(124, 231, 255, .6); box-shadow: 0 0 16px -4px rgba(124, 231, 255, .6); }
+
+.origin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.origin {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(5, 10, 16, 0.45);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease;
+}
+.origin b { font-size: 12.5px; font-weight: 500; letter-spacing: 0.05em; white-space: nowrap; }
+.origin span { color: var(--dim); font-size: 10.5px; line-height: 1.6; text-align: right; }
+.origin.is-on { border-color: rgba(255, 196, 107, .45); background: rgba(255, 196, 107, .07); }
+
+.points-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(5, 10, 16, 0.5);
+}
+.points-head span { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; }
+.points-head b { color: var(--amber); font-family: var(--mono); font-size: 22px; font-weight: 400; line-height: 1; }
+.points-head b small { margin-left: 4px; color: var(--dim); font-size: 10px; }
+
+.attr-editor { margin-top: 8px; }
+.arow {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 2px;
+  border-bottom: 1px dashed rgba(126, 196, 224, 0.1);
+}
+.arow:last-child { border-bottom: 0; }
+.arow-name b { display: block; font-size: 13px; font-weight: 500; letter-spacing: 0.12em; line-height: 1.4; }
+.arow-name span { display: block; color: var(--dim); font-size: 9.5px; letter-spacing: 0.04em; }
+.arow-bar { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.arow-bar i { display: block; height: 100%; background: linear-gradient(90deg, rgba(124, 231, 255, .4), var(--cyan)); }
+.arow-ctl { display: flex; align-items: center; gap: 7px; }
+.arow-ctl button {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.arow-ctl button:disabled { opacity: .25; cursor: not-allowed; }
+.arow-ctl b { width: 24px; text-align: center; font-family: var(--mono); font-size: 15px; font-weight: 400; }
+.arow-ctl em { min-width: 22px; color: var(--jade); font-family: var(--mono); font-size: 10px; font-style: normal; }
+.step-note { margin-top: 10px; color: var(--dim); font-size: 10.5px; line-height: 1.7; }
+
+.mini-profile {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: 18px;
+}
+.mini-profile .kicker { margin-right: 3px; }
+
+.trait-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 14px; }
+.trait {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 10, 16, 0.5);
+  text-align: left;
+  cursor: pointer;
+}
+.trait i {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--dim);
+}
+.trait b { display: block; font-size: 11.5px; font-weight: 500; letter-spacing: 0.04em; }
+.trait span { display: block; color: var(--dim); font-size: 9.5px; line-height: 1.5; }
+.trait.is-on { border-color: rgba(138, 222, 184, .42); background: rgba(138, 222, 184, .07); }
+.trait.is-on i { background: var(--jade); box-shadow: 0 0 8px var(--jade); }
+.trait.is-on::after {
+  content: "✓";
+  margin-left: auto;
+  color: var(--jade);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background:
+    radial-gradient(500px 160px at 100% 0%, rgba(124, 231, 255, .08), transparent 70%),
+    rgba(5, 10, 16, 0.55);
+}
+.sum-id { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sum-ava {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 1px solid rgba(124, 231, 255, .32);
+  border-radius: 12px;
+  background: rgba(124, 231, 255, .08);
+  color: var(--cyan);
+  font-size: 16px;
+}
+.sum-id b { display: block; font-size: 15px; font-weight: 500; letter-spacing: 0.1em; }
+.sum-id p { color: var(--muted); font-size: 10.5px; }
+.sum-attrs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.sum-attrs div { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: rgba(3, 7, 11, .5); }
+.sum-attrs span { display: block; color: var(--dim); font-size: 9px; }
+.sum-attrs b { font-family: var(--mono); font-size: 14px; font-weight: 400; }
+.sum-row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; font-size: 10.5px; }
+.sum-row span { color: var(--dim); }
+.sum-row b { font-family: var(--mono); font-weight: 500; }
+.sum-items { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+/* ============================================================
+   二、HUD
+   ============================================================ */
+.game-shell {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top);
+}
+
+.hud {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  height: 56px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(4, 8, 13, 0.72);
+  backdrop-filter: blur(18px);
+  z-index: 20;
+}
+.hud .brand-text b { font-size: 14px; letter-spacing: 0.18em; }
+.hud .sigil { width: 28px; height: 28px; }
+.hud .sigil::before { inset: 6px; }
+.hud .sigil::after { inset: 9px; }
+
+.hud-stats { display: flex; align-items: center; gap: 22px; margin-left: auto; }
+.hud-stat { display: flex; flex-direction: column; gap: 1px; }
+.hud-stat > span { color: var(--dim); font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.14em; }
+.hud-stat b { font-size: 12px; font-weight: 500; letter-spacing: 0.03em; }
+.hud-stat b em { color: var(--amber); font-family: var(--mono); font-style: normal; font-size: 13px; }
+
+.ap-pips { display: inline-flex; align-items: center; gap: 3px; height: 12px; }
+.ap-pips i { width: 4px; height: 10px; border-radius: 1px; background: rgba(126, 196, 224, 0.16); }
+.ap-pips i.on { background: var(--cyan); box-shadow: 0 0 6px rgba(124, 231, 255, .55); }
+.ap-pips i.low { background: var(--amber); box-shadow: 0 0 6px rgba(255, 196, 107, .5); }
+
+.hud-actions { display: flex; align-items: center; gap: 6px; }
+.save-hint { margin-right: 2px; color: var(--dim); font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; }
+.save-hint.flash { color: var(--jade); }
+
+.hud-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: rgba(124, 231, 255, .05);
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+/* ============================================================
+   三、舞台与三栏
+   ============================================================ */
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 364px;
+  gap: 14px;
+  padding: 14px 18px 16px;
+}
+
+.pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.pane-main { gap: 10px; }
+
+.subtabs { display: flex; gap: 4px; flex: none; }
+.subtabs button {
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--dim);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all .16s ease;
+}
+.subtabs button.is-on {
+  border-color: rgba(124, 231, 255, .28);
+  background: rgba(124, 231, 255, .08);
+  color: var(--cyan);
+}
+@media (hover: hover) {
+  .subtabs button:hover { color: var(--ink); }
+}
+
+#mid-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0;
+}
+#char-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+}
+#side-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.view-in { animation: view-in .28s cubic-bezier(.22,.61,.36,1); }
+@keyframes view-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ============================================================
+   四、探索页
+   ============================================================ */
+.scene { padding: 14px 14px 16px; }
+
+.map-art {
+  position: relative;
+  min-height: 168px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(130% 150% at 86% 118%, rgba(var(--accent), .3), transparent 58%),
+    radial-gradient(90% 120% at 6% -30%, rgba(var(--accent), .1), transparent 60%),
+    linear-gradient(160deg, #0a121b, #05090f);
+}
+.art-orb {
+  position: absolute;
+  right: -50px;
+  bottom: -130px;
+  width: 330px;
+  height: 330px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 24%, rgba(var(--accent), .55), rgba(var(--accent), .1) 44%, rgba(4, 8, 12, 0) 70%);
+  box-shadow: 0 0 120px rgba(var(--accent), .18);
+}
+.art-ring {
+  position: absolute;
+  right: -34px;
+  bottom: -52px;
+  width: 300px;
+  height: 300px;
+  border: 1px solid rgba(var(--accent), .22);
+  border-radius: 50%;
+  transform: rotate(-16deg) scaleY(.58);
+}
+.art-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, .045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, .045) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(circle at 74% 110%, #000, transparent 72%);
+}
+.art-scan {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, .028) 0 1px, transparent 1px 4px);
+  opacity: .5;
+  pointer-events: none;
+}
+
+.map-copy { position: relative; z-index: 2; padding: 18px 18px 0; max-width: 66%; }
+.map-copy h2 { margin-top: 5px; font-size: clamp(21px, 2.4vw, 28px); font-weight: 300; letter-spacing: 0.16em; line-height: 1.25; }
+.map-copy .map-desc {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.8;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.map-danger { position: absolute; left: 18px; bottom: 14px; display: flex; align-items: center; gap: 7px; z-index: 2; }
+.map-danger span { color: var(--dim); font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; }
+.bars { display: inline-flex; gap: 2px; }
+.bars i { width: 10px; height: 4px; border-radius: 1px; background: rgba(255, 255, 255, .12); }
+.bars i.on { background: var(--amber); box-shadow: 0 0 6px rgba(255, 196, 107, .45); }
+.bars.high i.on { background: var(--red); box-shadow: 0 0 6px rgba(255, 138, 138, .45); }
+
+.map-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 9px;
+  background: rgba(5, 10, 16, .55);
+  color: var(--ink);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+@media (hover: hover) {
+  .map-btn:hover { border-color: rgba(var(--accent), .55); color: rgb(var(--accent)); }
+}
+
+.scene-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+.scene-bar-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+}
+.chip.amber { border-color: rgba(255, 196, 107, .26); color: var(--amber); }
+
+.node-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  gap: 9px;
+  margin-top: 10px;
+}
+.node {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background:
+    linear-gradient(170deg, rgba(124, 231, 255, .05), rgba(4, 8, 13, .42));
+  transition: border-color .18s ease;
+}
+@media (hover: hover) {
+  .node:hover { border-color: var(--line-2); }
+}
+.node.is-empty { opacity: .46; }
+.node-top { display: flex; align-items: center; justify-content: space-between; }
+.node-ico { color: var(--cyan); font-size: 12px; }
+.node.is-empty .node-ico { color: var(--dim); }
+.node-charge { color: var(--dim); font-family: var(--mono); font-size: 9px; }
+.node h3 { margin-top: 7px; font-size: 13px; font-weight: 500; letter-spacing: 0.05em; }
+.node-meta { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.node-meta span { color: var(--muted); font-family: var(--mono); font-size: 9px; }
+.node-meta b { color: var(--cyan); font-family: var(--mono); font-size: 9px; font-weight: 500; }
+.node-meta em { color: rgba(255, 196, 107, .8); font-family: var(--mono); font-size: 9px; font-style: normal; }
+.node-yield { margin-top: 6px; color: var(--dim); font-size: 9.5px; line-height: 1.6; }
+.node .btn { margin-top: 9px; height: 30px; width: 100%; font-size: 11.5px; }
+
+.hint-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 9px 12px;
+  border: 1px dashed rgba(255, 196, 107, .26);
+  border-radius: 10px;
+  color: rgba(255, 196, 107, .85);
+  font-size: 10.5px;
+  line-height: 1.7;
+}
+.hint-bar .btn { margin-left: auto; flex: none; }
+.hint-bar.inline { margin: 12px 0 0; }
+
+.signal-card {
+  margin-top: 12px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background:
+    linear-gradient(160deg, rgba(185, 164, 255, .06), rgba(4, 8, 13, .4));
+}
+.signal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.live { display: inline-flex; align-items: center; gap: 5px; color: var(--jade); font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.1em; }
+.live i { width: 4px; height: 4px; border-radius: 50%; background: var(--jade); box-shadow: 0 0 8px var(--jade); animation: pulse 1.8s ease-in-out infinite; }
+.signal-card p { color: var(--muted); font-size: 10.5px; line-height: 1.8; }
+@keyframes pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+
+/* ============================================================
+   五、背包 / 锻造
+   ============================================================ */
+.content { padding: 16px; }
+.content-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.content-head h2 { margin-top: 3px; font-size: 17px; font-weight: 400; letter-spacing: 0.12em; }
+.content-sub { margin-top: 4px; color: var(--dim); font-size: 10.5px; line-height: 1.7; }
+
+.sec-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 8px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.sec-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.sec-label:first-of-type { margin-top: 14px; }
+
+.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 7px; }
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 10, 16, .45);
+}
+.i-glyph {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: 1px solid rgba(124, 231, 255, .2);
+  border-radius: 7px;
+  color: var(--cyan);
+  font-size: 11px;
+}
+.i-glyph.use { border-color: rgba(255, 196, 107, .28); color: var(--amber); }
+.i-body { min-width: 0; flex: 1; }
+.i-body b { display: block; font-size: 11px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.i-body span { color: var(--dim); font-family: var(--mono); font-size: 9px; }
+.i-use {
+  flex: none;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9.5px;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .i-use:hover { color: var(--amber); border-color: rgba(255, 196, 107, .4); }
+}
+
+.gear-list { display: flex; flex-direction: column; gap: 7px; }
+.gear {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(5, 10, 16, .45);
+}
+.gear.is-on { border-color: rgba(124, 231, 255, .3); background: rgba(124, 231, 255, .05); }
+.g-glyph {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.gear.is-on .g-glyph { border-color: rgba(124, 231, 255, .3); color: var(--cyan); }
+.g-body { flex: 1; min-width: 0; }
+.g-body b { font-size: 11.5px; font-weight: 500; }
+.g-body .q { margin-left: 5px; font-family: var(--mono); font-size: 9px; }
+.q0 { color: var(--dim); }
+.q1 { color: var(--muted); }
+.q2 { color: var(--jade); }
+.g-body p { margin-top: 1px; color: var(--dim); font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-bonus { flex: none; color: var(--jade); font-family: var(--mono); font-size: 9.5px; text-align: right; }
+.g-body + .btn { flex: none; }
+
+.recipe-list { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
+.recipe {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(5, 10, 16, .45);
+}
+.r-glyph {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 1px solid rgba(255, 196, 107, .22);
+  border-radius: 8px;
+  color: rgba(255, 196, 107, .85);
+  font-size: 12px;
+}
+.r-body { flex: 1; min-width: 0; }
+.r-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.r-top b { font-size: 12px; font-weight: 500; letter-spacing: 0.05em; }
+.r-top span { color: var(--dim); font-family: var(--mono); font-size: 9px; white-space: nowrap; }
+.mats { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+.mat {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  white-space: nowrap;
+}
+.mat.lack { border-color: rgba(255, 138, 138, .28); color: var(--red); }
+.recipe .btn { flex: none; }
+
+.empty {
+  padding: 22px 12px;
+  border: 1px dashed rgba(126, 196, 224, .14);
+  border-radius: 12px;
+  color: var(--dim);
+  font-size: 10.5px;
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* ============================================================
+   六、角色面板
+   ============================================================ */
+.char-head { display: flex; align-items: center; gap: 11px; }
+.char-ava {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border: 1px solid rgba(124, 231, 255, .3);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 36% 26%, rgba(124, 231, 255, .2), rgba(6, 12, 18, .9));
+  color: var(--cyan);
+  font-size: 19px;
+  letter-spacing: 0;
+}
+.char-ava .abo-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(255, 196, 107, .45);
+  border-radius: 50%;
+  background: #0a1119;
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 9px;
+}
+.char-id { min-width: 0; }
+.char-id b { display: block; font-size: 16px; font-weight: 500; letter-spacing: 0.12em; }
+.char-id p { margin-top: 2px; color: var(--muted); font-size: 10.5px; line-height: 1.6; }
+
+.char-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+
+.vitals { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.vital-head { display: flex; align-items: baseline; justify-content: space-between; font-size: 10.5px; }
+.vital-head span { color: var(--dim); letter-spacing: 0.08em; }
+.vital-head b { font-family: var(--mono); font-size: 10.5px; font-weight: 500; }
+.bar { height: 4px; margin-top: 4px; border-radius: 3px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: inherit; transition: width .35s ease; }
+.bar.hp i { background: linear-gradient(90deg, #3fa989, #a6f2d3); }
+.bar.mental i { background: linear-gradient(90deg, #3f86ad, #a6ecff); }
+.bar.low i { background: linear-gradient(90deg, #a84343, #ff9b9b); }
+
+.mini-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 16px 0 7px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.mini-label em { color: var(--amber); font-style: normal; letter-spacing: 0; }
+
+.attr-list { display: flex; flex-direction: column; gap: 2px; }
+.attr-row { display: flex; align-items: center; gap: 8px; }
+.attr-row .name { width: 30px; flex: none; color: var(--muted); font-size: 10.5px; }
+.attr-row .track { flex: 1; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .06); overflow: hidden; }
+.attr-row .track i { display: block; height: 100%; background: linear-gradient(90deg, rgba(124, 231, 255, .4), var(--cyan)); }
+.attr-row b { width: 18px; text-align: right; font-family: var(--mono); font-size: 12px; font-weight: 500; }
+.attr-row em { width: 24px; text-align: right; color: var(--jade); font-family: var(--mono); font-size: 9px; font-style: normal; }
+
+.gslot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.gslot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border: 1px dashed rgba(126, 196, 224, .14);
+  border-radius: 9px;
+  background: rgba(4, 8, 13, .35);
+  color: var(--dim);
+  cursor: default;
+}
+.gslot.is-filled { border: 1px solid rgba(124, 231, 255, .22); color: var(--ink); cursor: pointer; }
+.gslot .gs-ico { font-size: 14px; color: var(--cyan); line-height: 1.2; }
+.gslot .gs-name { max-width: 100%; font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gslot .gs-slot { color: var(--dim); font-family: var(--mono); font-size: 8px; }
+
+.status-list { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.char-actions { display: flex; gap: 7px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.char-actions .btn { flex: 1; }
+
+/* ============================================================
+   七、日志与通讯
+   ============================================================ */
+.side-tabs { display: flex; gap: 4px; padding: 8px 10px 0; flex: none; }
+.side-tabs button {
+  flex: 1;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.side-tabs button.is-on {
+  border-color: rgba(124, 231, 255, .28);
+  background: rgba(124, 231, 255, .08);
+  color: var(--cyan);
+}
+
+.side-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+.log-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.log-entry { padding-left: 8px; border-left: 2px solid var(--line); }
+.log-entry.good { border-color: rgba(138, 222, 184, .42); }
+.log-entry.bad { border-color: rgba(255, 138, 138, .42); }
+.log-entry.story { border-color: rgba(185, 164, 255, .5); }
+.log-meta { display: flex; justify-content: space-between; gap: 8px; color: var(--dim); font-family: var(--mono); font-size: 8px; letter-spacing: 0.06em; }
+.log-entry p { margin-top: 1px; color: var(--muted); font-size: 11px; line-height: 1.7; word-break: break-word; }
+.log-entry.story p { color: var(--ink); }
+
+.npc-picker { display: flex; gap: 4px; padding: 10px 10px 0; flex: none; }
+.npc-chip {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 27px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.npc-chip i { width: 3px; height: 3px; border-radius: 50%; background: var(--dim); }
+.npc-chip.is-on { border-color: rgba(124, 231, 255, .3); background: rgba(124, 231, 255, .08); color: var(--cyan); }
+.npc-chip.is-on i { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+
+.npc-card { display: flex; align-items: center; gap: 9px; padding: 9px 12px; border-bottom: 1px solid var(--line); flex: none; }
+.npc-ava {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 1px solid rgba(185, 164, 255, .34);
+  border-radius: 50%;
+  background: rgba(185, 164, 255, .08);
+  color: var(--violet);
+  font-size: 11px;
+}
+.npc-id { min-width: 0; }
+.npc-id b { display: block; font-size: 11.5px; font-weight: 500; }
+.npc-id span { display: block; color: var(--dim); font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.npc-aff { margin-left: auto; text-align: right; flex: none; }
+.npc-aff span { display: block; color: var(--dim); font-family: var(--mono); font-size: 8px; }
+.npc-aff b { color: var(--jade); font-family: var(--mono); font-size: 11px; font-weight: 500; }
+
+.chat-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+}
+.msg {
+  max-width: 90%;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  line-height: 1.75;
+  word-break: break-word;
+  animation: msg-in .2s ease;
+}
+@keyframes msg-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.msg.npc {
+  align-self: flex-start;
+  border: 1px solid rgba(185, 164, 255, .18);
+  border-top-left-radius: 3px;
+  background: rgba(185, 164, 255, .07);
+  color: #ded7ff;
+}
+.msg.me {
+  align-self: flex-end;
+  border: 1px solid rgba(255, 196, 107, .18);
+  border-top-right-radius: 3px;
+  background: rgba(255, 196, 107, .08);
+  color: #ffe6c2;
+}
+.msg.note {
+  align-self: center;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  text-align: center;
+}
+
+.chat-foot { flex: none; padding: 0 10px 4px; }
+.quick { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 0 7px; }
+.quick button {
+  height: 23px;
+  padding: 0 8px;
+  border: 1px solid rgba(124, 231, 255, .2);
+  border-radius: 999px;
+  background: rgba(124, 231, 255, .04);
+  color: var(--muted);
+  font-size: 9.5px;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .quick button:hover { color: var(--cyan); border-color: rgba(124, 231, 255, .45); }
+}
+.chat-input { display: flex; gap: 5px; padding-bottom: 8px; }
+.chat-input input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(4, 8, 13, .72);
+  color: var(--ink);
+  font-size: 11.5px;
+  outline: none;
+}
+.chat-input input:focus { border-color: rgba(124, 231, 255, .4); }
+.chat-input button {
+  flex: none;
+  height: 34px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 196, 107, .4);
+  border-radius: 9px;
+  background: rgba(255, 196, 107, .1);
+  color: var(--amber);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.prompt { margin-top: auto; border: 1px solid var(--line); border-radius: 8px; background: rgba(4, 8, 13, .5); flex: none; }
+.prompt summary {
+  padding: 6px 9px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  list-style: none;
+}
+.prompt summary::-webkit-details-marker { display: none; }
+.prompt summary::before { content: "＋ "; color: var(--cyan); }
+.prompt[open] summary::before { content: "－ "; }
+.prompt pre {
+  max-height: 180px;
+  margin: 0;
+  padding: 0 9px 9px;
+  overflow: auto;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ============================================================
+   八、手机底部导航
+   ============================================================ */
+.bottom-nav { display: none; }
+
+/* ============================================================
+   九、星图覆盖层
+   ============================================================ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(2, 5, 9, .74);
+  backdrop-filter: blur(10px);
+  animation: fade-in .18s ease;
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.overlay-panel {
+  width: min(720px, 100%);
+  max-height: min(720px, 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--line-2);
+  background:
+    radial-gradient(600px 260px at 90% -10%, rgba(124, 231, 255, .1), transparent 65%),
+    linear-gradient(170deg, rgba(11, 19, 28, .97), rgba(4, 8, 13, .98));
+  box-shadow: 0 40px 100px -30px #000;
+  animation: sheet-in .24s cubic-bezier(.22,.61,.36,1);
+}
+@keyframes sheet-in { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: none; } }
+
+.overlay-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex: none; }
+.overlay-head h2 { margin-top: 4px; font-size: 20px; font-weight: 300; letter-spacing: 0.14em; }
+.overlay-head p { margin-top: 3px; color: var(--dim); font-size: 10.5px; }
+.overlay-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.map-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
+.map-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(5, 10, 16, .5);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease;
+}
+@media (hover: hover) {
+  .map-card:hover:not(:disabled) { border-color: rgba(var(--accent), .5); background: rgba(var(--accent), .06); }
+}
+.map-card.is-current { border-color: rgba(var(--accent), .5); background: rgba(var(--accent), .07); }
+.map-card.is-current .map-thumb { box-shadow: 0 0 20px rgba(var(--accent), .28); }
+.map-card:disabled { opacity: .45; cursor: not-allowed; }
+.map-card.is-current:disabled { opacity: 1; }
+.map-thumb {
+  position: relative;
+  width: 54px;
+  height: 46px;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid rgba(var(--accent), .28);
+  border-radius: 9px;
+  background:
+    radial-gradient(120% 130% at 80% 120%, rgba(var(--accent), .45), transparent 65%),
+    #060b11;
+}
+.map-thumb i {
+  position: absolute;
+  right: -10px;
+  bottom: -18px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(var(--accent), .9), rgba(var(--accent), .1) 60%, transparent 72%);
+}
+.map-info { flex: 1; min-width: 0; }
+.map-info b { display: block; font-size: 12.5px; font-weight: 500; letter-spacing: 0.06em; }
+.map-info span { display: block; margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: 9px; }
+.map-meta { flex: none; text-align: right; }
+.map-meta b { display: block; color: var(--muted); font-family: var(--mono); font-size: 9.5px; font-weight: 400; }
+.map-meta span { display: block; margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: 8.5px; }
+.map-meta .cur { color: rgb(var(--accent)); }
+.overlay-foot { flex: none; margin-top: 12px; color: var(--dim); font-family: var(--mono); font-size: 9px; text-align: center; }
+
+/* ============================================================
+   十、Toast
+   ============================================================ */
+#toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  width: max-content;
+  max-width: 92vw;
+}
+.toast {
+  padding: 7px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: rgba(8, 14, 21, .96);
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .45);
+  animation: toast-in .2s ease;
+}
+.toast.bad { border-color: rgba(255, 138, 138, .4); color: var(--red); }
+.toast.good { border-color: rgba(138, 222, 184, .4); color: var(--jade); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ============================================================
+   十一、断点：手机 / 平板
+   ============================================================ */
+@media (min-width: 980px) {
+  .wizard { height: auto; max-height: min(820px, 100%); }
+}
+
+@media (max-width: 1240px) {
+  .stage { grid-template-columns: 268px minmax(0, 1fr) 324px; gap: 12px; padding: 12px 14px 14px; }
+  .map-copy { max-width: 72%; }
+}
+
+@media (max-height: 760px) and (min-width: 980px) {
+  .wizard { height: 100%; }
+  .wizard-body { padding-top: 14px; }
+}
+
+@media (max-width: 979px) {
+  .create-shell { padding: 10px; padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+  .wizard { height: 100%; padding: 14px 14px 12px; border-radius: 18px; }
+  .wizard-head { padding-bottom: 10px; align-items: flex-start; }
+  .brand-text small { display: none; }
+  .brand-text b { font-size: 13px; letter-spacing: 0.16em; }
+  .wizard-actions .btn { height: 30px; padding: 0 10px; font-size: 11px; }
+  .wsteps { gap: 3px; }
+  .wstep { padding: 3px 6px; font-size: 8.5px; letter-spacing: 0.02em; }
+  .wstep .wstep-text { display: none; }
+  .wstep::after { content: attr(data-num); }
+  .wizard-body { padding: 14px 0 6px; }
+  .step-title { font-size: 21px; }
+  .step-sub { font-size: 11.5px; }
+  .abo-grid { grid-template-columns: 1fr; gap: 7px; margin-top: 12px; }
+  .abo { padding: 11px 12px; gap: 3px; }
+  .abo p { font-size: 10.5px; }
+  .role-grid { gap: 7px; margin-top: 10px; }
+  .role { padding: 11px; gap: 9px; }
+  .role-body p { font-size: 10px; }
+  .origin-grid { gap: 6px; margin-top: 8px; }
+  .origin { padding: 9px 10px; flex-direction: column; align-items: flex-start; gap: 2px; }
+  .origin span { text-align: left; font-size: 9.5px; }
+  .arow { grid-template-columns: 74px minmax(0, 1fr) auto; gap: 9px; padding: 8px 0; }
+  .arow-name span { font-size: 9px; }
+  .arow-ctl button { width: 32px; height: 32px; }
+  .trait-grid { gap: 6px; margin-top: 10px; }
+  .trait { padding: 8px 9px; gap: 7px; }
+  .trait b { font-size: 10.5px; }
+  .trait span { font-size: 9px; }
+  .summary { grid-template-columns: 1fr; gap: 10px; padding: 12px; margin-top: 10px; }
+  .wizard-hint { display: none; }
+  .wizard-foot .btn { flex: 1; }
+  .wizard-foot .btn-primary { flex: 1.4; }
+
+  /* 游戏外壳 */
+  .hud { height: 50px; padding: 0 12px; gap: 8px; }
+  .hud .brand-text b { font-size: 12.5px; letter-spacing: 0.14em; }
+  .hud .brand-text small { display: none; }
+  .hud .sigil { width: 25px; height: 25px; }
+  .hud .sigil::before { inset: 5px; }
+  .hud .sigil::after { inset: 8px; }
+  .hud-stats { gap: 12px; }
+  .hud-stat > span { display: none; }
+  .hud-stat b { font-size: 11px; }
+  .hud-stat b em { font-size: 12px; }
+  .hud-actions { display: none; }
+  .ap-pips { gap: 2px; }
+  .ap-pips i { width: 4px; height: 9px; }
+
+  .stage { display: block; padding: 9px 10px 8px; }
+  .pane { display: none; height: 100%; min-height: 0; }
+  .game-shell[data-view="explore"] .pane-main,
+  .game-shell[data-view="bag"] .pane-main,
+  .game-shell[data-view="forge"] .pane-main,
+  .game-shell[data-view="comms"] .pane-side,
+  .game-shell[data-view="char"] .pane-char { display: flex; }
+  .subtabs { display: none; }
+  .pane-main { gap: 0; }
+
+  #mid-content { border-radius: 16px; }
+  #char-panel { border-radius: 16px; padding: 14px; }
+  #side-content { border-radius: 16px; }
+
+  .scene { padding: 11px; }
+  .map-art { min-height: 146px; border-radius: 13px; }
+  .map-copy { padding: 14px 14px 0; max-width: 74%; }
+  .map-copy h2 { font-size: 21px; }
+  .map-copy .map-desc { font-size: 10.5px; -webkit-line-clamp: 2; }
+  .map-btn { top: 11px; right: 11px; height: 29px; padding: 0 10px; font-size: 10.5px; }
+  .map-danger { left: 14px; bottom: 11px; }
+  .scene-bar { margin-top: 8px; }
+  .node-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
+  .node { padding: 10px; }
+  .node h3 { font-size: 12px; }
+  .node-yield { font-size: 9px; }
+  .node-meta span, .node-meta b, .node-meta em { font-size: 8.5px; }
+  .node .btn { height: 29px; font-size: 11px; }
+  .hint-bar { font-size: 10px; padding: 8px 10px; }
+
+  /* 避免 iOS 聚焦输入框时自动放大页面 */
+  .field input { font-size: 16px; }
+  .chat-input input { font-size: 16px; height: 38px; }
+  .chat-input button { height: 38px; }
+
+  .content { padding: 13px; }
+  .content-head h2 { font-size: 16px; }
+  .item-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .item { padding: 8px 9px; }
+  .recipe-list { gap: 6px; }
+  .recipe { padding: 9px 10px; gap: 8px; }
+  .r-top b { font-size: 11.5px; }
+  .recipe .btn { height: 27px; padding: 0 9px; font-size: 10.5px; }
+
+  .bottom-nav {
+    flex: none;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+    padding: 3px 6px calc(3px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: rgba(4, 8, 13, .94);
+    backdrop-filter: blur(18px);
+    z-index: 40;
+  }
+  .bottom-nav button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    height: 48px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--dim);
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: color .16s ease, background .16s ease;
+  }
+  .bottom-nav button svg { width: 19px; height: 19px; }
+  .bottom-nav button.is-on { color: var(--cyan); background: rgba(124, 231, 255, .08); }
+  .bottom-nav button.is-on svg { filter: drop-shadow(0 0 6px rgba(124, 231, 255, .55)); }
+
+  #toasts { bottom: calc(66px + env(safe-area-inset-bottom)); }
+
+  .overlay { padding: 0; }
+  .overlay-panel {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    padding: 16px 14px calc(14px + env(safe-area-inset-bottom));
+    padding-top: calc(16px + env(safe-area-inset-top));
+  }
+  .map-list { margin-top: 12px; }
+  .map-thumb { width: 50px; height: 42px; }
+}
+
+@media (max-width: 389px) {
+  .wstep { padding: 3px 5px; font-size: 8px; }
+  .hud-stats { gap: 9px; }
+  .brand-text b { font-size: 11.5px; }
+  .map-copy h2 { font-size: 19px; }
+  .node-grid { gap: 6px; }
+  .node { padding: 9px; }
+}
+
+/* 矮屏手机：优先保证一屏放下探索页 */
+@media (max-width: 979px) and (max-height: 740px) {
+  .map-art { min-height: 118px; }
+  .map-copy { padding-top: 12px; }
+  .map-copy .map-desc { -webkit-line-clamp: 1; }
+  .signal-card { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= 角色创建：四步向导 ================= -->
+  <section id="create" class="create-shell hidden">
+    <div class="wizard">
+      <header class="wizard-head">
+        <div class="brand">
+          <span class="sigil" aria-hidden="true"><i></i></span>
+          <div class="brand-text">
+            <b>星穹哨向</b>
+            <small>STELLAR SENTINEL · 0.2</small>
+          </div>
+        </div>
+        <div class="wizard-actions">
+          <button type="button" class="btn btn-ghost btn-sm hidden" id="resume-btn" data-act="resume">读档</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-act="randomize">随机开局</button>
+        </div>
+      </header>
+
+      <div class="wsteps" id="wizard-steps"></div>
+      <div class="wizard-progress"><i id="wizard-progress" style="width:25%"></i></div>
+
+      <div class="wizard-body" id="wizard-body"></div>
+
+      <footer class="wizard-foot">
+        <button type="button" class="btn btn-ghost" id="prev-btn" data-act="prev-step">上一步</button>
+        <div class="wizard-hint" id="wizard-hint"></div>
+        <button type="button" class="btn btn-primary" id="next-btn" data-act="next-step">下一步</button>
+      </footer>
+    </div>
+  </section>
+
+  <!-- ================= 游戏主界面 ================= -->
+  <section id="game" class="game-shell hidden" data-view="explore">
+    <header class="hud">
+      <div class="brand">
+        <span class="sigil" aria-hidden="true"><i></i></span>
+        <div class="brand-text">
+          <b>星穹哨向</b>
+          <small>STELLAR SENTINEL</small>
+        </div>
+      </div>
+
+      <div class="hud-stats">
+        <div class="hud-stat">
+          <span>星历</span>
+          <b>D<span id="hud-day">1</span> · <span id="hud-time">晨间</span></b>
+        </div>
+        <div class="hud-stat">
+          <span>行动点</span>
+          <b><span id="hud-ap" class="ap-pips"></span></b>
+        </div>
+        <div class="hud-stat">
+          <span>信用点</span>
+          <b><em id="hud-credits">0</em></b>
+        </div>
+      </div>
+
+      <div class="hud-actions">
+        <span id="save-hint" class="save-hint">自动存档</span>
+        <button type="button" class="hud-menu-btn" data-act="save">存档</button>
+        <button type="button" class="hud-menu-btn" data-act="menu">标题</button>
+      </div>
+    </header>
+
+    <div class="stage">
+      <aside class="pane pane-char">
+        <div class="panel" id="char-panel"></div>
+      </aside>
+
+      <main class="pane pane-main">
+        <nav class="subtabs" id="mid-tabs">
+          <button type="button" data-act="mid-tab" data-tab="explore" class="is-on">探索</button>
+          <button type="button" data-act="mid-tab" data-tab="bag">背包</button>
+          <button type="button" data-act="mid-tab" data-tab="forge">锻造</button>
+        </nav>
+        <div class="panel" id="mid-content"></div>
+      </main>
+
+      <aside class="pane pane-side">
+        <div class="panel" id="side-content"></div>
+      </aside>
+    </div>
+
+    <nav class="bottom-nav" id="bottom-nav" aria-label="主导航">
+      <button type="button" data-act="view" data-view="explore" class="is-on" aria-label="探索">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.2"/><path d="M13.2 6.8l-1.9 4.5-4.5 1.9 1.9-4.5z"/>
+        </svg>
+        <span>探索</span>
+      </button>
+      <button type="button" data-act="view" data-view="bag" aria-label="背包">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3.5 7.2h13l.9 9.3H2.6z"/><path d="M7.2 7.2V5.4a2.8 2.8 0 015.6 0v1.8"/>
+        </svg>
+        <span>背包</span>
+      </button>
+      <button type="button" data-act="view" data-view="forge" aria-label="锻造">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 17l6.4-6.4"/><path d="M6.2 4.6l9.2 9.2-2.4 2.4-9.2-9.2z"/><path d="M14.5 3.2l2.3 2.3"/>
+        </svg>
+        <span>锻造</span>
+      </button>
+      <button type="button" data-act="view" data-view="comms" aria-label="通讯">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3.2 4.8h13.6v9H8.4l-3.8 2.6v-2.6H3.2z"/><path d="M6.8 8.4h6.4"/>
+        </svg>
+        <span>通讯</span>
+      </button>
+      <button type="button" data-act="view" data-view="char" aria-label="角色">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="10" cy="6.8" r="3"/><path d="M4.2 17c.9-3.1 3-4.4 5.8-4.4s4.9 1.3 5.8 4.4"/>
+        </svg>
+        <span>角色</span>
+      </button>
+    </nav>
+
+    <div id="overlay" class="overlay hidden"></div>
+  </section>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ============================================================
+ * 1. 工具
+ * ========================================================== */
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const randInt = (n) => Math.floor(Math.random() * n);
+const d20 = () => 1 + randInt(20);
+const pick = (arr) => arr[randInt(arr.length)];
+const esc = (str) => String(str).replace(/[&<>"']/g, (c) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[c]));
+
+/* ============================================================
+ * 2. 静态数据
+ * ========================================================== */
+const ATTRS = [
+  { key: 'per', name: '感知', desc: '采集 · 侦查' },
+  { key: 'vit', name: '体魄', desc: '耐受 · 负重' },
+  { key: 'psi', name: '灵能', desc: '屏障 · 安抚' },
+  { key: 'tec', name: '技艺', desc: '锻造 · 修理' },
+  { key: 'soc', name: '交际', desc: '交涉 · 议价' },
+  { key: 'wil', name: '意志', desc: '抵抗侵蚀' },
+];
+const ATTR_NAME = ATTRS.reduce((m, a) => (m[a.key] = a.name, m), {});
+const BASE_ATTR = 4;
+const FREE_POINTS = 12;
+const ATTR_MAX = 9;
+
+const ABOS = {
+  alpha: {
+    key: 'alpha', name: 'Alpha', code: 'α', tag: '威慑 · 强信息素', accent: '255,196,107',
+    mod: { vit: 1, soc: 1 }, mental: 0,
+    desc: '信息素烈度偏高，压制与号令是本能。旁人会先退半步，再听你说话。',
+    scent: '烈度 82 · 威慑型',
+  },
+  beta: {
+    key: 'beta', name: 'Beta', code: 'β', tag: '稳态 · 抗干扰', accent: '124,231,255',
+    mod: { per: 1, wil: 1 }, mental: 0,
+    desc: '信息素平稳，不引人注意，也不容易被牵着走。边境星区里，活下来的多是 Beta。',
+    scent: '烈度 41 · 稳态型',
+  },
+  omega: {
+    key: 'omega', name: 'Omega', code: 'Ω', tag: '共鸣 · 高敏', accent: '185,164,255',
+    mod: { psi: 1, per: 1 }, mental: -10,
+    desc: '你能听见别人精神图景里的杂音。共鸣是天赋，也是一道一直没长好的伤口。',
+    scent: '烈度 67 · 共鸣型',
+  },
+};
+
+const ROLES = {
+  sentinel: {
+    key: 'sentinel', name: '哨兵', code: 'S', mark: 'S-01',
+    mod: { per: 1 }, mental: -10, gather: 1,
+    desc: '五感外放，采集与追踪更强，但精神更容易过载。',
+  },
+  guide: {
+    key: 'guide', name: '向导', code: 'G', mark: 'G-02',
+    mod: { psi: 1 }, mental: 0, psiCheck: 1,
+    desc: '能走进别人的精神图景。安抚、屏障，也可能在深处留下东西。',
+  },
+};
+
+const ORIGINS = {
+  colonist: { key: 'colonist', name: '殖民舰遗孤', code: 'O-01', mod: { vit: 1 }, credits: 80, items: { scrap: 2, ration: 1 }, desc: '会拆东西，也会忍饿。' },
+  cadet: { key: 'cadet', name: '白塔学员', code: 'O-02', mod: { psi: 1 }, credits: 120, items: { stim: 1, chip: 1 }, desc: '协议成了没人认领的遗产。' },
+  broker: { key: 'broker', name: '黑市掮客', code: 'O-03', mod: { soc: 1 }, credits: 260, items: { chip: 2, ration: 1 }, desc: '认识每一扇后门。' },
+  survivor: { key: 'survivor', name: '裂隙生还者', code: 'O-04', mod: { wil: 1 }, credits: 60, items: { shard: 1, stim: 1 }, desc: '你去过裂谷，并且回来了。' },
+};
+
+const TRAITS = {
+  nose: { key: 'nose', name: '敏锐嗅觉', desc: '采集判定 +1' },
+  hands: { key: 'hands', name: '精密手指', desc: '锻造判定 +1' },
+  calm: { key: 'calm', name: '冷静脉冲', desc: '精神消耗 -1' },
+  dealer: { key: 'dealer', name: '谈判专家', desc: '交涉判定 +1' },
+  night: { key: 'night', name: '夜行者', desc: '夜间不再受罚，反而 +1' },
+  resonance: { key: 'resonance', name: '共鸣体质', desc: '对话好感 +1' },
+};
+
+const ITEMS = {
+  scrap: { name: '合金废料', kind: 'mat', glyph: '▤', note: '船体残片，锻炉的底料。' },
+  chip: { name: '旧世芯片', kind: 'mat', glyph: '▦', note: '还能读出半段失效协议。' },
+  ore: { name: '星髓矿', kind: 'mat', glyph: '◆', note: '冷光在矿石内部缓慢流动。' },
+  cold: { name: '冷晶', kind: 'mat', glyph: '◇', note: '低于环境温度，从不融化。' },
+  spore: { name: '荧光孢', kind: 'mat', glyph: '✳', note: '呼吸时会微微发亮。' },
+  resin: { name: '琥珀树脂', kind: 'mat', glyph: '⬢', note: '向导做屏障的基材。' },
+  shard: { name: '裂隙结晶', kind: 'mat', glyph: '✦', note: '靠近时，精神图景会起波纹。' },
+  stim: { name: '稳定剂', kind: 'use', glyph: '✚', effect: { mental: 25 }, note: '压住过载的神经。' },
+  ration: { name: '营养膏', kind: 'use', glyph: '▣', effect: { hp: 18, mental: 5 }, note: '味道像纸板，但有用。' },
+};
+
+const GEAR = {
+  blade: { name: '共鸣刃', slot: 'weapon', bonus: { per: 1 }, note: '刃口会随心跳轻微震动。' },
+  visor: { name: '感知面罩', slot: 'head', bonus: { per: 2 }, note: '把过量的信息过滤成线条。' },
+  robe: { name: '向导长袍', slot: 'body', bonus: { psi: 2, soc: 1 }, note: '内衬缝着旧塔的屏蔽丝。' },
+  gloves: { name: '锻工手套', slot: 'hands', bonus: { tec: 2 }, note: '掌心的老茧比甲片可靠。' },
+  charm: { name: '裂隙护符', slot: 'trinket', bonus: { wil: 2 }, note: '一小块不会熄灭的黑。' },
+};
+
+const GEAR_GLYPH = { blade: '†', visor: '◉', robe: '▧', gloves: '⬡', charm: '✦' };
+const SLOTS = { weapon: '主手', head: '头部', body: '身体', hands: '手部', trinket: '饰品' };
+
+const MAPS = [
+  {
+    id: 'dock', name: '白塔空港', code: 'DOCK-01', danger: 0, accent: '124,231,255',
+    desc: '停摆的检疫闸口、还亮着的自动售货机，和一群不肯离开的人。',
+    signal: '空港广播仍在循环播放检疫须知：“请所有返回舰船的人员接受精神评估。”没有人排队。',
+    nodes: [
+      { id: 'locker', name: '废弃储物柜', attr: 'tec', dc: 10, charges: 2, yields: [
+        { item: 'scrap', qty: [1, 2] }, { item: 'chip', qty: [1, 1], chance: 0.5 },
+      ] },
+      { id: 'vendor', name: '售货机残骸', attr: 'per', dc: 11, charges: 2, yields: [
+        { item: 'ration', qty: [1, 1] }, { item: 'stim', qty: [1, 1], chance: 0.35 },
+      ] },
+    ],
+  },
+  {
+    id: 'ruins', name: '锈带废墟', code: 'RUIN-04', danger: 1, accent: '255,196,107',
+    desc: '一整支殖民舰队的坟场。风穿过断裂的舱壁，像有人在远处念名字。',
+    signal: '每隔十七分钟，废墟深处会传来一次金属敲击。三下，停顿，两下。没有人知道该不该回应。',
+    nodes: [
+      { id: 'hull', name: '断裂船体', attr: 'per', dc: 12, charges: 3, yields: [
+        { item: 'scrap', qty: [1, 3] }, { item: 'chip', qty: [1, 1], chance: 0.4 },
+      ] },
+      { id: 'medbay', name: '旧医疗舱', attr: 'tec', dc: 14, charges: 2, yields: [
+        { item: 'stim', qty: [1, 1] }, { item: 'resin', qty: [1, 1], chance: 0.5 },
+      ] },
+      { id: 'antenna', name: '信号塔残骸', attr: 'psi', dc: 15, charges: 2, yields: [
+        { item: 'chip', qty: [1, 2] }, { item: 'shard', qty: [1, 1], chance: 0.2 },
+      ] },
+    ],
+  },
+  {
+    id: 'mine', name: '深岩矿脉', code: 'MINE-07', danger: 2, accent: '179,164,255',
+    desc: '自动化钻机还在工作，没有人下令让它们停下。岩壁里的光会跟着你的呼吸明灭。',
+    signal: '钻机日志停在四十七天前。最后一条写着：“岩层里有回声，暂停作业。”',
+    nodes: [
+      { id: 'vein', name: '星髓露头', attr: 'per', dc: 14, charges: 3, yields: [
+        { item: 'ore', qty: [1, 2] },
+      ] },
+      { id: 'crystal', name: '冷晶簇', attr: 'tec', dc: 15, charges: 2, yields: [
+        { item: 'cold', qty: [1, 2] },
+      ] },
+      { id: 'collapse', name: '塌方层', attr: 'vit', dc: 16, charges: 2, mental: 3, yields: [
+        { item: 'ore', qty: [2, 2] }, { item: 'scrap', qty: [1, 1] },
+      ] },
+    ],
+  },
+  {
+    id: 'grove', name: '孢雾林', code: 'GROVE-02', danger: 2, accent: '138,222,184',
+    desc: '货舱里漏出来的实验菌株，在废弃穹顶下长成了一片森林。发光的孢子像慢速的雪。',
+    signal: '孢子在你呼出的热气里亮了一下，然后熄灭。它们似乎在记住你。',
+    nodes: [
+      { id: 'bed', name: '荧光菌床', attr: 'per', dc: 13, charges: 3, yields: [
+        { item: 'spore', qty: [1, 3] },
+      ] },
+      { id: 'resin', name: '树脂淤积', attr: 'vit', dc: 14, charges: 2, yields: [
+        { item: 'resin', qty: [1, 2] },
+      ] },
+      { id: 'deep', name: '孢子云深处', attr: 'psi', dc: 16, charges: 2, mental: 3, yields: [
+        { item: 'spore', qty: [2, 2] }, { item: 'resin', qty: [1, 1] },
+        { item: 'shard', qty: [1, 1], chance: 0.15 },
+      ] },
+    ],
+  },
+  {
+    id: 'rift', name: '黑曜裂谷', code: 'RIFT-09', danger: 3, accent: '255,138,138',
+    desc: '空间在这里折了一道。读数全部无效，通讯延迟七秒，而你的精神图景里有人在敲门。',
+    signal: '通讯延迟七秒。你听见自己的声音从延迟里回来，但说的不是刚才那句话。',
+    nodes: [
+      { id: 'edge', name: '裂隙边缘', attr: 'psi', dc: 16, charges: 2, mental: 4, yields: [
+        { item: 'shard', qty: [1, 1] },
+      ] },
+      { id: 'cliff', name: '黑曜断崖', attr: 'wil', dc: 18, charges: 2, mental: 6, yields: [
+        { item: 'shard', qty: [1, 2] }, { item: 'cold', qty: [1, 1], chance: 0.5 },
+      ] },
+      { id: 'silence', name: '静默区', attr: 'per', dc: 19, charges: 1, mental: 8, yields: [
+        { item: 'shard', qty: [2, 2] }, { item: 'chip', qty: [1, 1] },
+      ] },
+    ],
+  },
+];
+
+const RECIPES = [
+  { id: 'blade', out: 'blade', name: '共鸣刃', type: 'gear', dc: 14, mats: { ore: 2, scrap: 2 } },
+  { id: 'visor', out: 'visor', name: '感知面罩', type: 'gear', dc: 15, mats: { cold: 2, chip: 1 } },
+  { id: 'robe', out: 'robe', name: '向导长袍', type: 'gear', dc: 14, mats: { resin: 2, spore: 2 } },
+  { id: 'gloves', out: 'gloves', name: '锻工手套', type: 'gear', dc: 13, mats: { scrap: 2, resin: 1 } },
+  { id: 'charm', out: 'charm', name: '裂隙护符', type: 'gear', dc: 16, mats: { shard: 1, cold: 1 } },
+  { id: 'stim', out: 'stim', name: '稳定剂 ×2', type: 'use', dc: 11, mats: { spore: 1, resin: 1 }, qty: 2 },
+];
+
+const NPCS = {
+  magpie: {
+    id: 'magpie', name: '灰雀', abo: 'beta', title: '黑市掮客', where: '空港 · 三号货舱',
+    persona: '说话绕弯，永远在算价。对肯付钱的人客气，对白塔的人刻薄。从不赊账。',
+    greet: '“新面孔。要买什么？先说好，我这里不赊账。”',
+    lines: [
+      '“价钱是谈出来的，命也是。”',
+      '“白塔的人上个月还来收税，这个月连影子都没了。”',
+      '“你身上的味道……有点冲。别在货舱里待太久。”',
+      '“裂谷那边的东西，我收。但我不问来路。”',
+    ],
+    actions: [{ id: 'discount', label: '请求折扣' }, { id: 'buy', label: '购买材料包' }],
+  },
+  yeka: {
+    id: 'yeka', name: '叶卡', abo: 'alpha', title: '退役哨兵', where: '空港 · 旧哨站',
+    persona: '话少，句子短。曾经是白塔最好的追踪者，现在守着一间没人来的哨站。不喜欢向导。',
+    greet: '“站住。……哦，活的。说吧，什么事。”',
+    lines: [
+      '“白塔沉默了四十七天。别问我为什么还记得天数。”',
+      '“裂谷里没有风。你听见的风声，是你自己的。”',
+      '“哨兵失控的时候，别靠近。跑，或者找个向导。”',
+      '“我不缺钱。我缺一个能把东西带回来的人。”',
+    ],
+    actions: [{ id: 'quest', label: '接取委托' }, { id: 'turnin', label: '交付结晶' }],
+  },
+  echo: {
+    id: 'echo', name: '回声', abo: 'omega', title: '未登记向导', where: '裂隙 · 精神回声',
+    persona: '声音很轻，回答常常慢半拍。能听见别人精神图景里的声音，但不太会解释自己。',
+    greet: '“……你终于来了。我听见你很久了。”',
+    lines: [
+      '“你的精神图景里有一道裂缝。要我帮你按住吗？”',
+      '“别在裂谷里待太久。那里会记住你。”',
+      '“白塔不是失联。是有人把它关掉了。”',
+      '“共鸣不是交换。是两个人一起承担。”',
+    ],
+    actions: [{ id: 'soothe', label: '请求安抚' }, { id: 'resonate', label: '共振' }],
+  },
+};
+
+const NAMES = ['凛', '灰原', '祁', '洛', '沙', '银', '渡', '栖', '南', '零', '夜见', '白鸦'];
+const SAVE_KEY = 'stellar-sentinel.prototype.v2';
+
+/* ============================================================
+ * 3. 运行时状态
+ * ========================================================== */
+const STEPS = [
+  { title: '身份' },
+  { title: '职业' },
+  { title: '属性' },
+  { title: '特质' },
+];
+
+let S = null;
+let draft = null;
+let uidSeq = 1;
+const ui = { step: 0, midTab: 'explore', sideTab: 'log', view: 'explore', chatNpc: 'magpie' };
+
+function newDraft() {
+  return {
+    name: '',
+    abo: 'beta',
+    role: 'sentinel',
+    origin: 'colonist',
+    attrs: ATTRS.reduce((m, a) => (m[a.key] = BASE_ATTR, m), {}),
+    traits: [],
+  };
+}
+
+/* ============================================================
+ * 4. 角色创建
+ * ========================================================== */
+function modsOf(d) {
+  const out = {};
+  [ABOS[d.abo].mod, ROLES[d.role].mod, ORIGINS[d.origin].mod].forEach((src) => {
+    Object.keys(src).forEach((k) => { out[k] = (out[k] || 0) + src[k]; });
+  });
+  return out;
+}
+
+function finalAttrs(d) {
+  const out = { ...d.attrs };
+  const mods = modsOf(d);
+  Object.keys(mods).forEach((k) => { out[k] += mods[k]; });
+  return out;
+}
+
+function pointsUsed(d) { return ATTRS.reduce((sum, a) => sum + (d.attrs[a.key] - BASE_ATTR), 0); }
+function pointsLeft(d) { return FREE_POINTS - pointsUsed(d); }
+
+function buildPreview(d) {
+  const attrs = finalAttrs(d);
+  const abo = ABOS[d.abo];
+  const role = ROLES[d.role];
+  return {
+    attrs,
+    hpMax: 50 + attrs.vit * 6,
+    mentalMax: 100 + attrs.psi * 2 + abo.mental + role.mental,
+    credits: ORIGINS[d.origin].credits,
+    items: ORIGINS[d.origin].items,
+  };
+}
+
+function stepIdentity() {
+  const d = draft;
+  return `
+<div class="step">
+  <p class="kicker">STEP 01 / 04 · IDENTITY</p>
+  <h2 class="step-title">在星区里，<em>你是谁？</em></h2>
+  <p class="step-sub">第二性别决定信息素签名与判定倾向；它不限制任何路线。</p>
+
+  <label class="field">
+    <span>代号</span>
+    <input id="name-input" maxlength="10" placeholder="输入你的代号" autocomplete="off" value="${esc(d.name)}" />
+    <button type="button" class="btn btn-ghost btn-sm" data-act="random-name">随机</button>
+  </label>
+
+  <div class="abo-grid">
+    ${Object.values(ABOS).map((a) => `
+      <button type="button" class="abo ${d.abo === a.key ? 'is-on' : ''}" data-act="abo" data-key="${a.key}" style="--accent:${a.accent}">
+        <span class="abo-top">
+          <span class="abo-letter">${a.code}</span>
+          <b>${a.name}</b>
+          <span class="abo-tag">${a.tag}</span>
+        </span>
+        <p>${a.desc}</p>
+      </button>`).join('')}
+  </div>
+</div>`;
+}
+
+function stepPath() {
+  const d = draft;
+  return `
+<div class="step">
+  <p class="kicker">STEP 02 / 04 · PATH</p>
+  <h2 class="step-title">你带着什么<em>来到这里？</em></h2>
+  <p class="step-sub">职业决定判定专长，出身决定起始物资与信用点。</p>
+
+  <div class="role-grid">
+    ${Object.values(ROLES).map((r) => `
+      <button type="button" class="role ${d.role === r.key ? 'is-on' : ''}" data-act="role" data-key="${r.key}">
+        <span class="role-mark">${r.code}</span>
+        <span class="role-body"><b>${r.name}</b><p>${r.desc}</p></span>
+      </button>`).join('')}
+  </div>
+
+  <div class="origin-grid">
+    ${Object.values(ORIGINS).map((o) => `
+      <button type="button" class="origin ${d.origin === o.key ? 'is-on' : ''}" data-act="origin" data-key="${o.key}">
+        <b>${o.name}</b>
+        <span>${o.desc}</span>
+      </button>`).join('')}
+  </div>
+</div>`;
+}
+
+function stepAttrs() {
+  const d = draft;
+  const mods = modsOf(d);
+  return `
+<div class="step">
+  <p class="kicker">STEP 03 / 04 · ATTRIBUTES</p>
+  <h2 class="step-title">分配你的<em>十二点</em></h2>
+  <p class="step-sub">属性只影响判定，不会锁死任何内容。剩余点数可以留到下一步，但进入星区前必须分配完。</p>
+
+  <div class="points-head">
+    <span>剩余点数</span>
+    <b id="pt-left">${pointsLeft(d)}<small>/ ${FREE_POINTS}</small></b>
+  </div>
+
+  <div class="attr-editor">
+    ${ATTRS.map((a) => {
+      const v = d.attrs[a.key];
+      const mod = mods[a.key] || 0;
+      return `
+      <div class="arow">
+        <div class="arow-name"><b>${a.name}</b><span>${a.desc}</span></div>
+        <div class="arow-bar"><i style="width:${clamp((v + mod) / 12 * 100, 6, 100)}%"></i></div>
+        <div class="arow-ctl">
+          <button type="button" data-act="attr-dec" data-key="${a.key}" ${v <= BASE_ATTR ? 'disabled' : ''} aria-label="减少${a.name}">−</button>
+          <b>${v}</b>
+          <em>${mod ? `+${mod}` : ''}</em>
+          <button type="button" data-act="attr-inc" data-key="${a.key}" ${(v >= ATTR_MAX || pointsLeft(d) <= 0) ? 'disabled' : ''} aria-label="增加${a.name}">+</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+  <p class="step-note">提示：感知利于采集，技艺利于锻造，灵能利于安抚与抵抗侵蚀。</p>
+</div>`;
+}
+
+function stepTraits() {
+  const d = draft;
+  const pv = buildPreview(d);
+  const name = d.name.trim() || '无名者';
+  const abo = ABOS[d.abo];
+  const role = ROLES[d.role];
+  const origin = ORIGINS[d.origin];
+
+  return `
+<div class="step">
+  <p class="kicker">STEP 04 / 04 · TRAITS</p>
+  <h2 class="step-title">最后，<em>两个标签</em></h2>
+  <p class="step-sub">特质会直接改写判定。选两个，然后进入星区。</p>
+
+  <div class="trait-grid">
+    ${Object.values(TRAITS).map((t) => `
+      <button type="button" class="trait ${d.traits.includes(t.key) ? 'is-on' : ''}" data-act="trait" data-key="${t.key}">
+        <i></i>
+        <span><b>${t.name}</b><span>${t.desc}</span></span>
+      </button>`).join('')}
+  </div>
+
+  <div class="summary">
+    <div>
+      <div class="sum-id">
+        <span class="sum-ava">${esc(name.slice(0, 1))}</span>
+        <div>
+          <b>${esc(name)}</b>
+          <p>${abo.name} · ${role.name} · ${origin.name}</p>
+        </div>
+      </div>
+      <div class="sum-attrs">
+        ${ATTRS.map((a) => `<div><span>${a.name}</span><b>${pv.attrs[a.key]}</b></div>`).join('')}
+      </div>
+    </div>
+    <div>
+      <div class="sum-row"><span>信息素签名</span><b>${abo.scent}</b></div>
+      <div class="sum-row"><span>生命 / 精神</span><b>${pv.hpMax} / ${pv.mentalMax}</b></div>
+      <div class="sum-row"><span>信用点</span><b>${pv.credits}</b></div>
+      <div class="sum-row"><span>起始物资</span><b></b></div>
+      <div class="sum-items">
+        ${Object.keys(pv.items).map((k) => `<span class="tag">${ITEMS[k].name} ×${pv.items[k]}</span>`).join('')}
+        ${d.traits.map((k) => `<span class="tag jade">${TRAITS[k].name}</span>`).join('')}
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+function stepHTML(i) {
+  if (i === 0) return stepIdentity();
+  if (i === 1) return stepPath();
+  if (i === 2) return stepAttrs();
+  return stepTraits();
+}
+
+function renderMiniProfile() {
+  const abo = ABOS[draft.abo];
+  const role = ROLES[draft.role];
+  const origin = ORIGINS[draft.origin];
+  return `
+    <div class="mini-profile">
+      <span class="kicker">DRAFT</span>
+      <span class="tag amber">${abo.code} ${abo.name}</span>
+      <span class="tag cyan">${role.name}</span>
+      <span class="tag">${origin.name}</span>
+      <span class="tag jade">${pointsLeft(draft)} 点可用</span>
+    </div>`;
+}
+
+function renderCreate() {
+  $('#wizard-steps').innerHTML = STEPS.map((s, i) => `
+    <span class="wstep ${i < ui.step ? 'is-done' : ''} ${i === ui.step ? 'is-on' : ''}" data-num="${String(i + 1).padStart(2, '0')}">
+      <span class="wstep-text">${String(i + 1).padStart(2, '0')} ${s.title}</span>
+    </span>`).join('');
+  $('#wizard-progress').style.width = `${((ui.step + 1) / STEPS.length) * 100}%`;
+
+  const body = $('#wizard-body');
+  body.innerHTML = stepHTML(ui.step) + (ui.step < 3 ? renderMiniProfile() : '');
+  body.scrollTop = 0;
+  updateWizardFoot();
+
+  const hasSave = !!loadSaved();
+  $('#resume-btn').classList.toggle('hidden', !hasSave);
+}
+
+function updateWizardFoot() {
+  const last = ui.step === STEPS.length - 1;
+  const left = pointsLeft(draft);
+  const need = 2 - draft.traits.length;
+  const btn = $('#next-btn');
+  const prev = $('#prev-btn');
+  const hint = $('#wizard-hint');
+  if (!btn || !prev || !hint) return;
+
+  prev.disabled = ui.step === 0;
+  const valid = left === 0 && need === 0;
+  btn.disabled = last && !valid;
+  btn.textContent = last
+    ? (left > 0 ? `还有 ${left} 点属性` : need > 0 ? `请选择 ${need} 项特质` : '进入星区')
+    : '下一步';
+
+  const hints = [
+    '第二性别只影响倾向，不限制路线。',
+    '职业决定采集与安抚的专长。',
+    left > 0 ? `还剩 ${left} 点属性未分配` : '属性已分配完毕。',
+    need > 0 ? `还需选择 ${need} 项特质` : '准备完毕，可以进入星区。',
+  ];
+  hint.textContent = hints[ui.step] || '';
+}
+
+function nextStep() {
+  if (ui.step === STEPS.length - 1) {
+    if (pointsLeft(draft) > 0) return toast('还有属性点未分配');
+    if (draft.traits.length !== 2) return toast('请选择 2 项特质');
+    startGame();
+    return;
+  }
+  ui.step += 1;
+  renderCreate();
+}
+
+function prevStep() {
+  if (ui.step === 0) return;
+  ui.step -= 1;
+  renderCreate();
+}
+
+function randomizeBuild() {
+  draft.name = pick(NAMES);
+  draft.abo = pick(['alpha', 'beta', 'omega']);
+  draft.role = pick(['sentinel', 'guide']);
+  draft.origin = pick(['colonist', 'cadet', 'broker', 'survivor']);
+  draft.attrs = ATTRS.reduce((m, a) => (m[a.key] = BASE_ATTR, m), {});
+  let left = FREE_POINTS;
+  while (left > 0) {
+    const pool = ATTRS.filter((a) => draft.attrs[a.key] < ATTR_MAX);
+    const a = pick(pool);
+    draft.attrs[a.key] += 1;
+    left -= 1;
+  }
+  const keys = Object.keys(TRAITS);
+  draft.traits = [pick(keys), pick(keys.filter((k) => k !== draft.traits[0]))];
+  ui.step = STEPS.length - 1;
+  renderCreate();
+  toast('已生成一套随机开局', 'good');
+}
+
+/* ============================================================
+ * 5. 建号 / 存档
+ * ========================================================== */
+function buildGame(d) {
+  const attrs = finalAttrs(d);
+  const abo = ABOS[d.abo];
+  const role = ROLES[d.role];
+  const origin = ORIGINS[d.origin];
+  const hpMax = 50 + attrs.vit * 6;
+  const mentalMax = 100 + attrs.psi * 2 + abo.mental + role.mental;
+
+  const game = {
+    version: 2,
+    player: {
+      name: d.name.trim() || '无名者',
+      abo: d.abo, role: d.role, origin: d.origin,
+      traits: [...d.traits],
+      attrs,
+      hp: hpMax, hpMax,
+      mental: mentalMax, mentalMax,
+      credits: origin.credits,
+    },
+    day: 1,
+    ap: 8,
+    apMax: 8,
+    location: 'dock',
+    inv: { ...origin.items },
+    gear: [],
+    equipment: { weapon: null, head: null, body: null, hands: null, trinket: null },
+    nodeUse: {},
+    log: [],
+    chats: {},
+    affinity: { magpie: 10, yeka: 5, echo: 0 },
+    quest: null,
+    flags: { discount: false },
+  };
+
+  Object.keys(NPCS).forEach((id) => {
+    game.chats[id] = [{ from: 'npc', text: NPCS[id].greet }];
+  });
+  return game;
+}
+
+function addLog(text, kind = 'info') {
+  if (!S) return;
+  S.log.unshift({ t: `D${S.day} · ${timeLabel()}`, text, kind });
+  if (S.log.length > 160) S.log = S.log.slice(0, 160);
+}
+
+function timeLabel() {
+  const ap = S ? S.ap : 8;
+  if (ap >= 6) return '晨间';
+  if (ap >= 4) return '午后';
+  if (ap >= 2) return '黄昏';
+  return '深夜';
+}
+
+function isNight() { return timeLabel() === '深夜'; }
+
+function saveGame(silent = false) {
+  if (!S) return;
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+    if (!silent) { flashSave(); toast('已存档', 'good'); }
+  } catch (e) {
+    toast('存档失败：浏览器存储不可用', 'bad');
+  }
+}
+
+function autosave() {
+  if (!S) return;
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 忽略 */ }
+}
+
+let flashTimer = null;
+function flashSave() {
+  const el = $('#save-hint');
+  if (!el) return;
+  el.textContent = '已保存';
+  el.classList.add('flash');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => {
+    el.textContent = '自动存档';
+    el.classList.remove('flash');
+  }, 1600);
+}
+
+function loadSaved() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return data && data.player ? data : null;
+  } catch (e) { return null; }
+}
+
+function normalize(data) {
+  data.log = data.log || [];
+  data.chats = data.chats || {};
+  Object.keys(NPCS).forEach((id) => {
+    if (!data.chats[id]) data.chats[id] = [{ from: 'npc', text: NPCS[id].greet }];
+  });
+  data.affinity = data.affinity || { magpie: 10, yeka: 5, echo: 0 };
+  data.gear = data.gear || [];
+  data.inv = data.inv || {};
+  data.equipment = data.equipment || { weapon: null, head: null, body: null, hands: null, trinket: null };
+  data.nodeUse = data.nodeUse || {};
+  data.flags = data.flags || {};
+  data.quest = data.quest || null;
+  data.apMax = data.apMax || 8;
+  return data;
+}
+
+function showCreate() {
+  closeMap();
+  draft = newDraft();
+  ui.step = 0;
+  $('#game').classList.add('hidden');
+  $('#create').classList.remove('hidden');
+  renderCreate();
+}
+
+function startGame() {
+  if (pointsLeft(draft) > 0) return toast('还有属性点未分配');
+  if (draft.traits.length !== 2) return toast('请选择 2 项特质');
+
+  S = buildGame(draft);
+  addLog(`${S.player.name}，${ABOS[S.player.abo].name} · ${ROLES[S.player.role].name}。你在空港的冷冻舱里醒来。`, 'story');
+  addLog('白塔仍然沉默。通讯频道里只有静电，和一个反复出现的坐标。', 'story');
+
+  ui.view = 'explore';
+  ui.midTab = 'explore';
+  ui.sideTab = 'log';
+  ui.chatNpc = 'magpie';
+
+  $('#create').classList.add('hidden');
+  $('#game').classList.remove('hidden');
+  renderAll();
+  saveGame(true);
+  flashSave();
+}
+
+function resumeGame() {
+  const saved = loadSaved();
+  if (!saved) return toast('没有找到存档', 'bad');
+  S = normalize(saved);
+  ui.view = 'explore';
+  ui.midTab = 'explore';
+  ui.sideTab = 'log';
+  ui.chatNpc = 'magpie';
+  $('#create').classList.add('hidden');
+  $('#game').classList.remove('hidden');
+  renderAll();
+  toast('读取存档', 'good');
+}
+
+/* ============================================================
+ * 6. 派生数值
+ * ========================================================== */
+function hasTrait(key) { return S.player.traits.includes(key); }
+
+function gearBonus(attrKey) {
+  let sum = 0;
+  Object.keys(S.equipment).forEach((slot) => {
+    const uid = S.equipment[slot];
+    if (!uid) return;
+    const g = S.gear.find((x) => x.uid === uid);
+    if (g) sum += g.bonus[attrKey] || 0;
+  });
+  return sum;
+}
+
+function attrTotal(attrKey) { return S.player.attrs[attrKey] + gearBonus(attrKey); }
+function attrEff(attrKey) { return attrTotal(attrKey) + (S.player.mental < 30 ? -2 : 0); }
+
+function nightMod() {
+  if (!isNight()) return 0;
+  return hasTrait('night') ? 1 : -1;
+}
+
+function traitBonus(kind) {
+  let b = 0;
+  if (kind === 'gather' && hasTrait('nose')) b += 1;
+  if (kind === 'forge' && hasTrait('hands')) b += 1;
+  if (kind === 'social' && hasTrait('dealer')) b += 1;
+  return b;
+}
+
+function roleBoost(kind) {
+  if (kind === 'gather' && ROLES[S.player.role].gather) return 1;
+  if (kind === 'psi' && ROLES[S.player.role].psiCheck) return 1;
+  return 0;
+}
+
+function addItem(key, n = 1) { S.inv[key] = (S.inv[key] || 0) + n; }
+
+function takeItem(key, n = 1) {
+  if ((S.inv[key] || 0) < n) return false;
+  S.inv[key] -= n;
+  if (S.inv[key] <= 0) delete S.inv[key];
+  return true;
+}
+
+function qtyOf(y) {
+  if (Array.isArray(y.qty)) {
+    return y.qty[0] === y.qty[1] ? y.qty[0] : y.qty[0] + randInt(y.qty[1] - y.qty[0] + 1);
+  }
+  return y.qty;
+}
+
+function bonusText(bonus) {
+  return Object.keys(bonus).filter((k) => bonus[k]).map((k) => `${ATTR_NAME[k]}+${bonus[k]}`).join(' ');
+}
+
+/* ============================================================
+ * 7. 判定
+ * ========================================================== */
+function rollCheck(label, attrKey, dc, bonus = 0) {
+  const roll = d20();
+  const attr = attrEff(attrKey);
+  const total = roll + attr + bonus;
+  const crit = roll === 20;
+  const fumble = roll === 1;
+  const success = crit || (!fumble && total >= dc);
+  const bonusText = bonus ? (bonus > 0 ? ` +${bonus}` : ` ${bonus}`) : '';
+  addLog(
+    `${label}｜${ATTR_NAME[attrKey]} d20(${roll}) + ${attr}${bonusText} = ${total}｜DC ${dc} → ${success ? '成功' : '失败'}${crit ? '（大成功）' : fumble ? '（大失败）' : ''}`,
+    success ? 'good' : 'bad'
+  );
+  return { roll, attr, total, crit, fumble, success };
+}
+
+/* ============================================================
+ * 8. 行动：采集 / 移动 / 休整
+ * ========================================================== */
+function gather(mapId, nodeId) {
+  if (!S) return;
+  const map = MAPS.find((m) => m.id === mapId);
+  const node = map && map.nodes.find((n) => n.id === nodeId);
+  if (!map || !node) return;
+  if (S.location !== mapId) return toast('你不在这个区域');
+  if (S.ap < 1) return toast('行动点不足，回空港休整');
+  if (S.player.mental <= 0) return toast('精神已经崩了，先休整');
+
+  const key = `${mapId}:${nodeId}`;
+  const used = S.nodeUse[key] || 0;
+  if (used >= node.charges) return toast('这个节点今天已经空了');
+
+  S.ap -= 1;
+  S.nodeUse[key] = used + 1;
+
+  const bonus = traitBonus('gather') + roleBoost('gather') + nightMod();
+  const res = rollCheck(`采集 · ${node.name}`, node.attr, node.dc, bonus);
+
+  const gains = {};
+  if (res.success) {
+    node.yields.forEach((y) => {
+      if (y.chance && Math.random() > y.chance) return;
+      const n = qtyOf(y);
+      gains[y.item] = (gains[y.item] || 0) + n;
+    });
+  } else if (res.total >= node.dc - 3) {
+    const y = node.yields[0];
+    gains[y.item] = 1;
+  }
+
+  const gainList = Object.keys(gains);
+  gainList.forEach((k) => addItem(k, gains[k]));
+  if (gainList.length) {
+    addLog(`获得 ${gainList.map((k) => `${ITEMS[k].name} ×${gains[k]}`).join('、')}。`, 'good');
+  } else {
+    addLog('只刮下一点尘土。', 'info');
+  }
+
+  const mental = node.mental != null ? node.mental : map.danger;
+  if (mental > 0 && S.player.mental > 0) {
+    const cost = Math.max(0, mental - (hasTrait('calm') ? 1 : 0));
+    if (cost) {
+      S.player.mental = clamp(S.player.mental - cost, 0, S.player.mentalMax);
+      addLog(`精神稳定度 -${cost}。`, 'info');
+    }
+  }
+  checkCollapse();
+
+  renderAll();
+  autosave();
+}
+
+function travel(mapId) {
+  if (!S) return;
+  if (S.location === mapId) { closeMap(); return toast('你已经在这里'); }
+  const map = MAPS.find((m) => m.id === mapId);
+  if (!map) return;
+
+  const stranded = S.ap < 1;
+  if (stranded && mapId !== 'dock') return toast('行动点不足');
+
+  if (!stranded) S.ap -= 1;
+  S.location = mapId;
+
+  const toll = map.danger >= 3 ? 5 : map.danger >= 2 ? 2 : 0;
+  if (toll) {
+    S.player.mental = clamp(S.player.mental - toll, 0, S.player.mentalMax);
+    addLog(`穿越 ${map.name} 的边界，精神稳定度 -${toll}。`, 'info');
+  }
+  if (stranded) {
+    S.player.hp = Math.max(1, S.player.hp - 5);
+    S.player.mental = clamp(S.player.mental - 8, 0, S.player.mentalMax);
+    addLog('行动点耗尽。你几乎是爬回空港的。生命 -5，精神 -8。', 'bad');
+  }
+  addLog(`你抵达 ${map.name}。`, 'story');
+  checkCollapse();
+
+  closeMap();
+  ui.view = 'explore';
+  ui.midTab = 'explore';
+  renderAll();
+  autosave();
+}
+
+function rest() {
+  if (!S) return;
+  if (S.location !== 'dock') return toast('只能回白塔空港休整');
+
+  S.day += 1;
+  S.ap = S.apMax;
+  S.nodeUse = {};
+  S.player.hp = clamp(S.player.hp + Math.floor(S.player.hpMax * 0.4), 0, S.player.hpMax);
+  S.player.mental = clamp(S.player.mental + 40, 0, S.player.mentalMax);
+
+  addLog('你在空港的旧舱里睡了一觉。梦里有人在数你的心跳。', 'story');
+  toast('新的一天。行动点已恢复。', 'good');
+  renderAll();
+  autosave();
+}
+
+function checkCollapse() {
+  if (S.player.mental > 0) return;
+  S.player.hp = Math.max(1, S.player.hp - 12);
+  S.location = 'dock';
+  S.day += 1;
+  S.ap = S.apMax;
+  S.nodeUse = {};
+  S.player.mental = Math.floor(S.player.mentalMax * 0.35);
+  S.player.hp = clamp(S.player.hp + Math.floor(S.player.hpMax * 0.2), 0, S.player.hpMax);
+  addLog('精神图景崩解。你在空港的医疗舱里醒来，耳鸣了很久。', 'bad');
+  toast('精神崩解：你被送回了空港', 'bad');
+}
+
+/* ============================================================
+ * 9. 行动：锻造 / 装备 / 使用
+ * ========================================================== */
+function makeGear(key, quality) {
+  const base = GEAR[key];
+  const delta = quality === '精良' ? 1 : quality === '粗糙' ? -1 : 0;
+  const bonus = {};
+  Object.keys(base.bonus).forEach((k) => { bonus[k] = Math.max(0, base.bonus[k] + delta); });
+  return {
+    uid: `g${Date.now()}_${uidSeq++}`,
+    key,
+    name: base.name,
+    slot: base.slot,
+    bonus,
+    quality,
+    note: base.note,
+  };
+}
+
+function hasMats(recipe) {
+  return Object.keys(recipe.mats).every((k) => (S.inv[k] || 0) >= recipe.mats[k]);
+}
+
+function craft(recipeId) {
+  if (!S) return;
+  const r = RECIPES.find((x) => x.id === recipeId);
+  if (!r) return;
+  if (S.location !== 'dock') return toast('需要回到空港的锻炉');
+  if (S.ap < 1) return toast('行动点不足');
+  if (!hasMats(r)) return toast('材料不足');
+
+  S.ap -= 1;
+  Object.keys(r.mats).forEach((k) => takeItem(k, r.mats[k]));
+
+  const bonus = traitBonus('forge') + nightMod();
+  const res = rollCheck(`锻造 · ${r.name}`, 'tec', r.dc, bonus);
+
+  if (!res.success) {
+    addLog('淬火失败，材料在炉里耗尽了。', 'bad');
+    toast('锻造失败', 'bad');
+    renderAll();
+    autosave();
+    return;
+  }
+
+  const margin = res.total - r.dc;
+  const quality = res.crit || margin >= 6 ? '精良' : margin >= 2 ? '标准' : '粗糙';
+
+  if (r.type === 'use') {
+    addItem(r.out, r.qty || 1);
+    addLog(`锻造成功：${ITEMS[r.out].name} ×${r.qty || 1}（${quality}）。`, 'good');
+  } else {
+    const g = makeGear(r.out, quality);
+    S.gear.push(g);
+    if (!S.equipment[g.slot]) {
+      S.equipment[g.slot] = g.uid;
+      addLog(`锻造成功：${g.name}（${quality}），已装备。`, 'good');
+    } else {
+      addLog(`锻造成功：${g.name}（${quality}），已放入背包。`, 'good');
+    }
+  }
+  toast('锻造成功', 'good');
+  renderAll();
+  autosave();
+}
+
+function toggleEquip(uid) {
+  const g = S.gear.find((x) => x.uid === uid);
+  if (!g) return;
+  S.equipment[g.slot] = S.equipment[g.slot] === uid ? null : uid;
+  renderAll();
+  autosave();
+}
+
+function useItem(key) {
+  const it = ITEMS[key];
+  if (!it || !it.effect) return;
+  if (!takeItem(key, 1)) return;
+  const msg = [];
+  if (it.effect.hp) {
+    S.player.hp = clamp(S.player.hp + it.effect.hp, 0, S.player.hpMax);
+    msg.push(`生命 +${it.effect.hp}`);
+  }
+  if (it.effect.mental) {
+    S.player.mental = clamp(S.player.mental + it.effect.mental, 0, S.player.mentalMax);
+    msg.push(`精神 +${it.effect.mental}`);
+  }
+  addLog(`使用 ${it.name}：${msg.join('，')}。`, 'good');
+  renderAll();
+  autosave();
+}
+
+/* ============================================================
+ * 10. 渲染：外壳
+ * ========================================================== */
+function renderAll() {
+  if (!S) return;
+  renderHud();
+  renderChar();
+  renderMid();
+  renderSide();
+  renderBottomNav();
+}
+
+function renderHud() {
+  $('#hud-day').textContent = S.day;
+  $('#hud-time').textContent = timeLabel();
+  $('#hud-credits').textContent = S.player.credits;
+  const pips = [];
+  for (let i = 0; i < S.apMax; i++) {
+    const on = i < S.ap;
+    pips.push(`<i class="${on ? (S.ap <= 2 ? 'on low' : 'on') : ''}"></i>`);
+  }
+  $('#hud-ap').innerHTML = pips.join('');
+}
+
+function renderBottomNav() {
+  const shell = $('#game');
+  shell.dataset.view = ui.view;
+  $$('#bottom-nav button').forEach((b) => b.classList.toggle('is-on', b.dataset.view === ui.view));
+}
+
+function setView(view) {
+  const prev = ui.view;
+  ui.view = view;
+  if (view === 'explore' || view === 'bag' || view === 'forge') {
+    ui.midTab = view;
+    renderMid();
+  }
+  if (view === 'comms') {
+    if (prev !== 'comms') ui.sideTab = 'chat';
+    renderSide();
+  }
+  renderBottomNav();
+  animateView(view);
+}
+
+function animateView(view) {
+  const el = view === 'comms' ? $('#side-content') : view === 'char' ? $('#char-panel') : $('#mid-content');
+  if (!el) return;
+  el.classList.remove('view-in');
+  void el.offsetWidth;
+  el.classList.add('view-in');
+}
+
+/* ============================================================
+ * 11. 渲染：角色
+ * ========================================================== */
+function renderChar() {
+  const p = S.player;
+  const abo = ABOS[p.abo];
+  const role = ROLES[p.role];
+  const origin = ORIGINS[p.origin];
+  const low = p.mental < 30;
+
+  const status = [];
+  if (low) status.push('<span class="tag red">精神疲惫 -2</span>');
+  if (isNight()) status.push(`<span class="tag ${hasTrait('night') ? 'jade' : 'red'}">${hasTrait('night') ? '夜行 +1' : '夜间 -1'}</span>`);
+  if (p.mental >= 90) status.push('<span class="tag cyan">图景清明</span>');
+  if (S.quest) status.push(`<span class="tag amber">委托：${esc(S.quest.name)}</span>`);
+
+  const slots = Object.keys(SLOTS).map((slot) => {
+    const uid = S.equipment[slot];
+    const g = uid ? S.gear.find((x) => x.uid === uid) : null;
+    return `<button type="button" class="gslot ${g ? 'is-filled' : ''}" ${g ? `data-act="equip" data-uid="${g.uid}"` : 'disabled'}
+      title="${g ? esc(g.note) : `${SLOTS[slot]}：空`}">
+      <span class="gs-ico">${g ? GEAR_GLYPH[g.key] || '·' : '·'}</span>
+      <span class="gs-name">${g ? esc(g.name) : '空'}</span>
+      <span class="gs-slot">${SLOTS[slot]}</span>
+    </button>`;
+  }).join('');
+
+  $('#char-panel').innerHTML = `
+    <div class="char-head">
+      <div class="char-ava">${esc(p.name.slice(0, 1))}<span class="abo-badge">${abo.code}</span></div>
+      <div class="char-id">
+        <b>${esc(p.name)}</b>
+        <p>${abo.name} · ${role.name} · ${origin.name}</p>
+      </div>
+    </div>
+
+    <div class="char-tags">
+      <span class="tag amber">${abo.scent}</span>
+      ${p.traits.map((k) => `<span class="tag jade">${TRAITS[k].name}</span>`).join('')}
+    </div>
+
+    <div class="vitals">
+      <div>
+        <div class="vital-head"><span>生命</span><b>${Math.round(p.hp)} / ${p.hpMax}</b></div>
+        <div class="bar hp"><i style="width:${clamp(p.hp / p.hpMax * 100, 0, 100)}%"></i></div>
+      </div>
+      <div>
+        <div class="vital-head"><span>精神稳定</span><b>${Math.round(p.mental)} / ${p.mentalMax}</b></div>
+        <div class="bar mental ${low ? 'low' : ''}"><i style="width:${clamp(p.mental / p.mentalMax * 100, 0, 100)}%"></i></div>
+      </div>
+    </div>
+
+    <h3 class="mini-label">属性 <em>AP ${S.ap} / ${S.apMax}</em></h3>
+    <div class="attr-list">
+      ${ATTRS.map((a) => {
+        const total = attrTotal(a.key);
+        const bonus = total - p.attrs[a.key];
+        return `<div class="attr-row">
+          <span class="name">${a.name}</span>
+          <span class="track"><i style="width:${clamp(total / 12 * 100, 6, 100)}%"></i></span>
+          <b>${total}</b>
+          <em>${bonus ? `+${bonus}` : ''}</em>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <h3 class="mini-label">装备</h3>
+    <div class="gslot-grid">${slots}</div>
+
+    <h3 class="mini-label">状态</h3>
+    <div class="status-list">${status.length ? status.join('') : '<span class="tag">稳定</span>'}</div>
+
+    <div class="char-actions">
+      <button type="button" class="btn btn-ghost btn-sm" data-act="save">存档</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-act="menu">回到标题</button>
+    </div>`;
+}
+
+/* ============================================================
+ * 12. 渲染：探索 / 背包 / 锻造
+ * ========================================================== */
+function renderMid() {
+  $$('#mid-tabs button').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === ui.midTab));
+  const box = $('#mid-content');
+  if (ui.midTab === 'bag') { box.innerHTML = renderBag(); return; }
+  if (ui.midTab === 'forge') { box.innerHTML = renderForge(); return; }
+  box.innerHTML = renderExplore();
+}
+
+function renderExplore() {
+  const map = MAPS.find((m) => m.id === S.location);
+  const atDock = map.id === 'dock';
+  const danger = Array.from({ length: 3 }, (_, i) => `<i class="${i < map.danger ? 'on' : ''}"></i>`).join('');
+
+  const leftTotal = map.nodes.reduce((sum, n) => sum + Math.max(0, n.charges - (S.nodeUse[`${map.id}:${n.id}`] || 0)), 0);
+  const allTotal = map.nodes.reduce((sum, n) => sum + n.charges, 0);
+
+  const nodes = map.nodes.map((n) => {
+    const left = n.charges - (S.nodeUse[`${map.id}:${n.id}`] || 0);
+    const mental = n.mental != null ? n.mental : map.danger;
+    const cost = Math.max(0, mental - (hasTrait('calm') ? 1 : 0));
+    return `
+      <article class="node ${left <= 0 ? 'is-empty' : ''}">
+        <div class="node-top">
+          <span class="node-ico">${left > 0 ? '◆' : '◇'}</span>
+          <span class="node-charge">${left}/${n.charges}</span>
+        </div>
+        <h3>${n.name}</h3>
+        <div class="node-meta">
+          <span>${ATTR_NAME[n.attr]}</span><b>DC ${n.dc}</b>${cost ? `<em>精神 -${cost}</em>` : ''}
+        </div>
+        <p class="node-yield">${n.yields.map((y) => ITEMS[y.item].name).join(' / ')}</p>
+        <button type="button" class="btn btn-sm" data-act="gather" data-map="${map.id}" data-node="${n.id}"
+          ${left <= 0 || S.ap < 1 ? 'disabled' : ''}>${left <= 0 ? '今日已空' : '采集'}</button>
+      </article>`;
+  }).join('');
+
+  const stranded = S.ap < 1 && !atDock;
+  const hint = atDock
+    ? `<div class="hint-bar">空港可以休整：恢复精神与行动点，也让采集节点重新长出来。</div>`
+    : stranded
+      ? `<div class="hint-bar">行动点耗尽。可紧急撤回空港（生命 -5、精神 -8）。
+          <button type="button" class="btn btn-sm" data-act="travel" data-map="dock">紧急撤离</button></div>`
+      : `<div class="hint-bar">这里不能过夜。行动点耗尽前，记得回白塔空港。</div>`;
+
+  return `
+<section class="scene">
+  <div class="map-art" style="--accent:${map.accent}">
+    <div class="art-grid"></div>
+    <div class="art-orb"></div>
+    <div class="art-ring"></div>
+    <div class="art-scan"></div>
+    <div class="map-copy">
+      <p class="kicker">${map.code} · ${atDock ? '安全区' : '边境星区'}</p>
+      <h2>${map.name}</h2>
+      <p class="map-desc">${map.desc}</p>
+    </div>
+    <button type="button" class="map-btn" data-act="open-map">
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 15l4.5-9 5 9 4.5-9"/>
+      </svg>星图
+    </button>
+    <div class="map-danger">
+      <span>危险度</span>
+      <span class="bars ${map.danger >= 3 ? 'high' : ''}">${danger}</span>
+    </div>
+  </div>
+
+  <div class="scene-bar">
+    <div class="scene-bar-left">
+      <span class="chip">AP ${S.ap}/${S.apMax}</span>
+      <span class="chip">节点 ${leftTotal}/${allTotal}</span>
+      ${S.quest ? `<span class="chip amber">委托 · ${esc(S.quest.name)}</span>` : ''}
+    </div>
+    <button type="button" class="btn btn-sm" data-act="rest" ${atDock ? '' : 'disabled'}>${atDock ? '休整 · 次日' : '需回空港'}</button>
+  </div>
+
+  <div class="node-grid">${nodes}</div>
+  ${hint}
+
+  <div class="signal-card">
+    <div class="signal-head">
+      <span class="kicker">SIGNAL · ${map.code}</span>
+      <span class="live"><i></i>LIVE</span>
+    </div>
+    <p>${map.signal}</p>
+  </div>
+</section>`;
+}
+
+function renderBag() {
+  const mats = Object.keys(S.inv).filter((k) => ITEMS[k] && ITEMS[k].kind === 'mat' && S.inv[k] > 0);
+  const uses = Object.keys(S.inv).filter((k) => ITEMS[k] && ITEMS[k].kind === 'use' && S.inv[k] > 0);
+
+  const matHtml = mats.length
+    ? `<div class="item-grid">${mats.map((k) => `
+        <div class="item" title="${esc(ITEMS[k].note)}">
+          <span class="i-glyph">${ITEMS[k].glyph}</span>
+          <span class="i-body"><b>${ITEMS[k].name}</b><span>×${S.inv[k]}</span></span>
+        </div>`).join('')}</div>`
+    : `<div class="empty">还没有材料。去锈带废墟或深岩矿脉看看。</div>`;
+
+  const useHtml = uses.length
+    ? `<div class="item-grid">${uses.map((k) => `
+        <div class="item" title="${esc(ITEMS[k].note)}">
+          <span class="i-glyph use">${ITEMS[k].glyph}</span>
+          <span class="i-body"><b>${ITEMS[k].name}</b><span>×${S.inv[k]}</span></span>
+          <button type="button" class="i-use" data-act="use" data-key="${k}">使用</button>
+        </div>`).join('')}</div>`
+    : `<div class="empty">没有消耗品。</div>`;
+
+  const gearHtml = S.gear.length
+    ? `<div class="gear-list">${S.gear.map((g) => {
+        const on = S.equipment[g.slot] === g.uid;
+        return `
+          <div class="gear ${on ? 'is-on' : ''}">
+            <span class="g-glyph">${GEAR_GLYPH[g.key] || '·'}</span>
+            <div class="g-body">
+              <b>${esc(g.name)}</b><span class="q ${g.quality === '精良' ? 'q2' : g.quality === '粗糙' ? 'q0' : 'q1'}">${g.quality}</span>
+              <p>${SLOTS[g.slot]} · ${esc(g.note)}</p>
+            </div>
+            <span class="g-bonus">${bonusText(g.bonus)}</span>
+            <button type="button" class="btn btn-sm" data-act="equip" data-uid="${g.uid}">${on ? '卸下' : '装备'}</button>
+          </div>`;
+      }).join('')}</div>`
+    : `<div class="empty">背包里没有打造好的装备。去锻造页试试。</div>`;
+
+  return `
+<section class="content">
+  <div class="content-head">
+    <div>
+      <p class="kicker">INVENTORY</p>
+      <h2>背包</h2>
+      <p class="content-sub">材料 · 消耗品 · 装备</p>
+    </div>
+    <span class="chip">${mats.length + uses.length} 种物资</span>
+  </div>
+
+  <p class="sec-label">材料</p>
+  ${matHtml}
+  <p class="sec-label">消耗品</p>
+  ${useHtml}
+  <p class="sec-label">装备</p>
+  ${gearHtml}
+</section>`;
+}
+
+function renderForge() {
+  const atForge = S.location === 'dock';
+
+  const rows = RECIPES.map((r) => {
+    const mats = Object.keys(r.mats).map((k) => {
+      const need = r.mats[k];
+      const have = S.inv[k] || 0;
+      return `<span class="mat ${have >= need ? '' : 'lack'}">${ITEMS[k].name} ${have}/${need}</span>`;
+    }).join('');
+    return `
+      <div class="recipe">
+        <span class="r-glyph">⚒</span>
+        <div class="r-body">
+          <div class="r-top"><b>${r.name}</b><span>技艺 DC ${r.dc}</span></div>
+          <div class="mats">${mats}</div>
+        </div>
+        <button type="button" class="btn btn-sm" data-act="craft" data-id="${r.id}"
+          ${(!atForge || !hasMats(r) || S.ap < 1) ? 'disabled' : ''}>锻造</button>
+      </div>`;
+  }).join('');
+
+  return `
+<section class="content">
+  <div class="content-head">
+    <div>
+      <p class="kicker">FORGE</p>
+      <h2>锻造工坊</h2>
+      <p class="content-sub">${atForge ? '旧锻炉在线 · 品质由技艺判定决定' : '需要回到白塔空港的旧锻炉'}</p>
+    </div>
+    <span class="chip">AP ${S.ap}/${S.apMax}</span>
+  </div>
+
+  <div class="recipe-list">${rows}</div>
+  ${atForge ? '' : `<div class="hint-bar inline">锻造需要空港的旧锻炉。
+    <button type="button" class="btn btn-sm" data-act="travel" data-map="dock">回空港</button></div>`}
+</section>`;
+}
+
+/* ============================================================
+ * 13. 渲染：日志 / 通讯
+ * ========================================================== */
+function renderSide() {
+  const box = $('#side-content');
+  const tabs = `
+    <div class="side-tabs">
+      <button type="button" data-act="side-tab" data-tab="log" class="${ui.sideTab === 'log' ? 'is-on' : ''}">日志</button>
+      <button type="button" data-act="side-tab" data-tab="chat" class="${ui.sideTab === 'chat' ? 'is-on' : ''}">通讯</button>
+    </div>`;
+  box.innerHTML = tabs + `<div class="side-body">${ui.sideTab === 'log' ? renderLog() : renderChat()}</div>`;
+
+  if (ui.sideTab === 'chat') {
+    requestAnimationFrame(() => {
+      const el = $('#chat-scroll');
+      if (el) el.scrollTop = el.scrollHeight;
+    });
+  }
+}
+
+function renderLog() {
+  const entries = S.log.length
+    ? S.log.map((e) => `<div class="log-entry ${e.kind}">
+        <div class="log-meta"><span>${e.t}</span><span>${e.kind === 'story' ? 'STORY' : e.kind === 'good' ? 'PASS' : e.kind === 'bad' ? 'FAIL' : 'SYS'}</span></div>
+        <p>${esc(e.text)}</p>
+      </div>`).join('')
+    : `<div class="empty">还没有记录。做点什么。</div>`;
+  return `<div class="log-scroll">${entries}</div>`;
+}
+
+function renderChat() {
+  const id = ui.chatNpc;
+  const npc = NPCS[id];
+  const msgs = (S.chats[id] || []).map((m) => {
+    if (m.from === 'note') return `<div class="msg note">${esc(m.text)}</div>`;
+    return `<div class="msg ${m.from}">${esc(m.text)}</div>`;
+  }).join('');
+
+  const chips = Object.values(NPCS).map((n) => `
+    <button type="button" class="npc-chip ${n.id === id ? 'is-on' : ''}" data-act="chat-npc" data-id="${n.id}">
+      <i></i>${n.name}
+    </button>`).join('');
+
+  const quick = npc.actions.map((a) => `
+    <button type="button" data-act="chat-act" data-id="${a.id}">${a.label}</button>`).join('');
+
+  return `
+    <div class="npc-picker">${chips}</div>
+    <div class="npc-card">
+      <span class="npc-ava">${esc(npc.name.slice(0, 1))}</span>
+      <div class="npc-id">
+        <b>${npc.name}</b>
+        <span>${ABOS[npc.abo].name} · ${npc.title} · ${npc.where}</span>
+      </div>
+      <div class="npc-aff"><span>好感</span><b>${S.affinity[id] || 0}</b></div>
+    </div>
+
+    <div class="chat-scroll" id="chat-scroll">
+      ${msgs}
+      <details class="prompt">
+        <summary>LLM 上下文预览（接入时发给模型的内容）</summary>
+        <pre>${esc(buildPrompt(npc))}</pre>
+      </details>
+    </div>
+
+    <div class="chat-foot">
+      <div class="quick">${quick}</div>
+      <div class="chat-input">
+        <input id="chat-text" maxlength="120" placeholder="对${npc.name}说些什么…" autocomplete="off" />
+        <button type="button" data-act="send-chat">发送</button>
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+ * 14. 通讯 / LLM 预留
+ * ========================================================== */
+function npcSay(npcId, text) {
+  if (!S.chats[npcId]) S.chats[npcId] = [];
+  S.chats[npcId].push({ from: 'npc', text });
+}
+
+function addAffinity(npcId, n) {
+  S.affinity[npcId] = clamp((S.affinity[npcId] || 0) + n, 0, 100);
+}
+
+function replyFor(npc, text) {
+  const aff = S.affinity[npc.id] || 0;
+
+  if (npc.id === 'magpie') {
+    if (/折扣|便宜|砍价|价格|多少钱|钱/.test(text)) {
+      return aff >= 25 ? '“给你抹个零。别到处说。”' : '“先让我看见你的信用点，再谈价钱。”';
+    }
+    if (/材料|货|买|包/.test(text)) return '“星髓、冷晶、树脂，都有。整包还是零买？”';
+    if (/白塔|哨兵|向导|失联/.test(text)) return '“白塔？上个月还在收税，这个月连尸体都没人收。你问我，我问谁。”';
+    if (/裂谷|裂隙/.test(text)) return '“那边的结晶我收。但我不问来路，你也别说。”';
+  }
+
+  if (npc.id === 'yeka') {
+    if (/委托|任务|活|干活|帮忙/.test(text)) return '“去黑曜裂谷，带一块裂隙结晶回来。别在里面待太久。”';
+    if (/白塔|失联/.test(text)) return '“有人把它关掉了。别到处问，问多了会有人来找你。”';
+    if (/向导|共振|安抚/.test(text)) return '“我不信向导。……但你要是快失控了，我不会拦你去找一个。”';
+    if (/裂谷|裂隙/.test(text)) return '“裂谷里没有风。你听见的风声，是你自己的。”';
+  }
+
+  if (npc.id === 'echo') {
+    if (/安抚|精神|头痛|过载|撑不住/.test(text)) return '“把手给我。别抵抗……我只看裂缝，不往里走。”';
+    if (/共振|共鸣/.test(text)) return '“共鸣不是交换。是两个人一起承担。你确定要试吗？”';
+    if (/白塔|失联/.test(text)) return '“不是失联。是有人把它关掉了。我听见开关的声音。”';
+    if (/名字|你是谁/.test(text)) return '“他们叫我回声。因为我只会重复别人心里的话。”';
+  }
+
+  if (/你好|在吗|嗨|早|晚上好/.test(text)) {
+    return npc.id === 'yeka' ? '“……嗯。”' : `“${npc.id === 'magpie' ? '来了' : '我在'}。”`;
+  }
+
+  if (/信息素|alpha|omega|beta/i.test(text)) {
+    return npc.id === 'echo'
+      ? '“气味只是表面。真正藏不住的是精神图景里的那道缝。”'
+      : '“在这片星区，第二性别没什么用。活下来靠的是别多问。”';
+  }
+
+  return pick(npc.lines);
+}
+
+function sendChat(raw) {
+  if (!S) return;
+  const text = String(raw || '').trim();
+  if (!text) return;
+  const npc = NPCS[ui.chatNpc];
+  if (!S.chats[npc.id]) S.chats[npc.id] = [];
+
+  S.chats[npc.id].push({ from: 'me', text });
+  addAffinity(npc.id, 1 + (hasTrait('resonance') ? 1 : 0));
+  S.chats[npc.id].push({ from: 'npc', text: replyFor(npc, text) });
+  if (S.chats[npc.id].length > 60) S.chats[npc.id] = S.chats[npc.id].slice(-60);
+
+  renderSide();
+  autosave();
+  const input = $('#chat-text');
+  if (input) input.focus();
+}
+
+function chatAction(actionId) {
+  if (!S) return;
+  const npc = NPCS[ui.chatNpc];
+
+  if (npc.id === 'magpie') {
+    if (actionId === 'discount') {
+      if (S.flags.discount) {
+        npcSay('magpie', '“已经给你让过价了。别得寸进尺。”');
+      } else {
+        const res = rollCheck('交涉 · 灰雀', 'soc', 14, traitBonus('social'));
+        if (res.success) {
+          S.flags.discount = true;
+          addAffinity('magpie', 6);
+          npcSay('magpie', '“行，八折。就这一次，别带别人来。”');
+          addLog('灰雀给了你材料包的折扣价。', 'good');
+        } else {
+          addAffinity('magpie', -2);
+          npcSay('magpie', '“你这张嘴，值不了这个价。”');
+        }
+      }
+    }
+    if (actionId === 'buy') {
+      const price = S.flags.discount ? 176 : 220;
+      if (S.player.credits < price) {
+        npcSay('magpie', '“没钱就别浪费我时间。”');
+      } else {
+        S.player.credits -= price;
+        const pool = ['scrap', 'chip', 'ore', 'cold', 'spore', 'resin'];
+        const got = {};
+        for (let i = 0; i < 3; i++) {
+          const k = pick(pool);
+          const n = 1 + randInt(2);
+          addItem(k, n);
+          got[k] = (got[k] || 0) + n;
+        }
+        addAffinity('magpie', 2);
+        npcSay('magpie', '“拿好。别问我从哪来的。”');
+        addLog(`从灰雀处购入材料包（-${price} 信用点）：${Object.keys(got).map((k) => `${ITEMS[k].name} ×${got[k]}`).join('、')}。`, 'good');
+      }
+    }
+  }
+
+  if (npc.id === 'yeka') {
+    if (actionId === 'quest') {
+      if (!S.quest) {
+        S.quest = { id: 'shard', name: '裂隙取样', need: { shard: 1 }, reward: 400, giver: 'yeka' };
+        addAffinity('yeka', 3);
+        npcSay('yeka', '“黑曜裂谷，裂隙边缘。带一块结晶回来，四百点。”');
+        addLog('接受委托：裂隙取样（裂隙结晶 ×1）。', 'story');
+      } else {
+        npcSay('yeka', '“先把手上的事做完。”');
+      }
+    }
+    if (actionId === 'turnin') {
+      if (!S.quest) {
+        npcSay('yeka', '“我没给你派活。”');
+      } else if ((S.inv.shard || 0) < 1) {
+        npcSay('yeka', '“东西呢？没有结晶，就没有钱。”');
+      } else {
+        takeItem('shard', 1);
+        S.player.credits += S.quest.reward;
+        addAffinity('yeka', 8);
+        S.quest = null;
+        npcSay('yeka', '“……”她把结晶举到灯下看了一眼，“成色不错。钱转你了。”');
+        addLog('委托完成：裂隙取样，+400 信用点。', 'good');
+      }
+    }
+  }
+
+  if (npc.id === 'echo') {
+    if (actionId === 'soothe') {
+      if (S.player.mental >= S.player.mentalMax) {
+        npcSay('echo', '“你现在很稳。……难得。”');
+      } else {
+        const res = rollCheck('安抚 · 回声', 'psi', 13, roleBoost('psi'));
+        if (res.success) {
+          const before = S.player.mental;
+          S.player.mental = clamp(S.player.mental + 32, 0, S.player.mentalMax);
+          addAffinity('echo', 5);
+          npcSay('echo', '“好了。裂缝按住了……但它还会再开。”');
+          addLog(`精神稳定度 ${Math.round(before)} → ${Math.round(S.player.mental)}。`, 'good');
+        } else {
+          S.player.mental = clamp(S.player.mental + 10, 0, S.player.mentalMax);
+          addAffinity('echo', 2);
+          npcSay('echo', '“对不起……我碰不到那道缝。再试一次，好吗？”');
+        }
+      }
+    }
+    if (actionId === 'resonate') {
+      if (S.location !== 'rift') {
+        npcSay('echo', '“远程共振太危险。来裂谷……我在这一侧等你。”');
+      } else if (S.player.mental <= 12) {
+        npcSay('echo', '“不行。你会碎的。”');
+      } else {
+        S.player.mental = clamp(S.player.mental - 5, 0, S.player.mentalMax);
+        addAffinity('echo', 4);
+        npcSay('echo', '你听见很多声音同时说话，然后只剩她的一句：“别松手。”');
+        addLog('你与回声完成了一次浅层共振。精神 -5，好感 +4。', 'story');
+      }
+    }
+  }
+
+  renderAll();
+  autosave();
+}
+
+function buildPrompt(npc) {
+  const p = S.player;
+  const attrs = ATTRS.map((a) => `${a.name} ${attrTotal(a.key)}`).join(' / ');
+  const history = (S.chats[npc.id] || []).slice(-6)
+    .map((m) => `${m.from === 'me' ? p.name : npc.name}：${m.text}`)
+    .join('\n');
+
+  return `【系统】
+你是星际 RPG《星穹哨向》中的 NPC「${npc.name}」（${ABOS[npc.abo].name} / ${npc.title}）。
+人格：${npc.persona}
+所在：${npc.where}
+规则：只输出对白与极简动作描写；不替玩家做决定；不修改任何数值；
+      不描写露骨内容；保持冷峻、克制的太空边境语气。
+
+【玩家】
+${p.name}｜${ABOS[p.abo].name} ${ROLES[p.role].name}｜出身：${ORIGINS[p.origin].name}
+属性：${attrs}
+生命：${Math.round(p.hp)}/${p.hpMax}｜精神：${Math.round(p.mental)}/${p.mentalMax}｜信用点：${p.credits}
+位置：${MAPS.find((m) => m.id === S.location).name}｜第 ${S.day} 日 ${timeLabel()}
+对玩家好感：${S.affinity[npc.id] || 0}/100
+
+【最近对话】
+${history || '（无）'}
+
+【玩家输入】
+{{player_input}}`;
+}
+
+/* ============================================================
+ * 15. 星图
+ * ========================================================== */
+function openMap() {
+  if (!S) return;
+  $('#overlay').classList.remove('hidden');
+  renderMapOverlay();
+}
+
+function closeMap() {
+  const ov = $('#overlay');
+  if (!ov) return;
+  ov.classList.add('hidden');
+  ov.innerHTML = '';
+}
+
+function renderMapOverlay() {
+  const ov = $('#overlay');
+  if (!ov) return;
+
+  const cards = MAPS.map((m) => {
+    const here = m.id === S.location;
+    const blocked = S.ap < 1 && m.id !== 'dock';
+    const nodes = m.nodes.length;
+    const label = here ? '当前位置' : blocked ? '行动点不足' : '移动 AP 1';
+    return `
+      <button type="button" class="map-card ${here ? 'is-current' : ''}" data-act="travel" data-map="${m.id}"
+        style="--accent:${m.accent}" ${here || blocked ? 'disabled' : ''}>
+        <span class="map-thumb"><i></i></span>
+        <span class="map-info">
+          <b>${m.name}</b>
+          <span>${m.code} · ${nodes} 个节点 · 危险 ${m.danger || '—'}</span>
+        </span>
+        <span class="map-meta">
+          <b class="${here ? 'cur' : ''}">${label}</b>
+          <span>${here ? '已抵达' : '1 AP'}</span>
+        </span>
+      </button>`;
+  }).join('');
+
+  ov.innerHTML = `
+    <div class="overlay-panel">
+      <div class="overlay-head">
+        <div>
+          <p class="kicker">NAV-05 · STAR MAP</p>
+          <h2>星图</h2>
+          <p>选择一个区域。移动消耗 1 行动点，危险区域会额外消耗精神。</p>
+        </div>
+        <button type="button" class="overlay-close" data-act="close-map" aria-label="关闭">✕</button>
+      </div>
+      <div class="map-list">${cards}</div>
+      <div class="overlay-foot">AP ${S.ap} / ${S.apMax} · 第 ${S.day} 日 ${timeLabel()}</div>
+    </div>`;
+}
+
+/* ============================================================
+ * 16. Toast / 事件
+ * ========================================================== */
+function toast(msg, kind = '') {
+  const box = $('#toasts');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = `toast ${kind}`;
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(6px)';
+    el.style.transition = 'opacity .25s ease, transform .25s ease';
+    setTimeout(() => el.remove(), 260);
+  }, 2200);
+}
+
+function onAction(act, el) {
+  switch (act) {
+    /* 创建 */
+    case 'abo': draft.abo = el.dataset.key; renderCreate(); break;
+    case 'role': draft.role = el.dataset.key; renderCreate(); break;
+    case 'origin': draft.origin = el.dataset.key; renderCreate(); break;
+    case 'attr-inc': {
+      const k = el.dataset.key;
+      if (pointsLeft(draft) > 0 && draft.attrs[k] < ATTR_MAX) {
+        draft.attrs[k] += 1;
+        renderCreate();
+      }
+      break;
+    }
+    case 'attr-dec': {
+      const k = el.dataset.key;
+      if (draft.attrs[k] > BASE_ATTR) {
+        draft.attrs[k] -= 1;
+        renderCreate();
+      }
+      break;
+    }
+    case 'trait': {
+      const k = el.dataset.key;
+      const i = draft.traits.indexOf(k);
+      if (i >= 0) draft.traits.splice(i, 1);
+      else if (draft.traits.length < 2) draft.traits.push(k);
+      else return toast('最多选择 2 项特质');
+      renderCreate();
+      break;
+    }
+    case 'random-name': {
+      draft.name = pick(NAMES);
+      const inp = $('#name-input');
+      if (inp) inp.value = draft.name;
+      break;
+    }
+    case 'randomize': randomizeBuild(); break;
+    case 'next-step': nextStep(); break;
+    case 'prev-step': prevStep(); break;
+    case 'start': startGame(); break;
+    case 'resume': resumeGame(); break;
+
+    /* 游戏 */
+    case 'view': setView(el.dataset.view); break;
+    case 'mid-tab': ui.midTab = el.dataset.tab; ui.view = ui.midTab; renderBottomNav(); renderMid(); animateView(ui.view); break;
+    case 'side-tab': ui.sideTab = el.dataset.tab; renderSide(); break;
+    case 'gather': gather(el.dataset.map, el.dataset.node); break;
+    case 'travel': travel(el.dataset.map); break;
+    case 'rest': rest(); break;
+    case 'craft': craft(el.dataset.id); break;
+    case 'equip': toggleEquip(el.dataset.uid); break;
+    case 'use': useItem(el.dataset.key); break;
+    case 'chat-npc': ui.chatNpc = el.dataset.id; renderSide(); break;
+    case 'chat-act': chatAction(el.dataset.id); break;
+    case 'send-chat': {
+      const input = $('#chat-text');
+      sendChat(input ? input.value : '');
+      break;
+    }
+    case 'open-map': openMap(); break;
+    case 'close-map': closeMap(); break;
+    case 'save': saveGame(); break;
+    case 'menu': showCreate(); break;
+    default: break;
+  }
+}
+
+function bindEvents() {
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-act]');
+    if (!el || el.disabled) return;
+    onAction(el.dataset.act, el);
+  });
+
+  document.addEventListener('input', (e) => {
+    if (e.target && e.target.id === 'name-input') {
+      draft.name = e.target.value;
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target && e.target.id === 'chat-text' && e.key === 'Enter') {
+      e.preventDefault();
+      sendChat(e.target.value);
+    }
+    if (e.key === 'Escape') {
+      if (!$('#overlay').classList.contains('hidden')) closeMap();
+    }
+  });
+
+  const ov = $('#overlay');
+  if (ov) {
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) closeMap();
+    });
+  }
+}
+
+/* ============================================================
+ * 17. 启动
+ * ========================================================== */
+function init() {
+  draft = newDraft();
+  bindEvents();
+  showCreate();
+}
+
+init();
+</script>
+</body>
+</html>
