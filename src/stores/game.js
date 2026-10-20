@@ -226,7 +226,7 @@ export const useGameStore = defineStore('game', {
 
       if (useLlm && this.run.llm.calls < this.run.llm.maxCalls) {
         const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), 30000)
+        const timer = setTimeout(() => controller.abort(), 90000)
         try {
           const { messages } = buildStoryOpeningMessages(this.run, awakening)
           text = await streamNpcChat(messages, () => {}, controller.signal)
@@ -236,6 +236,8 @@ export const useGameStore = defineStore('game', {
           }
         } catch (cause) {
           error = cause.name === 'AbortError' ? '模型响应超时' : cause.message
+          text = ''
+          source = 'local'
         } finally {
           clearTimeout(timer)
         }
@@ -658,6 +660,8 @@ export const useGameStore = defineStore('game', {
           source = 'llm'
         } catch (cause) {
           error = cause.message
+          text = ''
+          source = 'local'
         }
       } else if (useLlm) {
         error = '本局模型调用预算已用完'
@@ -809,6 +813,8 @@ export const useGameStore = defineStore('game', {
           source = 'llm'
         } catch (cause) {
           error = cause.message
+          text = ''
+          source = 'local'
         }
       } else if (useLlm) {
         error = '本局模型调用预算已用完'
@@ -876,7 +882,7 @@ export const useGameStore = defineStore('game', {
       let fallback = false
       let errorMessage = ''
       const controller = new AbortController()
-      let timeout = setTimeout(() => controller.abort(), 20000)
+      let timeout = setTimeout(() => controller.abort(), 30000)
       const armTimeout = (ms) => {
         clearTimeout(timeout)
         timeout = setTimeout(() => controller.abort(), ms)
@@ -892,7 +898,7 @@ export const useGameStore = defineStore('game', {
           full += delta
           placeholder.text = full
           // 有增量就重置看门狗；流停住 10 秒就结束，避免按钮永远卡在“…” 
-          armTimeout(10000)
+          armTimeout(20000)
         }, controller.signal)
         this.run.llm.calls += 1
       } catch (error) {

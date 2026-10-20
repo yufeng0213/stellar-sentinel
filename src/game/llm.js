@@ -30,6 +30,29 @@ export async function streamNpcChat(messages, onDelta, signal) {
   let full = ''
   let finished = false
 
+  const consume = (chunk) => {
+    const line = chunk.split('\n').find((item) => item.startsWith('data:'))
+    if (!line) return
+    const data = line.slice(5).trim()
+    if (!data) return
+    if (data === '[DONE]') {
+      finished = true
+      return
+    }
+
+    let payload
+    try {
+      payload = JSON.parse(data)
+    } catch {
+      return
+    }
+    if (payload.error) throw new Error(payload.error)
+    if (payload.delta) {
+      full += payload.delta
+      onDelta(payload.delta)
+    }
+  }
+
   while (!finished) {
     const { value, done } = await reader.read()
     if (done) break
@@ -39,28 +62,15 @@ export async function streamNpcChat(messages, onDelta, signal) {
     while ((index = buffer.indexOf('\n\n')) >= 0) {
       const chunk = buffer.slice(0, index)
       buffer = buffer.slice(index + 2)
-      const line = chunk.split('\n').find((item) => item.startsWith('data:'))
-      if (!line) continue
-      const data = line.slice(5).trim()
-      if (!data) continue
-      if (data === '[DONE]') {
-        finished = true
-        break
-      }
-
-      let payload
-      try {
-        payload = JSON.parse(data)
-      } catch {
-        continue
-      }
-      if (payload.error) throw new Error(payload.error)
-      if (payload.delta) {
-        full += payload.delta
-        onDelta(payload.delta)
-      }
+      consume(chunk)
+      if (finished) break
     }
   }
+
+  // 有些代理不会以空行结束最后一帧，也不一定会发 [DONE]。
+  // 把解码器尾部和残留帧一起处理，避免最后一段剧情被吞掉。
+  buffer += decoder.decode()
+  if (!finished && buffer.trim()) consume(buffer.trim())
 
   return full
 }

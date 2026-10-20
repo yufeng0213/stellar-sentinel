@@ -219,7 +219,7 @@ function buildChatRequest(config, messages, temperature) {
         model: config.model,
         system,
         messages: conversation,
-        max_tokens: 420,
+        max_tokens: 1600,
         temperature: temp,
         stream: true,
       },
@@ -235,7 +235,7 @@ function buildChatRequest(config, messages, temperature) {
         model: config.model,
         messages: system ? [{ role: 'system', content: system }, ...conversation] : conversation,
         stream: true,
-        options: { temperature: temp, num_predict: 420 },
+        options: { temperature: temp, num_predict: 1600 },
       },
     }
   }
@@ -250,7 +250,7 @@ function buildChatRequest(config, messages, temperature) {
     body: {
       model: config.model,
       messages: system ? [{ role: 'system', content: system }, ...conversation] : conversation,
-      max_tokens: 420,
+      max_tokens: 1600,
       temperature: temp,
       stream: true,
     },
@@ -271,7 +271,7 @@ export async function streamChat({ messages, temperature }, onDelta, signal) {
 
   const request = buildChatRequest(config, messages, temperature)
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 60000)
+  const timer = setTimeout(() => controller.abort(), 90000)
   const abort = () => controller.abort()
   if (signal) signal.addEventListener('abort', abort)
 
@@ -335,6 +335,31 @@ export async function streamChat({ messages, temperature }, onDelta, signal) {
         if (delta) {
           full += delta
           onDelta(delta)
+        }
+      }
+    }
+
+    // 少数兼容网关最后一行不带换行；补处理残留缓冲，避免最后几句被截掉。
+    if (buffer.trim()) {
+      let tail = buffer.trim()
+      if (tail.startsWith('data:')) tail = tail.slice(5).trim()
+      if (tail !== '[DONE]' && tail.startsWith('{')) {
+        try {
+          const payload = JSON.parse(tail)
+          let delta = ''
+          if (request.mode === 'anthropic') {
+            if (payload.type === 'content_block_delta') delta = payload.delta?.text || ''
+          } else if (request.mode === 'ollama') {
+            delta = payload.message?.content || ''
+          } else {
+            delta = payload.choices?.[0]?.delta?.content || ''
+          }
+          if (delta) {
+            full += delta
+            onDelta(delta)
+          }
+        } catch {
+          // 残留内容不是完整 JSON 时忽略
         }
       }
     }

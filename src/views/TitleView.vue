@@ -76,7 +76,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.23 · FACTIONS</dd>
+            <dd class="mono">0.23.1 · STREAM</dd>
           </div>
         </dl>
       </section>

@@ -60,7 +60,7 @@ npm start
 - **行为白名单**：模型只能提议 `offer_party` / `warn` / `leave`，由本地规则校验后执行；不能直接改数值。
 - **背包与锻造**：材料、消耗品、装备、品质（粗糙 / 标准 / 精良），装备加成直接进入判定。
 - **存档管理**：当前存档可导出 JSON、导入旧存档、删除本局；导入时会校验并补全 NPC 世界、聊天记录与调用预算。
-- **LLM 配置**：OpenAI 兼容 / Anthropic / Ollama；服务端保存 Key、掩码回传、连通性测试。
+- **LLM 配置**：OpenAI 兼容 / Anthropic / Ollama；服务端保存 Key、掩码回传、连通性测试；流式输出上限 1600 tokens，并处理没有结尾空行 / `[DONE]` 的最后一帧，避免长剧情被截断。
 - **日志**：判定与拾取记录在角色页可以看到。
 
 ## 路由
@@ -85,6 +85,7 @@ npm run test:core    # 地图确定性、移动、采集、锻造
 npm run test:combat  # 出牌、回合、胜负、撤离、处置
 npm run test:npc     # 初始倾向、送礼饱和、交谈、组队、交恶、每日 tick
 npm run test:llm     # prompt 结构、动作白名单、本地降级对白
+npm run test:stream  # SSE 最后一帧、无 [DONE] 时的完整拼接
 npm run test:world   # 事件选择、交易购买、存档导入迁移
 npm run test:chargen # 26 出身、点数、随机开局、扒窃与存档迁移
 npm run test:tags    # 126 标签、生成组合、相容度、旧档补全
