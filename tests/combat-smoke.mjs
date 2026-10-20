@@ -117,6 +117,19 @@ summon.enemies[0].intent = { type: 'summon', value: 0 }
 endTurn(summon, summonRun)
 check(summon.enemies.length === 2, '召唤没有生成随从')
 
+// 精神侵蚀敌人：结束回合不能因为校准/装备效果作用域错误而卡住
+const psychicRun = createRun(draft(), 'COMBAT-PSYCHIC')
+const psychicBase = battleNodeOf(psychicRun)
+const psychic = createBattle(psychicRun, {
+  ...psychicBase,
+  id: 'psychic-node',
+  type: 'battle',
+  enemy: { name: '低语体', hp: 40, morale: 30, attack: 5, traits: ['psychic'] },
+})
+psychic.enemies[0].intent = { type: 'psychic', value: 5 }
+const psychicTurn = endTurn(psychic, psychicRun)
+check(psychicTurn.ok, '精神侵蚀敌人结束回合失败')
+
 // 确定性：同一 run/node 的初始状态一致
 const d1 = createRun(draft(), 'COMBAT-03')
 const d2 = createRun(draft(), 'COMBAT-03')

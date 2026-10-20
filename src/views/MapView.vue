@@ -546,7 +546,7 @@ function nextNodes(node) {
                   失败会损失 25% 信用点。
                 </p>
                 <button
-                  v-if="selectedState === 'current' && !selectedCleared"
+                  v-if="!selectedCleared && (selectedState === 'current' || run.battle?.nodeId === selected.id)"
                   type="button"
                   class="btn btn-primary btn-block"
                   @click="goBattle"

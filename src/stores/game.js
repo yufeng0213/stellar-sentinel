@@ -656,9 +656,14 @@ export const useGameStore = defineStore('game', {
 
     endBattleTurn() {
       if (!this.run?.battle) return { ok: false }
-      const result = endBattleTurnCore(this.run.battle, this.run)
-      this.save()
-      return result
+      try {
+        const result = endBattleTurnCore(this.run.battle, this.run)
+        this.save()
+        return result
+      } catch (error) {
+        this.notify(`战斗结算异常：${error.message}`, 'bad')
+        return { ok: false, message: error.message }
+      }
     },
 
     fleeBattle() {

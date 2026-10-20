@@ -581,6 +581,7 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
 export function endTurn(battle, run) {
   if (!battle || battle.status !== 'active') return { ok: false }
 
+  const effects = battleEffects(run)
   battle.discard.push(...battle.hand)
   battle.hand = []
   battle.attacksThisTurn = 0
