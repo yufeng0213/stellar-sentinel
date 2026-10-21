@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ITEMS, REGIONS } from '../game-core/data.js'
 import { AXES, PERSONALITY_LABELS, canInviteToParty, factionName, romanceStatus } from '../game-core/npc.js'
 import { canInviteNpc } from '../game-core/bastion.js'
+import { ensureNpcLife, npcLifeStatus } from '../game-core/npc-life.js'
 import { openPromises } from '../game-core/npc-promises.js'
 import { RELATION_STAGES, relationStageInfo } from '../game-core/npc-stages.js'
 import { TAG_CATEGORIES } from '../game-core/npc-tags.js'
@@ -27,6 +28,11 @@ const inviteCheck = computed(() => (
 const bastionCheck = computed(() => (
   npc.value && run.value ? canInviteNpc(run.value, npc.value) : { ok: false, reason: '' }
 ))
+const lifeStatus = computed(() => {
+  if (!npc.value || !run.value) return null
+  ensureNpcLife(run.value, npc.value)
+  return npcLifeStatus(npc.value, run.value)
+})
 const romance = computed(() => (run.value && npc.value ? romanceStatus(run.value, npc.value.id) : null))
 const stageInfo = computed(() => (npc.value ? relationStageInfo(npc.value) : null))
 
@@ -263,6 +269,30 @@ function promiseLabel(promise) {
       </div>
     </section>
 
+    <section v-if="lifeStatus" class="panel npc-block life-block">
+      <div class="life-head">
+        <div>
+          <p class="kicker">AUTONOMOUS LIFE</p>
+          <h3>{{ lifeStatus.goal.name }}</h3>
+          <p>{{ lifeStatus.goal.desc }}</p>
+        </div>
+        <span class="tag violet">{{ lifeStatus.rank }}</span>
+      </div>
+      <div class="life-needs">
+        <span>安全 <b>{{ lifeStatus.needs.safety }}</b></span>
+        <span>归属 <b>{{ lifeStatus.needs.belonging }}</b></span>
+        <span>意义 <b>{{ lifeStatus.needs.purpose }}</b></span>
+      </div>
+      <div class="life-progress">
+        <span>目标进度</span>
+        <span class="bar"><i :style="{ width: `${lifeStatus.progress}%` }"></i></span>
+        <b>{{ lifeStatus.progress }}%</b>
+      </div>
+      <p v-if="lifeStatus.partner" class="life-note">和 {{ lifeStatus.partner }} 走得很近。</p>
+      <p v-if="lifeStatus.feudName" class="life-note is-bad">和 {{ lifeStatus.feudName }} 结下了旧账。</p>
+      <p v-if="lifeStatus.leftCity" class="life-note is-bad">已经离开空港，D{{ lifeStatus.returnDay }} 之后可能回来。</p>
+    </section>
+
     <section v-if="bagItems.length" class="panel npc-block">
       <h3>随身物品</h3>
       <p class="hint">他收下的东西。受伤时，如果他带着医疗包或营养膏，会自己使用。</p>
@@ -385,6 +415,18 @@ function promiseLabel(promise) {
 .strain-line .bar { flex: 1; height: 5px; overflow: hidden; border-radius: 4px; background: rgba(255, 255, 255, .07); }
 .strain-line .bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(124, 231, 255, .45), var(--cyan)); transition: width .3s ease; }
 .strain-line b { min-width: 24px; color: var(--muted); text-align: right; font-weight: 400; }
+.life-block { border-color: rgba(185, 164, 255, .2); background: rgba(185, 164, 255, .035); }
+.life-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.life-head h3 { margin-top: 3px; font-size: max(var(--ui-min), calc(15px * var(--ui-scale))); font-weight: 400; }
+.life-head p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.55; }
+.life-needs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
+.life-needs b { color: var(--cyan); font-weight: 400; }
+.life-progress { display: flex; align-items: center; gap: 7px; margin-top: 8px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.life-progress .bar { flex: 1; height: 5px; overflow: hidden; border-radius: 4px; background: rgba(255, 255, 255, .07); }
+.life-progress .bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(185, 164, 255, .4), var(--violet)); }
+.life-progress b { min-width: 28px; color: var(--violet); text-align: right; font-weight: 400; }
+.life-note { margin-top: 6px; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.life-note.is-bad { color: var(--red); }
 .archetype-block { border-color: rgba(185, 164, 255, .22); background: rgba(185, 164, 255, .045); }
 .archetype-head { display: flex; align-items: center; gap: 10px; }
 .archetype-glyph { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border: 1px solid rgba(185, 164, 255, .35); border-radius: 9px; color: var(--violet); font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); }

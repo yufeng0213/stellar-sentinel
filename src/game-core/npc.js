@@ -13,6 +13,7 @@ import {
 } from './npc-tags.js'
 import { applyNpcArchetype, ensureNpcArchetype, pickNpcArchetype } from './npc-archetypes.js'
 import { expeditionEffects } from './expedition.js'
+import { ensureNpcLife, lifeTick } from './npc-life.js'
 import { buildNpcNamePool, nextNpcName } from './npc-names.js'
 import { decayWanted } from './wanted.js'
 import { clearAmbiguous, ensureNpcStage, noteNpcInteraction, relationStageInfo, relationStageOf } from './npc-stages.js'
@@ -478,6 +479,7 @@ export function ensureNpcTags(run) {
     if (!npc.tier) npc.tier = 'core'
     ensureNpcStage(npc, run.day)
     ensureNpcArchetype(run, npc)
+    ensureNpcLife(run, npc)
     if (npc.tags?.length) return
     const seedRole = FIXED_NPCS.find((item) => item.name === npc.name) || null
     npc.tags = pickNpcTags(rng, seedRole)
@@ -1288,6 +1290,8 @@ export function tickWorld(run) {
       push(`${npc.name} 离开了你的队伍。`, 'bad')
     }
   })
+
+  lifeTick(run).forEach((text) => push(text, 'story'))
 
   return events
 }

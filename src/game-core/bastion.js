@@ -132,6 +132,7 @@ export function canInviteNpc(run, npc) {
   if (!run || !npc) return { ok: false, reason: '找不到这个人' }
   const bastion = ensureBastion(run)
   if (!npc.alive) return { ok: false, reason: '他无法回应' }
+  if (npc.life?.leftCity || npc.active === false) return { ok: false, reason: '他已经离开空港了' }
   if (npc.hostile) return { ok: false, reason: '他还在敌视你' }
   if (bastion.residents.includes(npc.id)) return { ok: false, reason: '他已经在据点里' }
   if (bastion.residents.length >= bastion.capacity) {
@@ -195,6 +196,15 @@ export function assignBastionFacility(run, facilityId, npcId) {
 
 function matchesFit(npc, facility) {
   return Boolean(npc?.archetype?.id && facility.fit.includes(npc.archetype.id))
+}
+
+function lifeEfficiency(npc) {
+  const needs = npc?.life?.needs
+  if (!needs) return 1
+  const average = (needs.safety + needs.belonging + needs.purpose) / 3
+  if (average >= 60) return 1
+  if (average >= 35) return 0.75
+  return 0.5
 }
 
 export function buildBastionEvent(run) {
@@ -401,24 +411,27 @@ export function restBastion(run) {
     const npc = run.npcs?.[bastion.assignments[facility.id]]
     if (!npc?.alive) return
     const fit = matchesFit(npc, facility)
+    const efficiency = lifeEfficiency(npc)
     if (facility.id === 'clinic') {
-      run.player.hp = Math.min(run.player.hpMax, run.player.hp + (fit ? 12 : 8))
-      run.player.mental = Math.min(run.player.mentalMax, run.player.mental + (fit ? 8 : 5))
-      report.push(`${facility.name}：${npc.name}处理了伤口${fit ? '，动作很稳' : ''}。`)
+      const hp = Math.round((fit ? 12 : 8) * efficiency)
+      const mental = Math.round((fit ? 8 : 5) * efficiency)
+      run.player.hp = Math.min(run.player.hpMax, run.player.hp + hp)
+      run.player.mental = Math.min(run.player.mentalMax, run.player.mental + mental)
+      report.push(`${facility.name}：${npc.name}处理了伤口${fit ? '，动作很稳' : ''}${efficiency < 1 ? '，但状态不太好' : ''}。`)
     } else if (facility.id === 'workshop') {
-      const credits = fit ? 18 : 12
-      const scrap = fit ? 2 : 1
+      const credits = Math.round((fit ? 18 : 12) * efficiency)
+      const scrap = Math.max(1, Math.round((fit ? 2 : 1) * efficiency))
       run.player.credits += credits
       run.inv.scrap = (run.inv.scrap || 0) + scrap
       report.push(`${facility.name}：${npc.name}修好了几件旧东西，信用点 +${credits}，废料 +${scrap}。`)
     } else if (facility.id === 'archive') {
-      const chips = fit ? 2 : 1
+      const chips = Math.max(1, Math.round((fit ? 2 : 1) * efficiency))
       run.inv.chip = (run.inv.chip || 0) + chips
       report.push(`${facility.name}：${npc.name}从旧记录里翻出 ${chips} 枚旧世芯片。`)
     } else if (facility.id === 'garden') {
-      const rations = fit ? 3 : 2
+      const rations = Math.max(1, Math.round((fit ? 3 : 2) * efficiency))
       run.inv.ration = (run.inv.ration || 0) + rations
-      run.player.mental = Math.min(run.player.mentalMax, run.player.mental + (fit ? 5 : 3))
+      run.player.mental = Math.min(run.player.mentalMax, run.player.mental + Math.round((fit ? 5 : 3) * efficiency))
       report.push(`${facility.name}：${npc.name}收了一批营养膏，精神也稳定了一些。`)
     }
   })
