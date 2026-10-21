@@ -21,8 +21,8 @@ function claim(status) {
 function doFavor(mission, choice) {
   const result = game.resolveFactionFavor(mission.factionId, choice.id)
   if (!result.ok) return
-  if (result.battleNodeId && run.value) {
-    router.push({ name: 'battle', params: { runId: run.value.id, nodeId: result.battleNodeId } })
+  if (result.factionNodeId && run.value) {
+    router.push({ name: 'map', params: { runId: run.value.id } })
     return
   }
   game.notify(result.done ? '派系差事完成' : '差事推进', 'good')

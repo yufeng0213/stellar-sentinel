@@ -408,6 +408,7 @@ export const NODE_TYPES = {
   shop: { name: '交易', glyph: '◈' },
   rest: { name: '休整', glyph: '☾' },
   site: { name: '探索点', glyph: '⌖' },
+  faction: { name: '派系远征', glyph: '⚑' },
   city: { name: '城市', glyph: '⌂' },
   boss: { name: '首领', glyph: '✷' },
 }

@@ -219,6 +219,13 @@ function doSite(approach) {
   if (result.cleared) game.notify('探索点已到底', 'good')
 }
 
+function startFactionExpedition() {
+  if (!selected.value || !run.value) return
+  const nodeId = game.startFactionExpeditionBattle(selected.value.id)
+  if (!nodeId) return
+  router.push({ name: 'battle', params: { runId: run.value.id, nodeId } })
+}
+
 function siteDc(approach) {
   if (!selected.value) return 0
   const depth = run.value?.nodeState?.[selected.value.id]?.depth || 0
@@ -642,6 +649,26 @@ function nextNodes(node) {
                   </button>
                 </div>
                 <p v-else-if="selectedCleared" class="hint">这里已经被探索到底了。</p>
+              </template>
+
+              <!-- 派系远征 -->
+              <template v-else-if="selected.type === 'faction'">
+                <p class="event-title">{{ selected.title }}</p>
+                <p class="story">派系的人把地点标在了星图上。这里没有谈判的余地，只能进去把事办完。</p>
+                <div class="kv">
+                  <div><span>敌方</span><b>{{ selected.enemy?.name || '未知' }}</b></div>
+                  <div><span>状态</span><b>{{ selectedCleared ? '已解决' : '未解决' }}</b></div>
+                </div>
+                <button
+                  v-if="selectedState === 'current' && !selectedCleared"
+                  type="button"
+                  class="btn btn-primary btn-block"
+                  @click="startFactionExpedition"
+                >
+                  进入派系远征
+                </button>
+                <p v-else-if="selectedCleared" class="hint">这里的差事已经解决。</p>
+                <p v-else class="hint">先抵达这个节点。</p>
               </template>
 
               <!-- 约会 -->

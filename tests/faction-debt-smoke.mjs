@@ -15,6 +15,7 @@ import {
   factionFavorMissionStatuses,
   resolveFactionFavorStep,
 } from '../src/game-core/faction-favor-chain.js'
+import { completeFactionExpedition, createFactionExpedition } from '../src/game-core/faction-expedition.js'
 
 const errors = []
 const check = (condition, label) => { if (!condition) errors.push(label) }
@@ -50,6 +51,12 @@ check(step2.ok && step2.battle === true, '追账没有进入真实战斗')
 check(step2.mission.stage === 1, '战斗前就推进了任务链')
 const battleDone = completeFactionFavorBattle(favorRun, 'market', 'collect')
 check(battleDone.ok && battleDone.mission.stage === 2, '战斗胜利后任务链没有推进')
+const expedition = createFactionExpedition(favorRun, 'market', 'collect')
+check(expedition.ok && expedition.node.type === 'faction', '没有生成派系远征地图节点')
+check(favorRun.map.layers.some((layer) => layer.includes(expedition.node.id)), '派系节点没有进入星图层')
+check(favorRun.map.nodes[favorRun.location].next.includes(expedition.node.id), '派系节点不可抵达')
+const expeditionDone = completeFactionExpedition(favorRun, expedition.node.id)
+check(expeditionDone.ok && expeditionDone.node.cleared, '派系远征没有标记完成')
 const step3 = resolveFactionFavorStep(favorRun, 'market', 'share')
 check(step3.ok && step3.done, '任务链没有完成')
 check(step3.mission.status === 'done', '任务链完成后没有标记')
