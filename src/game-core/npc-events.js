@@ -35,6 +35,7 @@ export const EVENT_TYPES = {
   rivalry: { label: '争宠', color: 'red', base: 7, major: true },
   conflict: { label: '冲突', color: 'red', base: 10, major: true },
   gossip: { label: '八卦', color: 'amber', base: 7, major: false },
+  survivor: { label: '幸存者', color: 'jade', base: 8, major: true },
 }
 
 const GIFT_BY_INTEREST = {
@@ -563,6 +564,33 @@ export function generateNpcEvents(run, options = {}) {
     })
   })
 
+  const survivor = Object.values(run.npcs || {}).find((npc) => (
+    npc.survivor &&
+    npc.alive &&
+    !npc.survivorFollowUpDone &&
+    !npc.life?.leftCity &&
+    run.day >= (npc.survivorFollowUpDay || Infinity) &&
+    !run.inbox.some((event) => event.status === 'pending' && event.type === 'survivor' && event.npcId === npc.id)
+  ))
+  if (survivor) {
+    run.inbox.unshift({
+      id: `survivor-${survivor.id}-${run.day}`,
+      day: run.day,
+      week: Math.floor((run.day - 1) / 7) + 1,
+      npcId: survivor.id,
+      type: 'survivor',
+      status: 'pending',
+      title: `${survivor.name} 想回那扇门看看`,
+      text: '他从那扇门后出来已经两天了。今天他站在空港边缘，一直看着矿脉站的方向。\n\n“我想回去一趟。不是为了拿东西。”',
+      payload: { siteId: survivor.survivorSiteId || null },
+      choices: [
+        { id: 'escort', label: '陪他回去' },
+        { id: 'listen', label: '先听他说完' },
+        { id: 'stay', label: '让他留在空港' },
+      ],
+    })
+  }
+
   const rng = createRng(`${run.seed}:npc-events:${run.day}`)
   const created = []
   const dueWeekly = run.day % 7 === 0
@@ -926,6 +954,29 @@ function resolveConflict(run, npc, event, choice) {
   return '你没有退。他盯着你看了很久，最后让开了。'
 }
 
+function resolveSurvivor(run, npc, event, choice) {
+  npc.survivorFollowUpDone = true
+  npc.survivorFollowUpDay = run.day
+  if (choice === 'escort') {
+    npc.relation.trust = clamp(npc.relation.trust + 7, 0, 100)
+    npc.relation.closeness = clamp(npc.relation.closeness + 5, 0, 100)
+    run.player.credits += 18
+    addItem(run, 'chip', 1)
+    npc.activity = '从矿脉站回来'
+    return '你陪他回到那扇门前。他在里面站了很久，最后只带走了一枚旧芯片。回程时他走在前面，脚步比来时稳。'
+  }
+  if (choice === 'listen') {
+    npc.relation.trust = clamp(npc.relation.trust + 5, 0, 100)
+    npc.relation.closeness = clamp(npc.relation.closeness + 4, 0, 100)
+    addItem(run, 'chip', 1)
+    return '你没有急着出发，只让他把门后的事说完。最后他把一枚旧芯片放在桌上：“这个给你。算是房租。”'
+  }
+  npc.relation.trust = clamp(npc.relation.trust + 2, 0, 100)
+  npc.bastionNeeds = npc.bastionNeeds || { safety: 60, belonging: 60, purpose: 60 }
+  npc.bastionNeeds.belonging = clamp(npc.bastionNeeds.belonging + 8, 0, 100)
+  return '你说可以留下来，不用急着回去。他看了你一会儿，最后坐回了空港的台阶上。'
+}
+
 function resolveGossip(run, npc, event, choice) {
   if (choice === 'ignore') return '你没有接话。他识趣地换了话题。'
   npc.relation.trust = clamp(npc.relation.trust + 1, 0, 100)
@@ -962,6 +1013,7 @@ export function resolveInboxEvent(run, eventId, choiceId) {
   else if (event.type === 'escort') result = resolveEscort(run, npc, event, choiceId)
   else if (event.type === 'conflict') result = resolveConflict(run, npc, event, choiceId)
   else if (event.type === 'gossip') result = resolveGossip(run, npc, event, choiceId)
+  else if (event.type === 'survivor') result = resolveSurvivor(run, npc, event, choiceId)
 
   if (result && typeof result === 'object' && result.error) return { ok: false, message: result.error }
 

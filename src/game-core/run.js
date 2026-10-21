@@ -390,6 +390,9 @@ export function resolveSiteEncounter(run, nodeId, choiceId) {
     survivor.relation.trust = 35
     survivor.relation.closeness = 18
     survivor.survivor = true
+    survivor.survivorSiteId = nodeId
+    survivor.survivorFollowUpDay = run.day + 2
+    survivor.survivorFollowUpDone = false
     survivor.activity = '在空港养伤'
     const cities = ensureCities(run)
     const cityId = survivor.cityId || 'dock'

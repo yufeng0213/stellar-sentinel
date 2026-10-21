@@ -4,6 +4,7 @@
 
 import { randomDraft } from '../src/game-core/character.js'
 import { completeSiteGuardian, createRun, exploreSite, resolveSiteEncounter, siteEncounterFor } from '../src/game-core/run.js'
+import { generateNpcEvents, resolveInboxEvent } from '../src/game-core/npc-events.js'
 import { NODE_TYPES, SITE_APPROACHES } from '../src/game-core/data.js'
 
 const errors = []
@@ -53,6 +54,27 @@ check(guardFight.ok && guardFight.battle === true, '守门者没有进入战斗'
 check(!guardRun.nodeState[guardSite.id].encounterDone, '守门者战斗前就标记完成')
 const guardDone = completeSiteGuardian(guardRun, guardSite.id)
 check(guardDone.ok && guardRun.nodeState[guardSite.id].encounterDone, '守门者战斗后没有完成遭遇')
+
+const survivorRun = createRun(randomDraft(), 'SITE-SURVIVOR-TEST')
+const survivorSite = Object.values(survivorRun.map.nodes).find((node) => node.type === 'site')
+survivorSite.site.encounter = 'survivor'
+survivorRun.location = survivorSite.id
+survivorRun.nodeState[survivorSite.id] = { depth: 2 }
+survivorRun.inv.ration = 2
+const rescue = resolveSiteEncounter(survivorRun, survivorSite.id, 'rescue')
+check(rescue.ok && rescue.survivor, '幸存者没有加入空港')
+const survivor = rescue.survivor
+check(survivor.survivor === true, '幸存者没有标记')
+check(survivor.survivorFollowUpDay >= survivorRun.day, '幸存者没有后续日期')
+survivorRun.day = survivor.survivorFollowUpDay
+generateNpcEvents(survivorRun, { force: true })
+const survivorEvent = survivorRun.inbox.find((event) => event.type === 'survivor' && event.npcId === survivor.id)
+check(!!survivorEvent, '幸存者没有触发专属后续')
+if (survivorEvent) {
+  const resolved = resolveInboxEvent(survivorRun, survivorEvent.id, 'listen')
+  check(resolved.ok, '幸存者后续处理失败')
+  check(survivor.survivorFollowUpDone === true, '幸存者后续没有标记完成')
+}
 
 const scanRun = createRun(randomDraft(), 'SITE-SCAN-TEST')
 const scanSite = Object.values(scanRun.map.nodes).find((node) => node.type === 'site')
