@@ -500,25 +500,33 @@ export function ensureNpcTags(run) {
   return run
 }
 
-export function spawnVisitor(run, index = 0) {
+function nextNpcId(run) {
+  let index = 1
+  while (run.npcs?.[`npc-${index}`]) index += 1
+  return `npc-${index}`
+}
+
+export function spawnCityNpc(run, cityId = 'dock', index = 0, options = {}) {
   if (!run?.npcs) return null
-  const refresh = run.city?.refreshCount || 0
-  const rng = createRng(`${run.seed}:visitor:${refresh}:${index}`)
+  const rng = createRng(`${run.seed}:city:${cityId}:npc:${index}:${options.salt || ''}`)
   const usedNames = new Set(Object.values(run.npcs).map((npc) => npc.name))
   const names = buildNpcNamePool(rng)
   const name = nextNpcName(names, usedNames, index)
-  const id = `npc-v${refresh + 1}-${index + 1}`
+  const id = nextNpcId(run)
   const npc = makeNpc(run, rng, id, null, name)
-  npc.visitor = true
+  npc.visitor = Boolean(options.visitor)
+  npc.cityId = cityId
   npc.active = true
+  npc.tier = options.tier || 'active'
   npc.joinedDay = run.day
-  npc.schedule = ['在空港酒馆看人', '去市场找活干', '在城门附近等消息']
+  npc.home = options.home || 'dock'
+  npc.schedule = options.schedule || ['在空港闲逛', '去市场找活干', '在城门附近等消息']
   run.npcs[id] = npc
 
   const others = Object.values(run.npcs).filter((other) => (
     other.id !== id && other.active !== false
   ))
-  rng.shuffle(others).slice(0, 3).forEach((other) => {
+  rng.shuffle(others).slice(0, options.edges ?? 3).forEach((other) => {
     const affinity = tagAffinity(npc.tags || [], other.tags || []).score
     run.npcEdges = run.npcEdges || []
     run.npcEdges.push({
@@ -528,10 +536,20 @@ export function spawnVisitor(run, index = 0) {
       closeness: clamp(Math.round(12 + affinity * 0.4 + rng.int(0, 18)), 0, 70),
       rivalry: clamp(Math.round(16 - affinity * 0.5 + rng.int(0, 14)), 0, 70),
       affinity,
+      kind: 'acquaintance',
     })
   })
 
   return npc
+}
+
+export function spawnVisitor(run, index = 0) {
+  const refresh = run?.city?.refreshCount || 0
+  return spawnCityNpc(run, 'dock', index, {
+    visitor: true,
+    salt: `visitor:${refresh}`,
+    schedule: ['在空港酒馆看人', '去市场找活干', '在城门附近等消息'],
+  })
 }
 
 export function npcList(run) {

@@ -5,7 +5,7 @@
 
 import { ITEMS } from './data.js'
 import { adjustReputation, FACTION_IDS } from './faction.js'
-import { spawnVisitor } from './npc.js'
+import { spawnCityNpc } from './npc.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -124,6 +124,93 @@ function makeQuests(run) {
     .filter(Boolean)
 }
 
+export function createCitiesState() {
+  return {}
+}
+
+export function ensureCities(run) {
+  if (!run) return {}
+  if (!run.cities || typeof run.cities !== 'object') run.cities = createCitiesState()
+  if (!run.cities.dock) {
+    run.cities.dock = {
+      id: 'dock',
+      name: '白塔空港',
+      discoveredDay: run.day || 1,
+      npcIds: [],
+      visitorIds: [],
+      refreshCount: 0,
+      target: 20,
+    }
+  }
+  const dock = run.cities.dock
+  if (!Array.isArray(dock.npcIds)) dock.npcIds = []
+  if (!Array.isArray(dock.visitorIds)) dock.visitorIds = []
+  if (typeof dock.refreshCount !== 'number') dock.refreshCount = 0
+  if (typeof dock.target !== 'number') dock.target = 20
+  return run.cities
+}
+
+export function ensureCityPopulation(run, cityId = 'dock', target = 20) {
+  const cities = ensureCities(run)
+  const city = cities[cityId]
+  if (!city) return null
+  city.target = Math.max(1, Number(target) || city.target || 20)
+
+  const ids = new Set(city.npcIds.filter((id) => run.npcs?.[id]))
+  Object.values(run.npcs || {}).forEach((npc) => {
+    if (npc.visitor) return
+    if (npc.cityId && npc.cityId !== cityId) return
+    if (!npc.cityId && cityId === 'dock') ids.add(npc.id)
+  })
+
+  let index = 0
+  while (ids.size < city.target && index < city.target * 4) {
+    const npc = spawnCityNpc(run, cityId, city.npcIds.length + index, {
+      home: cityId === 'dock' ? 'dock' : 'dock',
+    })
+    if (!npc) break
+    ids.add(npc.id)
+    index += 1
+  }
+
+  city.npcIds = [...ids]
+  return city
+}
+
+export function cityPopulation(run, cityId = 'dock') {
+  const cities = ensureCities(run)
+  const city = cities[cityId]
+  if (!city) return { total: 0, ids: [] }
+  return {
+    total: city.npcIds.length,
+    ids: city.npcIds,
+    visitors: city.visitorIds.length,
+  }
+}
+
+function pickCityVisitors(run, city, count = 3) {
+  const locals = city.npcIds.map((id) => run.npcs?.[id]).filter(Boolean)
+  const old = new Set(city.visitorIds || [])
+  const pool = locals.filter((npc) => !old.has(npc.id))
+  const chosen = createRng(`${run.seed}:city-visitors:${city.id}:${city.refreshCount}:${run.day}`)
+    .shuffle(pool.length >= count ? pool : locals)
+    .slice(0, count)
+  const chosenIds = new Set(chosen.map((npc) => npc.id))
+
+  ;(city.visitorIds || []).forEach((id) => {
+    const npc = run.npcs?.[id]
+    if (!npc) return
+    npc.visitor = chosenIds.has(id)
+    if (!chosenIds.has(id) && !npc.party) npc.active = false
+  })
+  chosen.forEach((npc) => {
+    npc.visitor = true
+    npc.active = true
+  })
+  city.visitorIds = chosen.map((npc) => npc.id)
+  return chosen
+}
+
 export function ensureCity(run) {
   if (!run) return null
   if (!run.city || typeof run.city !== 'object') run.city = createCityState()
@@ -139,6 +226,13 @@ export function ensureCity(run) {
   if (!city.lastRumor) city.lastRumor = ''
   if (typeof city.intelBought !== 'boolean') city.intelBought = false
   if (typeof city.doorKeyBought !== 'boolean') city.doorKeyBought = false
+
+  ensureCities(run)
+  const population = ensureCityPopulation(run, 'dock')
+  if (population && !city.visitorIds.length) {
+    city.visitorIds = pickCityVisitors(run, population).map((npc) => npc.id)
+    city.refreshCount = population.refreshCount || 0
+  }
 
   if (city.marketDay !== run.day) {
     city.market = makeOffers(createRng(`${run.seed}:market:${run.day}`), MARKET_POOL, 6, 'wine')
@@ -208,13 +302,12 @@ export function refreshCityVisitors(run) {
   if (run.player.credits < cost) return { ok: false, message: '需要 12 信用点' }
 
   run.player.credits -= cost
-  ;(city.visitorIds || []).forEach((id) => {
-    const npc = run.npcs?.[id]
-    if (npc && !npc.party) npc.active = false
-  })
   city.refreshCount += 1
-  city.visitorIds = Array.from({ length: 3 }, (_, index) => spawnVisitor(run, index)?.id).filter(Boolean)
-  return { ok: true, cost, visitors: cityVisitors(run) }
+  const population = ensureCityPopulation(run, 'dock')
+  population.refreshCount = city.refreshCount
+  pickCityVisitors(run, population)
+  city.visitorIds = [...population.visitorIds]
+  return { ok: true, cost, visitors: cityVisitors(run), population: population.npcIds.length }
 }
 
 export function claimCityQuest(run, questId) {

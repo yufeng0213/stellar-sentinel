@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { cityPopulation } from '../game-core/city.js'
 import { activeEscorts } from '../game-core/escort.js'
 import { useGameStore } from '../stores/game.js'
 
@@ -8,6 +9,7 @@ const game = useGameStore()
 const router = useRouter()
 const run = computed(() => game.run)
 const city = computed(() => run.value?.city || null)
+const population = computed(() => (run.value ? cityPopulation(run.value, 'dock') : { total: 0, visitors: 0 }))
 const visitors = computed(() => (city.value?.visitorIds || [])
   .map((id) => run.value?.npcs?.[id])
   .filter((npc) => npc && npc.active !== false))
@@ -37,6 +39,7 @@ function finishEscort(escort) {
           <span class="tag cyan">信用点 {{ run.player.credits }}</span>
           <span class="tag jade">生命 {{ Math.round(run.player.hp) }} / {{ run.player.hpMax }}</span>
           <span class="tag amber">精神 {{ Math.round(run.player.mental) }} / {{ run.player.mentalMax }}</span>
+          <span class="tag violet">本地人口 {{ population.total }}</span>
         </div>
       </div>
       <div class="city-visitors">
@@ -84,7 +87,7 @@ function finishEscort(escort) {
         <span class="city-glyph">♨</span>
         <b>酒馆</b>
         <p>看今天来了哪些新面孔，聊两句，或者花点信用点换一批访客。</p>
-        <em>{{ visitors.length }} 位访客 →</em>
+        <em>{{ visitors.length }} / {{ population.total }} 位本地人 →</em>
       </button>
       <button type="button" class="city-card" @click="open('city-clinic')">
         <span class="city-glyph">✚</span>

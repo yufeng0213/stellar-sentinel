@@ -605,7 +605,8 @@ NPC 之间维护关系边：`{ a, b, trust, closeness, rivalry }`。
 - [x] 默认 18 人仍保持原来的关系密度
 - [x] `test:npcscale` 覆盖 500 NPC、英文名、唯一性与稀疏边
 - [x] NPC 分 core / active / background 三层；background 不参与每日关系和事件模拟
-- [ ] Web Worker 每日 tick、IndexedDB 存档、NPC 列表分页（后续）
+- [x] 空港本地人口 cohort：首次进入补到 20 人，访客从本地池轮换，刷新不再新建 NPC
+- [ ] 多城市节点、Web Worker 每日 tick、IndexedDB 存档、NPC 列表分页（后续）
 
 ### Phase 40 · 城市与派系长线（待实现）
 

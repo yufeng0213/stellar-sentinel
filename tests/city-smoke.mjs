@@ -6,6 +6,7 @@ import { randomDraft } from '../src/game-core/character.js'
 import { createRun } from '../src/game-core/run.js'
 import {
   buyCityOffer,
+  cityPopulation,
   cityVisitors,
   createCityState,
   ensureCity,
@@ -28,6 +29,8 @@ check(cityVisitors(run).length === 3, '访客列表不一致')
 check(city.market.some((offer) => offer.key === 'wine'), '市场没有酒')
 check(run.npcs[city.visitorIds[0]]?.visitor === true, '访客没有标记 visitor')
 check(npcList(run).some((npc) => npc.id === city.visitorIds[0]), '访客没有进入名册')
+check(cityPopulation(run, 'dock').total === 20, '空港本地人口不是 20')
+const populationBeforeRefresh = Object.keys(run.npcs).length
 
 const wineIndex = city.market.findIndex((offer) => offer.key === 'wine')
 const wine = city.market[wineIndex]
@@ -46,6 +49,8 @@ check(city.visitorIds.length === 3, '刷新后访客数量不对')
 check(city.visitorIds.every((id) => !oldVisitors.includes(id)), '刷新后仍是旧访客')
 check(oldVisitors.every((id) => run.npcs[id].active === false), '旧访客没有离开')
 check(city.refreshCount === 1, '刷新次数没有增加')
+check(Object.keys(run.npcs).length === populationBeforeRefresh, '刷新访客又生成了新 NPC')
+check(cityPopulation(run, 'dock').visitors === 3, '人口池访客数量错误')
 
 run.player.hp = 10
 const hpBefore = run.player.hp
