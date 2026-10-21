@@ -3,6 +3,7 @@
  * 据点状态跨城市保存，和 run.city 分开。
  */
 
+import { bastionChainEvent } from './bastion-chains.js'
 import { bastionPersonaEventFor } from './bastion-persona-events.js'
 import { createRng } from './rng.js'
 
@@ -48,6 +49,7 @@ export function createBastionState() {
     lastRestDay: 0,
     lastReport: [],
     pendingEvent: null,
+    chains: [],
     tension: 0,
     pressure: 'calm',
   }
@@ -63,6 +65,7 @@ export function ensureBastion(run) {
   if (!bastion.assignments || typeof bastion.assignments !== 'object') bastion.assignments = {}
   if (typeof bastion.lastRestDay !== 'number') bastion.lastRestDay = 0
   if (!Array.isArray(bastion.lastReport)) bastion.lastReport = []
+  if (!Array.isArray(bastion.chains)) bastion.chains = []
   if (bastion.pendingEvent === undefined) bastion.pendingEvent = null
   if (typeof bastion.tension !== 'number') bastion.tension = 0
   if (!['calm', 'tense', 'chaos'].includes(bastion.pressure)) bastion.pressure = 'calm'
@@ -209,12 +212,33 @@ function lifeEfficiency(npc) {
   return 0.5
 }
 
+export function queueBastionChain(run, chainId, npcId = null, dueIn = 2) {
+  const bastion = ensureBastion(run)
+  if (!Array.isArray(bastion.chains)) bastion.chains = []
+  if (bastion.chains.some((chain) => chain.id === chainId)) return null
+  if (bastion.chains.length >= 2) bastion.chains.shift()
+  const chain = {
+    id: chainId,
+    npcId: npcId || bastion.residents[0] || null,
+    queuedDay: run.day,
+    dueDay: run.day + Math.max(1, dueIn),
+  }
+  bastion.chains.push(chain)
+  return chain
+}
+
 export function buildBastionEvent(run) {
   const bastion = ensureBastion(run)
   const residents = bastion.residents.map((id) => run.npcs?.[id]).filter(Boolean)
   if (!residents.length) return null
   const rng = createRng(`${run.seed}:bastion-event:${run.day}:${residents.length}`)
   const tension = bastionTension(run)
+  const dueChain = (bastion.chains || []).find((chain) => chain.dueDay <= run.day)
+  if (dueChain) {
+    const chainEvent = bastionChainEvent(dueChain)
+    if (chainEvent) return chainEvent
+    bastion.chains = bastion.chains.filter((chain) => chain.id !== dueChain.id)
+  }
   const persona = residents.find((npc) => {
     const definition = bastionPersonaEventFor(npc)
     return definition &&
@@ -429,7 +453,23 @@ export function resolveBastionEvent(run, eventId, choiceId) {
   const needs = ensureResidentNeeds(npc)
   let text = ''
 
-  if (event.type === 'personal') {
+  if (event.type === 'chain') {
+    const choice = event.choices.find((item) => item.id === choiceId)
+    if (!choice) return { ok: false, message: '没有这个选项' }
+    const effects = choice.effects || {}
+    Object.entries(effects.needs || {}).forEach(([key, value]) => {
+      needs[key] = clamp((needs[key] || 0) + value)
+    })
+    Object.entries(effects.relation || {}).forEach(([key, value]) => {
+      npc.relation[key] = clamp((npc.relation[key] || 0) + value)
+    })
+    Object.entries(effects.items || {}).forEach(([key, value]) => {
+      run.inv[key] = Math.max(0, (run.inv[key] || 0) + value)
+    })
+    if (effects.credits) run.player.credits = Math.max(0, run.player.credits + effects.credits)
+    bastion.chains = (bastion.chains || []).filter((chain) => chain.id !== event.chainId)
+    text = choice.text
+  } else if (event.type === 'personal') {
     const choice = event.choices.find((item) => item.id === choiceId)
     if (!choice) return { ok: false, message: '没有这个选项' }
     const effects = choice.effects || {}
@@ -605,6 +645,18 @@ export function resolveBastionEvent(run, eventId, choiceId) {
     needs.purpose = clamp(needs.purpose + 12)
     needs.safety = clamp(needs.safety + 4)
     text = '值班的人拆了半晚。没有人知道那东西原来做什么，但学到了一点。'
+  }
+
+  if (event.type === 'raid' && ['defend', 'hide'].includes(choiceId)) {
+    queueBastionChain(run, 'raid_mark', npc.id, 2)
+  } else if (event.type === 'defect' && choiceId === 'listen') {
+    queueBastionChain(run, 'defect_letter', npc.id, 2)
+  } else if (event.type === 'fire' && ['fight', 'repair'].includes(choiceId)) {
+    queueBastionChain(run, 'fire_wire', npc.id, 2)
+  } else if (event.type === 'visitor' && choiceId === 'trade') {
+    queueBastionChain(run, 'visitor_crate', npc.id, 2)
+  } else if (event.type === 'faction_pressure' && choiceId === 'refuse') {
+    queueBastionChain(run, 'faction_return', npc.id, 1)
   }
 
   bastion.pendingEvent = null

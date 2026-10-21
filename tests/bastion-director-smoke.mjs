@@ -10,6 +10,7 @@ import {
   buildBastionEvent,
   ensureBastion,
   inviteNpcToBastion,
+  queueBastionChain,
   resolveBastionEvent,
 } from '../src/game-core/bastion.js'
 
@@ -50,6 +51,18 @@ if (chaosEvent) {
   const resolved = resolveBastionEvent(chaos.run, chaosEvent.id, chaosEvent.choices[0].id)
   check(resolved.ok, '混乱事件处理失败')
   check(resolved.text.length > 0, '混乱事件没有结果文本')
+}
+
+queueBastionChain(chaos.run, 'raid_mark', chaos.npc.id, 1)
+chaos.run.bastion.pendingEvent = null
+chaos.run.day += 2
+const chainEvent = buildBastionEvent(chaos.run)
+check(chainEvent?.type === 'chain', '后续事件链没有生成')
+if (chainEvent) {
+  chaos.run.bastion.pendingEvent = chainEvent
+  const chainResolved = resolveBastionEvent(chaos.run, chainEvent.id, chainEvent.choices[0].id)
+  check(chainResolved.ok, '后续事件链处理失败')
+  check(!chaos.run.bastion.chains.some((chain) => chain.id === chainEvent.chainId), '后续事件链没有清除')
 }
 
 const archived = makeRun('DIRECTOR-ARCHIVE', 0)
