@@ -48,16 +48,36 @@ export function wantedStatus(run) {
   }
 }
 
+export function clearWanted(run) {
+  const wanted = ensureWanted(run)
+  wanted.level = 0
+  wanted.fine = 0
+  wanted.reason = ''
+  wanted.sinceDay = 0
+  return wanted
+}
+
+export function reduceWanted(run, amount = 1) {
+  const wanted = ensureWanted(run)
+  wanted.level = Math.max(0, wanted.level - Math.max(1, amount))
+  if (!wanted.level) {
+    wanted.fine = 0
+    wanted.reason = ''
+    wanted.sinceDay = 0
+  } else {
+    wanted.fine = fineFor(wanted.level)
+    wanted.sinceDay = run.day
+  }
+  return wanted
+}
+
 export function payWanted(run) {
   const wanted = ensureWanted(run)
   if (!wanted.level) return { ok: false, message: '你目前没有被通缉' }
   if (run.player.credits < wanted.fine) return { ok: false, message: `需要 ${wanted.fine} 信用点` }
   const fine = wanted.fine
   run.player.credits -= fine
-  wanted.level = 0
-  wanted.fine = 0
-  wanted.reason = ''
-  wanted.sinceDay = 0
+  clearWanted(run)
   return { ok: true, fine }
 }
 

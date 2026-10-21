@@ -31,6 +31,7 @@ import {
 } from '../game-core/city-development.js'
 import { checkExpedition, chooseExpeditionContract, ensureExpedition } from '../game-core/expedition.js'
 import { ensureWanted, payWanted as payWantedCore } from '../game-core/wanted.js'
+import { factionInterveneWanted } from '../game-core/wanted-faction.js'
 import {
   adjustReputation,
   buyFactionShopItem,
@@ -395,6 +396,19 @@ export const useGameStore = defineStore('game', {
       if (result.ok) {
         addLog(this.run, `缴纳通缉罚金 ${result.fine} 信用点，城市记录已清除。`, 'good')
         this.notify(`罚金已缴纳 · ${result.fine} 信用点`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    interveneWanted(factionId) {
+      if (!this.run) return { ok: false }
+      const result = factionInterveneWanted(this.run, factionId)
+      if (result.ok) {
+        addLog(this.run, `${result.faction.name}出面消案：通缉等级 ${result.level}。`, 'good')
+        this.notify(`${result.faction.name} · ${result.cleared ? '案件已撤销' : `通缉降至 ${result.level} 级`}`, 'good')
         this.save()
       } else {
         this.notify(result.message, 'bad')

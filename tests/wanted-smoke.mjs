@@ -13,6 +13,7 @@ import {
   wantedPriceMarkup,
   wantedStatus,
 } from '../src/game-core/wanted.js'
+import { factionInterveneWanted, wantedFactionOptions } from '../src/game-core/wanted-faction.js'
 
 const errors = []
 const check = (condition, label) => { if (!condition) errors.push(label) }
@@ -47,6 +48,22 @@ raiseWanted(run, 'dock', '第三次败露', 1)
 run.day += 3
 decayWanted(run)
 check(run.wanted.level === 0, '通缉没有按时间衰减')
+
+run.player.credits = 500
+run.reputation.tower = 65
+raiseWanted(run, 'dock', '白塔出面', 2)
+const helpers = wantedFactionOptions(run)
+check(helpers.some((item) => item.id === 'tower' && item.canClear), '白塔没有撤销案件选项')
+const cleared = factionInterveneWanted(run, 'tower')
+check(cleared.ok && cleared.cleared, '高声望派系没有撤销案件')
+check(run.wanted.level === 0, '派系消案没有清除通缉')
+check(run.reputation.tower < 65, '派系消案没有消耗声望')
+
+run.reputation.market = 30
+run.player.credits = 500
+raiseWanted(run, 'dock', '市场出面', 2)
+const reduced = factionInterveneWanted(run, 'market')
+check(reduced.ok && reduced.level === 1, '低声望派系没有降低通缉等级')
 
 console.log(JSON.stringify({
   ok: errors.length === 0,

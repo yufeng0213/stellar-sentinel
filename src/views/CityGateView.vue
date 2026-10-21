@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { doorSeals } from '../game-core/door.js'
 import { chapterStatus } from '../game-core/story.js'
+import { wantedStatus } from '../game-core/wanted.js'
+import { wantedFactionOptions } from '../game-core/wanted-faction.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
@@ -11,6 +13,8 @@ const run = computed(() => game.run)
 const status = computed(() => (run.value ? chapterStatus(run.value) : null))
 const seals = computed(() => (run.value ? doorSeals(run.value) : null))
 const dungeon = computed(() => run.value?.dungeon || null)
+const wanted = computed(() => (run.value ? wantedStatus(run.value) : { active: false }))
+const factionHelpers = computed(() => (run.value && wanted.value.active ? wantedFactionOptions(run.value) : []))
 
 function renameDungeon(useLlm) {
   const result = game.renameDungeon(useLlm)
@@ -20,6 +24,16 @@ function renameDungeon(useLlm) {
 function enter() {
   if (!run.value) return
   router.push({ name: 'map', params: { runId: run.value.id } })
+}
+
+function payWanted() {
+  const result = game.payWanted()
+  if (result.ok) game.notify('通缉记录已清除', 'good')
+}
+
+function askFaction(helper) {
+  const result = game.interveneWanted(helper.id)
+  if (result.ok) game.notify(`${helper.name}出面了`, 'good')
 }
 </script>
 
@@ -72,6 +86,35 @@ function enter() {
       <div><span>精神</span><b>{{ Math.round(run.player.mental) }} / {{ run.player.mentalMax }}</b></div>
     </section>
 
+    <section v-if="wanted.active" class="panel gate-wanted">
+      <div class="gate-wanted-head">
+        <div>
+          <p class="kicker">CHECKPOINT · WANTED {{ wanted.level }}</p>
+          <h3>城门盘查</h3>
+          <p>{{ wanted.reason }} · 城市价格 +{{ Math.round(wanted.priceMarkup * 100) }}%。可以缴罚金，或者找派系出面。</p>
+        </div>
+        <button type="button" class="btn btn-sm" :disabled="run.player.credits < wanted.fine" @click="payWanted">
+          缴纳罚金 · {{ wanted.fine }}
+        </button>
+      </div>
+      <div class="gate-helpers">
+        <article v-for="helper in factionHelpers" :key="helper.id" class="gate-helper" :class="{ 'is-available': helper.canHelp }">
+          <div>
+            <b>{{ helper.name }}</b>
+            <span>声望 {{ helper.score }} · 消耗 {{ helper.cost }} 信用点 / {{ helper.repCost }} 声望</span>
+          </div>
+          <button
+            type="button"
+            class="btn btn-sm"
+            :disabled="!helper.canHelp || run.player.credits < helper.cost"
+            @click="askFaction(helper)"
+          >
+            {{ helper.canClear ? '撤销案件' : helper.canHelp ? '降低一级' : '声望不足' }}
+          </button>
+        </article>
+      </div>
+    </section>
+
     <section class="panel gate-actions">
       <button type="button" class="btn btn-primary" @click="enter">进入星区 →</button>
       <RouterLink :to="{ name: 'city-market', params: { runId: run.id } }" class="btn btn-ghost">再去市场</RouterLink>
@@ -99,10 +142,21 @@ function enter() {
 .gate-status div { padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: rgba(5, 10, 16, .38); }
 .gate-status span { display: block; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .gate-status b { display: block; margin-top: 3px; color: var(--ink); font-family: var(--mono); font-size: max(var(--ui-min), calc(14px * var(--ui-scale))); font-weight: 400; }
+.gate-wanted { padding: 14px 16px; border-color: rgba(255, 138, 138, .35); background: rgba(255, 138, 138, .035); }
+.gate-wanted-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.gate-wanted h3 { margin-top: 3px; color: var(--red); font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 500; }
+.gate-wanted p { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
+.gate-helpers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.gate-helper { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 8px; opacity: .55; }
+.gate-helper.is-available { opacity: 1; border-color: rgba(185, 164, 255, .25); background: rgba(185, 164, 255, .035); }
+.gate-helper b { display: block; font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; }
+.gate-helper span { display: block; margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .gate-actions { display: flex; flex-wrap: wrap; gap: 7px; padding: 14px; }
 @media (max-width: 600px) {
   .gate-hero { padding: 15px; }
   .gate-status { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .gate-dungeon { align-items: flex-start; flex-direction: column; }
+  .gate-wanted-head { flex-direction: column; }
+  .gate-helpers { grid-template-columns: 1fr; }
 }
 </style>
