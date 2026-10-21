@@ -12,6 +12,7 @@ import {
   tagAffinity,
 } from './npc-tags.js'
 import { applyNpcArchetype, ensureNpcArchetype, pickNpcArchetype } from './npc-archetypes.js'
+import { buildNpcNamePool, nextNpcName } from './npc-names.js'
 import { clearAmbiguous, ensureNpcStage, noteNpcInteraction, relationStageInfo, relationStageOf } from './npc-stages.js'
 import { createRng } from './rng.js'
 
@@ -141,8 +142,6 @@ const ROLE_POOL = [
   { role: '旧塔书记', faction: 'tower', interests: ['旧技术', '传闻'], home: 'dock', aggr: 22, gen: 50, cur: 66, loy: 72, grudge: 22 },
   { role: '拾荒童', faction: 'drifters', interests: ['机械', '星图'], home: 'mine', aggr: 26, gen: 55, cur: 76, loy: 34, grudge: 26 },
 ]
-
-const NAME_POOL = ['闻莺', '白矾', '祁夜', '砂原', '陆沉', '阿灰', '南枝', '鹫', '灯', '霜', '渡鸦', '旧枪', '米岚', '塔利亚', '七', '迟', '赫', '桥', '砂砾', '白榆', '洛', '鸦', '青', '荼']
 
 const FIXED_NPCS = [
   {
@@ -379,24 +378,35 @@ function makeNpc(run, rng, id, seedRole, name) {
   return npc
 }
 
-export function createNpcWorld(run) {
-  const rng = createRng(`${run.seed}:npcs`)
-  const npcs = {}
-  const names = rng.shuffle(NAME_POOL)
+export const DEFAULT_NPC_COUNT = 18
 
-  for (let index = 0; index < 18; index += 1) {
+export function createNpcWorld(run, count = DEFAULT_NPC_COUNT) {
+  const rng = createRng(`${run.seed}:npcs`)
+  const total = Math.min(1000, Math.max(1, Number(count) || DEFAULT_NPC_COUNT))
+  const npcs = {}
+  const names = buildNpcNamePool(rng)
+  const usedNames = new Set(FIXED_NPCS.map((npc) => npc.name))
+
+  for (let index = 0; index < total; index += 1) {
     const id = `npc-${index + 1}`
     const seedRole = FIXED_NPCS[index] || null
-    const name = seedRole?.name || names[index % names.length] || `无名的${index}`
-    npcs[id] = makeNpc(run, rng, id, seedRole, name)
+    const name = seedRole?.name || nextNpcName(names, usedNames, index)
+    const npc = makeNpc(run, rng, id, seedRole, name)
+    npc.tier = index < 24 ? 'core' : index < 100 ? 'active' : 'background'
+    npcs[id] = npc
   }
 
   const edges = []
   const list = Object.values(npcs)
+  const maxDegree = total > 60 ? 4 : Infinity
+  const targetEdges = Math.min(1600, Math.max(36, Math.ceil(total * 1.8)))
+  const degrees = new Map()
   for (let i = 0; i < list.length; i += 1) {
     for (let j = i + 1; j < list.length; j += 1) {
+      if (edges.length >= targetEdges) break
       const a = list[i]
       const b = list[j]
+      if (maxDegree !== Infinity && ((degrees.get(a.id) || 0) >= maxDegree || (degrees.get(b.id) || 0) >= maxDegree)) continue
       if (a.faction !== b.faction && a.home !== b.home && !rng.chance(0.28)) continue
       const affinity = tagAffinity(a.tags, b.tags)
       const overlap = a.interests.filter((interest) => b.interests.includes(interest)).length
@@ -422,9 +432,10 @@ export function createNpcWorld(run) {
         affinity: affinity.score,
         kind,
       })
-      if (edges.length >= 36) break
+      degrees.set(a.id, (degrees.get(a.id) || 0) + 1)
+      degrees.set(b.id, (degrees.get(b.id) || 0) + 1)
     }
-    if (edges.length >= 36) break
+    if (edges.length >= targetEdges) break
   }
 
   if (run.player.flaws?.includes('feud') || run.player.flaw === 'feud') {
@@ -440,6 +451,7 @@ export function createNpcWorld(run) {
   return {
     npcs,
     npcEdges: edges,
+    npcCount: total,
     party: [],
     worldEvents: [],
     pendingAmbush: null,
@@ -461,6 +473,7 @@ export function ensureNpcTags(run) {
     if (typeof npc.confessed !== 'boolean') npc.confessed = false
     if (typeof npc.confessedDay !== 'number') npc.confessedDay = 0
     if (!Array.isArray(npc.personaDone)) npc.personaDone = []
+    if (!npc.tier) npc.tier = 'core'
     ensureNpcStage(npc, run.day)
     ensureNpcArchetype(run, npc)
     if (npc.tags?.length) return
@@ -492,8 +505,8 @@ export function spawnVisitor(run, index = 0) {
   const refresh = run.city?.refreshCount || 0
   const rng = createRng(`${run.seed}:visitor:${refresh}:${index}`)
   const usedNames = new Set(Object.values(run.npcs).map((npc) => npc.name))
-  const names = rng.shuffle(NAME_POOL).filter((name) => !usedNames.has(name))
-  const name = names[0] || `访客${refresh + 1}-${index + 1}`
+  const names = buildNpcNamePool(rng)
+  const name = nextNpcName(names, usedNames, index)
   const id = `npc-v${refresh + 1}-${index + 1}`
   const npc = makeNpc(run, rng, id, null, name)
   npc.visitor = true
@@ -1079,6 +1092,7 @@ export function tickWorld(run) {
   Object.values(run.npcs).forEach((npc) => {
     if (!npc.alive) return
     npc.activity = npc.schedule[(run.day + Number(npc.id.split('-')[1])) % npc.schedule.length]
+    if (npc.tier === 'background') return
     if (npc.lover || npc.ambiguous) {
       ensureNpcStage(npc)
       const gap = run.day - (npc.lastInteractionDay || run.day)
