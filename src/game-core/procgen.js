@@ -11,8 +11,8 @@ const ACT_OF_LAYER = [1, 1, 1, 1, 2, 2, 2, 3, 3, 3]
 
 const TYPE_WEIGHTS = {
   1: [['gather', 0.42], ['battle', 0.18], ['event', 0.25], ['shop', 0.1], ['rest', 0.05]],
-  2: [['gather', 0.3], ['battle', 0.25], ['event', 0.2], ['elite', 0.08], ['shop', 0.09], ['rest', 0.08]],
-  3: [['battle', 0.28], ['elite', 0.18], ['event', 0.22], ['gather', 0.18], ['shop', 0.06], ['rest', 0.08]],
+  2: [['gather', 0.27], ['battle', 0.23], ['event', 0.18], ['elite', 0.08], ['site', 0.09], ['shop', 0.07], ['rest', 0.08]],
+  3: [['battle', 0.25], ['elite', 0.16], ['event', 0.2], ['gather', 0.15], ['site', 0.1], ['shop', 0.06], ['rest', 0.08]],
 }
 
 const FALLBACK_TITLE = {
@@ -678,6 +678,23 @@ function makeNode(rng, layer, slot, type, profile = null) {
     node.heal = 24 + region.danger * 4
     node.mental = 18 + region.danger * 3
     node.subtitle = `${region.name} · 休整点`
+  } else if (type === 'site') {
+    const profiles = [
+      { name: '半埋的观测站', attr: 'tec', dc: 11, loot: 'chip' },
+      { name: '塌陷的矿道', attr: 'vit', dc: 11, loot: 'ore' },
+      { name: '无编号的档案库', attr: 'per', dc: 12, loot: 'chip' },
+      { name: '静默的回声井', attr: 'psi', dc: 12, loot: 'shard' },
+    ]
+    const profile = rng.pick(profiles)
+    node.title = profile.name
+    node.site = {
+      ...profile,
+      maxDepth: 3,
+      coreLoot: region.danger >= 3 ? 'relic' : 'chip',
+    }
+    node.attr = profile.attr
+    node.dc = profile.dc
+    node.subtitle = `${region.name} · 可深入探索`
   } else if (type === 'city') {
     node.cityId = 'outpost'
     node.cityName = '矿脉站'

@@ -205,6 +205,13 @@ function doGather() {
   }
 }
 
+function doSite() {
+  if (!selected.value) return
+  const result = game.exploreSiteAt(selected.value.id)
+  if (!result.ok) return
+  if (result.cleared) game.notify('探索点已到底', 'good')
+}
+
 function doEvent() {
   if (!selected.value) return
   game.resolveEventAt(selected.value.id)
@@ -555,6 +562,29 @@ function nextNodes(node) {
                 </button>
               </template>
 
+              <!-- 探索点 -->
+              <template v-else-if="selected.type === 'site'">
+                <p class="event-title">{{ selected.title }}</p>
+                <p class="story">这里可以继续往下走。每深入一层都要消耗 1 点行动点，判定难度也会提高。</p>
+                <div class="kv">
+                  <div><span>深度</span><b>{{ run.nodeState[selected.id]?.depth || 0 }} / {{ selected.site?.maxDepth || 3 }}</b></div>
+                  <div><span>判定</span><b>{{ ATTR_NAME[selected.site?.attr] }} · DC {{ (selected.site?.dc || 11) + (run.nodeState[selected.id]?.depth || 0) * 2 }}</b></div>
+                </div>
+                <p v-if="selected.site?.coreLoot" class="site-loot">
+                  最深处可能留下：{{ ITEMS[selected.site.coreLoot]?.name || selected.site.coreLoot }}
+                </p>
+                <button
+                  v-if="selectedState === 'current' && !selectedCleared"
+                  type="button"
+                  class="btn btn-primary btn-block"
+                  :disabled="run.ap < 1"
+                  @click="doSite"
+                >
+                  深入一层 · AP 1
+                </button>
+                <p v-else-if="selectedCleared" class="hint">这里已经被探索到底了。</p>
+              </template>
+
               <!-- 约会 -->
               <template v-else-if="selected.type === 'date'">
                 <p class="event-title">{{ selected.date?.npcId ? run.npcs[selected.date.npcId]?.name : '某人' }} 在等你</p>
@@ -876,6 +906,7 @@ function nextNodes(node) {
   font-size: max(var(--ui-min), calc(7px * var(--ui-scale)));
 }
 .dungeon-tile.is-risk { border-color: rgba(255, 138, 138, .52); }
+.site-loot { margin-top: 8px; color: var(--violet); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
 .risk-box { margin-top: 8px; padding: 8px 10px; border: 1px solid rgba(255, 138, 138, .28); border-radius: 8px; background: rgba(255, 138, 138, .045); }
 .risk-box b { color: var(--red); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; }
 .risk-box p { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.55; }

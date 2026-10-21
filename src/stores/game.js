@@ -57,6 +57,7 @@ import {
   craft as craftRun,
   createRun,
   currentNode,
+  exploreSite,
   gather,
   getNode,
   hasMats,
@@ -384,6 +385,18 @@ export const useGameStore = defineStore('game', {
       const result = stealFromNpc(this.run, npcId)
       if (result.ok) {
         if (result.fight) result.battleNodeId = this.startNpcBattle(npcId, '偷窃败露')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    exploreSiteAt(nodeId) {
+      if (!this.run) return { ok: false }
+      const result = exploreSite(this.run, nodeId)
+      if (result.ok) {
+        this.notify(result.success ? `深入 ${result.depth} 层` : '探索失败，被迫退回', result.success ? 'good' : 'bad')
         this.save()
       } else {
         this.notify(result.message, 'bad')

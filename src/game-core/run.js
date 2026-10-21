@@ -343,6 +343,71 @@ export function gather(run, nodeId) {
   return { ok: true, gains, check, remaining: nodeRemaining(run, node) }
 }
 
+export function exploreSite(run, nodeId) {
+  const node = getNode(run, nodeId)
+  if (!node || node.type !== 'site') return { ok: false, message: '这里没有可深入的地方' }
+  if (run.location !== nodeId) return { ok: false, message: '先抵达节点' }
+  if (run.ap < 1) return { ok: false, message: '行动点不足' }
+  const site = node.site || { maxDepth: 3, attr: 'per', dc: 11, loot: 'scrap', coreLoot: 'relic' }
+  const state = run.nodeState[nodeId] || {}
+  const depth = Math.min(site.maxDepth, (state.depth || 0) + 1)
+  if ((state.depth || 0) >= site.maxDepth) return { ok: false, message: '这里已经被探索到底了' }
+
+  run.ap -= 1
+  state.depth = depth
+  run.nodeState[nodeId] = state
+  const check = rollCheck(run, `深入 · ${node.title}`, site.attr, site.dc + depth * 2, traitBonus(run, 'gather'))
+  const rng = actionRng(run)
+  const gains = {}
+  let credits = 0
+
+  if (check.success) {
+    if (depth === 1) {
+      gains[site.loot] = 1
+      credits = 6 + rng.int(0, 5)
+    } else if (depth === 2) {
+      gains.chip = (gains.chip || 0) + 1
+      credits = 12 + rng.int(0, 8)
+    } else {
+      gains[site.coreLoot] = 1
+      credits = 24 + rng.int(0, 12)
+    }
+    Object.keys(gains).forEach((itemId) => addItem(run, itemId, gains[itemId]))
+    run.player.credits += credits
+    addLog(run, `深入 ${node.title}：${Object.keys(gains).map((itemId) => `${ITEMS[itemId].name} ×${gains[itemId]}`).join('、')}，信用点 +${credits}。`, 'good')
+  } else {
+    const damage = 4 + depth * 2
+    run.player.hp = Math.max(1, run.player.hp - damage)
+    run.player.mental = clamp(run.player.mental - 2, 0, run.player.mentalMax)
+    addLog(run, `深入 ${node.title} 失败：生命 -${damage}，精神 -2。`, 'bad')
+  }
+
+  const cleared = depth >= site.maxDepth
+  if (cleared && !run.cleared.includes(nodeId)) {
+    run.cleared.push(nodeId)
+    completeQuestsAt(run, nodeId)
+  }
+  handleCollapse(run)
+
+  return {
+    ok: true,
+    success: check.success,
+    depth,
+    maxDepth: site.maxDepth,
+    cleared,
+    gains,
+    credits,
+    check,
+    text: check.success
+      ? depth === site.maxDepth
+        ? '你走到了最深处。这里的东西已经被翻空，但你也看见了别人没看见的部分。'
+        : `你又往里走了一层。${Object.keys(gains).map((itemId) => `${ITEMS[itemId].name} ×${gains[itemId]}`).join('、')}。`
+      : depth === site.maxDepth
+        ? '你在最深处踩空了。勉强退出来时，这里已经没有继续向下的路。'
+        : '你退回了上一层。里面还有路，但今天的代价已经够多了。',
+  }
+}
+
 export function resolveEvent(run, nodeId) {
   const node = getNode(run, nodeId)
   if (!node || node.type !== 'event') return { ok: false, message: '这里没有事件' }
