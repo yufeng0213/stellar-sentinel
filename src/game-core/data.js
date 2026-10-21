@@ -326,6 +326,39 @@ export const SITE_APPROACHES = [
   },
 ]
 
+export const SITE_ENCOUNTERS = {
+  guardian: {
+    id: 'guardian',
+    title: '守门者',
+    text: '第三层入口被一台还没有断电的旧式守卫挡住。\n\n它的传感器转向你，但没有立刻开火。',
+    choices: [
+      { id: 'fight', label: '正面突破', attr: 'vit', dcMod: 3, desc: '强行拆掉守卫。成功获得额外战利品，失败会受伤。' },
+      { id: 'talk', label: '尝试交涉', attr: 'soc', dcMod: 1, desc: '也许它还在等一个旧口令。', cost: 15 },
+      { id: 'sneak', label: '绕过去', attr: 'agi', dcMod: 2, desc: '从盲区绕过守卫，奖励较少。' },
+    ],
+  },
+  trap: {
+    id: 'trap',
+    title: '没有标牌的机关',
+    text: '通道中央有一块颜色不对的地板。\n\n再往前一步，可能会触发什么。',
+    choices: [
+      { id: 'disable', label: '拆掉机关', attr: 'tec', dcMod: 2, desc: '成功额外获得旧芯片，失败伤精神。' },
+      { id: 'force', label: '直接冲过去', attr: 'vit', dcMod: 1, desc: '成功抢到物资，失败受伤。' },
+      { id: 'bypass', label: '贴墙绕开', attr: 'agi', dcMod: 3, desc: '最稳，但拿不到额外奖励。' },
+    ],
+  },
+  survivor: {
+    id: 'survivor',
+    title: '还活着的人',
+    text: '最深处有一扇被从里面反锁的门。\n\n门后有人，呼吸很轻。',
+    choices: [
+      { id: 'rescue', label: '撬门救人', desc: '消耗 1 份营养膏，救出的幸存者会加入空港。' },
+      { id: 'question', label: '隔着门问话', attr: 'soc', dcMod: 2, desc: '问出一点消息，获得信用点。' },
+      { id: 'leave', label: '不惊动他', desc: '继续深入，不带走任何人。' },
+    ],
+  },
+}
+
 export const NODE_RISKS = {
   patrol: {
     id: 'patrol',

@@ -3,7 +3,7 @@
  */
 
 import { randomDraft } from '../src/game-core/character.js'
-import { createRun, exploreSite } from '../src/game-core/run.js'
+import { createRun, exploreSite, resolveSiteEncounter, siteEncounterFor } from '../src/game-core/run.js'
 import { NODE_TYPES, SITE_APPROACHES } from '../src/game-core/data.js'
 
 const errors = []
@@ -27,6 +27,15 @@ check(first.ok && first.depth === 1, '第一层探索失败')
 check(run.ap === 2, '探索没有消耗行动点')
 const second = exploreSite(run, site.id)
 check(second.ok && second.depth === 2, '第二层探索失败')
+const blocked = exploreSite(run, site.id)
+check(!blocked.ok && blocked.encounter, '深层遭遇没有拦住探索')
+const encounter = siteEncounterFor(site)
+const encounterChoice = encounter.id === 'survivor'
+  ? encounter.choices.find((choice) => choice.id === 'question')
+  : encounter.choices[0]
+const encounterResult = resolveSiteEncounter(run, site.id, encounterChoice.id)
+check(encounterResult.ok, '深层遭遇处理失败')
+check(run.nodeState[site.id].encounterDone, '深层遭遇没有记录完成')
 const third = exploreSite(run, site.id)
 check(third.ok && third.depth === 3, '第三层探索失败')
 check(third.cleared && run.cleared.includes(site.id), '探索点到底后没有标记清理')

@@ -59,6 +59,7 @@ import {
   currentNode,
   exploreSite,
   gather,
+  resolveSiteEncounter,
   getNode,
   hasMats,
   nodeRemaining,
@@ -385,6 +386,18 @@ export const useGameStore = defineStore('game', {
       const result = stealFromNpc(this.run, npcId)
       if (result.ok) {
         if (result.fight) result.battleNodeId = this.startNpcBattle(npcId, '偷窃败露')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    resolveSiteEncounterAt(nodeId, choiceId) {
+      if (!this.run) return { ok: false }
+      const result = resolveSiteEncounter(this.run, nodeId, choiceId)
+      if (result.ok) {
+        this.notify(result.reward ? `深层遭遇 · ${result.reward}` : '深层遭遇已处理', result.success ? 'good' : 'bad')
         this.save()
       } else {
         this.notify(result.message, 'bad')

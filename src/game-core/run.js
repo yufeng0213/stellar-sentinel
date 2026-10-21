@@ -3,9 +3,10 @@
  * 所有判定都由 seed + rollCount 决定，可复现。
  */
 
-import { ABOS, ATTR_NAME, BASE_DECK, GEAR, GIFT_KEYS, ITEMS, ORIGINS, RECIPES, REGIONS, ROLES, SITE_APPROACHES } from './data.js'
+import { ABOS, ATTR_NAME, BASE_DECK, GEAR, GIFT_KEYS, ITEMS, ORIGINS, RECIPES, REGIONS, ROLES, SITE_APPROACHES, SITE_ENCOUNTERS } from './data.js'
 import { buildCharacter } from './character.js'
-import { createNpcWorld, tickWorld } from './npc.js'
+import { ensureCities } from './city.js'
+import { createNpcWorld, spawnCityNpc, tickWorld } from './npc.js'
 import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
 import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
@@ -343,6 +344,109 @@ export function gather(run, nodeId) {
   return { ok: true, gains, check, remaining: nodeRemaining(run, node) }
 }
 
+export function siteEncounterFor(node) {
+  if (!node?.site) return null
+  return SITE_ENCOUNTERS[node.site.encounter] || SITE_ENCOUNTERS.guardian
+}
+
+export function resolveSiteEncounter(run, nodeId, choiceId) {
+  const node = getNode(run, nodeId)
+  if (!node || node.type !== 'site') return { ok: false, message: '这里没有深层遭遇' }
+  if (run.location !== nodeId) return { ok: false, message: '先抵达节点' }
+  const state = run.nodeState[nodeId] || {}
+  if ((state.depth || 0) !== 2) return { ok: false, message: '还没有走到深层' }
+  if (state.encounterDone) return { ok: false, message: '这里已经处理过了' }
+  const encounter = siteEncounterFor(node)
+  const choice = encounter?.choices.find((item) => item.id === choiceId)
+  if (!encounter || !choice) return { ok: false, message: '没有这个选择' }
+
+  let success = true
+  let text = ''
+  let reward = ''
+  let survivor = null
+
+  if (encounter.id === 'survivor' && choiceId === 'rescue') {
+    if ((run.inv.ration || 0) < 1) return { ok: false, message: '需要 1 份营养膏' }
+    run.inv.ration -= 1
+    survivor = spawnCityNpc(run, run.activeCityId || 'dock', 900 + Object.keys(run.npcs).length, {
+      salt: `site-survivor:${nodeId}`,
+      tier: 'active',
+      home: 'dock',
+      schedule: ['在空港养伤', '在酒馆打听消息', '在诊所复诊'],
+    })
+    survivor.relation.trust = 35
+    survivor.relation.closeness = 18
+    survivor.survivor = true
+    survivor.activity = '在空港养伤'
+    const cities = ensureCities(run)
+    const cityId = survivor.cityId || 'dock'
+    if (cities[cityId] && !cities[cityId].npcIds.includes(survivor.id)) {
+      cities[cityId].npcIds.push(survivor.id)
+    }
+    text = `你撬开门，把幸存者带了出来。${survivor.name} 说他会记得这扇门。`
+    reward = `${survivor.name} 加入空港`
+  } else if (choice.attr) {
+    const dc = (node.site?.dc || 11) + 5 + (choice.dcMod || 0)
+    const check = rollCheck(run, `${encounter.title} · ${choice.label}`, choice.attr, dc, traitBonus(run, 'gather'))
+    success = check.success
+    if (success) {
+      if (choice.cost) {
+        run.player.credits -= Math.min(choice.cost, run.player.credits)
+      }
+      if (encounter.id === 'guardian') {
+        if (choiceId === 'fight') {
+          run.player.credits += 20
+          addItem(run, node.site.coreLoot || 'chip', 1)
+          reward = '深层遗物 + 20 信用点'
+          text = '守卫的关节冒出一阵火花，最后停了下来。你从它身后的舱室里拿出了东西。'
+        } else if (choiceId === 'talk') {
+          run.player.credits = Math.max(0, run.player.credits - 15)
+          reward = '守卫让开了路'
+          text = '你试着说了一个旧口令。守卫沉默了几秒，退到墙边。'
+        } else {
+          run.player.credits += 6
+          reward = '6 信用点'
+          text = '你贴着墙绕过去。守卫的传感器跟着你转，但没有开火。'
+        }
+      } else if (encounter.id === 'trap') {
+        if (choiceId === 'disable') {
+          addItem(run, 'chip', 1)
+          reward = '旧世芯片 +1'
+          text = '你拆掉了机关，从下面摸出一枚还亮着的旧芯片。'
+        } else if (choiceId === 'force') {
+          run.player.credits += 15
+          reward = '15 信用点'
+          text = '你冲过去，机关在身后响了一声，但没来得及合上。'
+        } else {
+          reward = '安全通过'
+          text = '你贴着墙绕过去，没有碰到那块颜色不对的地板。'
+        }
+      } else if (choiceId === 'question') {
+        run.player.credits += 12
+        reward = '12 信用点'
+        text = '门后的人说了一个坐标，换走了你递进去的一点东西。'
+      }
+    } else {
+      const damage = encounter.id === 'guardian' ? (choiceId === 'fight' ? 11 : 5) : (choiceId === 'force' ? 7 : 4)
+      const mental = choice.attr === 'tec' ? 5 : 3
+      run.player.hp = Math.max(1, run.player.hp - damage)
+      run.player.mental = clamp(run.player.mental - mental, 0, run.player.mentalMax)
+      text = '你没有成功。退回来时，身上多了一道伤。'
+      reward = `生命 -${damage} · 精神 -${mental}`
+    }
+  } else {
+    text = '你没有惊动门后的人，继续往里走。'
+    reward = '继续深入'
+  }
+
+  state.encounterDone = true
+  state.encounterChoice = choiceId
+  state.encounterText = text
+  run.nodeState[nodeId] = state
+  addLog(run, `${encounter.title}：${reward}。`, success ? 'good' : 'bad')
+  return { ok: true, success, encounter, choice, text, reward, survivor }
+}
+
 export function exploreSite(run, nodeId, approachId = 'force') {
   const node = getNode(run, nodeId)
   if (!node || node.type !== 'site') return { ok: false, message: '这里没有可深入的地方' }
@@ -351,6 +455,9 @@ export function exploreSite(run, nodeId, approachId = 'force') {
   const site = node.site || { maxDepth: 3, attr: 'per', dc: 11, loot: 'scrap', coreLoot: 'relic' }
   const approach = SITE_APPROACHES.find((item) => item.id === approachId) || SITE_APPROACHES[0]
   const state = run.nodeState[nodeId] || {}
+  if ((state.depth || 0) === 2 && !state.encounterDone) {
+    return { ok: false, message: '先处理深层遭遇', encounter: true }
+  }
   const depth = Math.min(site.maxDepth, (state.depth || 0) + 1)
   if ((state.depth || 0) >= site.maxDepth) return { ok: false, message: '这里已经被探索到底了' }
 

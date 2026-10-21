@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ATTR_NAME, GEAR, ITEMS, NODE_TYPES, REGIONS, SITE_APPROACHES, SKILLS } from '../game-core/data.js'
+import { ATTR_NAME, GEAR, ITEMS, NODE_TYPES, REGIONS, SITE_APPROACHES, SITE_ENCOUNTERS, SKILLS } from '../game-core/data.js'
 import { EXPEDITION_CONTRACTS, EXPEDITION_MODIFIERS, expeditionProgress } from '../game-core/expedition.js'
 import { localSettlementReport } from '../game/settlement.js'
 import { useGameStore } from '../stores/game.js'
@@ -53,6 +53,13 @@ const expeditionModifiers = computed(() => (expedition.value?.modifiers || [])
   .filter(Boolean))
 const expeditionState = computed(() => (run.value ? expeditionProgress(run.value) : { current: 0, goal: 0 }))
 const expeditionPending = computed(() => expedition.value?.status === 'pending')
+const siteEncounter = computed(() => {
+  const node = selected.value
+  if (!node || node.type !== 'site' || !node.site?.encounter) return null
+  const state = run.value?.nodeState?.[node.id]
+  if ((state?.depth || 0) !== 2 || state?.encounterDone) return null
+  return SITE_ENCOUNTERS[node.site.encounter] || SITE_ENCOUNTERS.guardian
+})
 
 function chooseExpedition(id) {
   game.chooseExpedition(id)
@@ -221,6 +228,17 @@ function siteDc(approach) {
 function siteAttr(approach) {
   if (approach.id === 'force') return selected.value?.site?.attr || 'per'
   return approach.attr
+}
+
+function siteEncounterDc(choice) {
+  if (!selected.value) return 0
+  return (selected.value.site?.dc || 11) + 5 + (choice.dcMod || 0)
+}
+
+function doSiteEncounter(choice) {
+  if (!selected.value) return
+  const result = game.resolveSiteEncounterAt(selected.value.id, choice.id)
+  if (result.ok) game.notify(result.reward || '深层遭遇已处理', result.success ? 'good' : 'bad')
 }
 
 function doEvent() {
@@ -584,7 +602,26 @@ function nextNodes(node) {
                 <p v-if="selected.site?.coreLoot" class="site-loot">
                   最深处可能留下：{{ ITEMS[selected.site.coreLoot]?.name || selected.site.coreLoot }}
                 </p>
-                <div v-if="selectedState === 'current' && !selectedCleared" class="site-approaches">
+                <div v-if="siteEncounter" class="site-encounter">
+                  <p class="kicker">DEEP ENCOUNTER · {{ selected.site.encounter.toUpperCase() }}</p>
+                  <h3>{{ siteEncounter.title }}</h3>
+                  <p class="event-text">{{ siteEncounter.text }}</p>
+                  <div class="site-encounter-choices">
+                    <button
+                      v-for="choice in siteEncounter.choices"
+                      :key="choice.id"
+                      type="button"
+                      class="site-approach"
+                      :disabled="run.ap < 1"
+                      @click="doSiteEncounter(choice)"
+                    >
+                      <b>{{ choice.label }}</b>
+                      <span v-if="choice.attr">{{ ATTR_NAME[choice.attr] }} · DC {{ siteEncounterDc(choice) }}</span>
+                      <em>{{ choice.desc }}</em>
+                    </button>
+                  </div>
+                </div>
+                <div v-else-if="selectedState === 'current' && !selectedCleared" class="site-approaches">
                   <button
                     v-for="approach in SITE_APPROACHES"
                     :key="approach.id"
@@ -924,6 +961,11 @@ function nextNodes(node) {
 }
 .dungeon-tile.is-risk { border-color: rgba(255, 138, 138, .52); }
 .site-loot { margin-top: 8px; color: var(--violet); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
+.site-encounter { margin-top: 10px; padding: 10px; border: 1px solid rgba(255, 196, 107, .3); border-radius: 9px; background: rgba(255, 196, 107, .04); }
+.site-encounter h3 { margin-top: 3px; color: var(--amber); font-size: max(var(--ui-min), calc(16px * var(--ui-scale))); font-weight: 500; }
+.site-encounter .event-text { margin-top: 5px; white-space: pre-line; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.65; }
+.site-encounter-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 9px; }
+.site-encounter-choices .site-approach em { color: var(--muted); font-style: normal; line-height: 1.4; }
 .site-approaches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
 .site-approach { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .42); color: var(--ink); text-align: left; cursor: pointer; }
 .site-approach:hover { border-color: rgba(124, 231, 255, .4); background: rgba(124, 231, 255, .05); }
@@ -932,7 +974,7 @@ function nextNodes(node) {
 .site-approach em { color: var(--jade); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-style: normal; }
 .site-approach small { color: var(--dim); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); line-height: 1.4; }
 @media (max-width: 600px) {
-  .site-approaches { grid-template-columns: 1fr; }
+  .site-approaches, .site-encounter-choices { grid-template-columns: 1fr; }
 }
 .risk-box { margin-top: 8px; padding: 8px 10px; border: 1px solid rgba(255, 138, 138, .28); border-radius: 8px; background: rgba(255, 138, 138, .045); }
 .risk-box b { color: var(--red); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; }

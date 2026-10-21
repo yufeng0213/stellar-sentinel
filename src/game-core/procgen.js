@@ -691,6 +691,7 @@ function makeNode(rng, layer, slot, type, profile = null) {
       ...profile,
       maxDepth: 3,
       coreLoot: region.danger >= 3 ? 'relic' : 'chip',
+      encounter: rng.pick(['guardian', 'trap', 'survivor']),
     }
     node.attr = profile.attr
     node.dc = profile.dc
