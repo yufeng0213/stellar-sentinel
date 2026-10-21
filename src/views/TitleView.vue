@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.79.0 · NPC REACTIONS</dd>
+            <dd class="mono">0.80.0 · CONTROL AFTERMATH</dd>
           </div>
         </dl>
       </section>

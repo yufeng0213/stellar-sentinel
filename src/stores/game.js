@@ -40,6 +40,11 @@ import {
 } from '../game-core/patrol.js'
 import { bailPlayer, ensureArrest } from '../game-core/arrest.js'
 import { factionBail as factionBailCore } from '../game-core/faction-bail.js'
+import {
+  completeControlReactionBattle,
+  ensureControlReactionEvents,
+  resolveControlReactionEvent,
+} from '../game-core/control-reactions.js'
 import { ensureFactionDebts, resolveFactionDebt as resolveFactionDebtCore } from '../game-core/faction-debt.js'
 import {
   completeFactionFavorBattle,
@@ -273,6 +278,7 @@ export const useGameStore = defineStore('game', {
       ensureArrest(stored)
       ensureFactionDebts(stored)
       ensureFactionFavorMissions(stored)
+      ensureControlReactionEvents(stored)
       ensureWanted(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
@@ -547,6 +553,25 @@ export const useGameStore = defineStore('game', {
       } else {
         this.notify(result.message, 'bad')
       }
+      return result
+    },
+
+    resolveControlReaction(eventId, choiceId) {
+      if (!this.run) return { ok: false }
+      const result = resolveControlReactionEvent(this.run, eventId, choiceId)
+      if (!result.ok) {
+        this.notify(result.message, 'bad')
+        return result
+      }
+      if (result.battle) {
+        result.battleNodeId = this.startNpcBattle(result.npcId, '控制报复')
+        if (result.battleNodeId && this.run.battle) this.run.battle.controlReactionId = eventId
+        this.save()
+        return result
+      }
+      addLog(this.run, result.text, 'story')
+      this.notify(result.text, 'good')
+      this.save()
       return result
     },
 
@@ -1257,7 +1282,8 @@ export const useGameStore = defineStore('game', {
         const patrolBattle = this.run.battle?.patrol
         const favorBattle = this.run.battle?.factionFavor
         const favorNodeId = this.run.battle?.factionNodeId
-        this.run.battleReturn = favorBattle ? 'map' : borderWar ? 'war' : patrolBattle ? 'city' : null
+        const controlReactionId = this.run.battle?.controlReactionId
+        this.run.battleReturn = favorBattle ? 'map' : controlReactionId ? 'city' : borderWar ? 'war' : patrolBattle ? 'city' : null
         this.run.pendingCardReward = choices.length
           ? {
               nodeId: result.reward.nodeId || this.run.battle?.nodeId || null,
@@ -1272,6 +1298,10 @@ export const useGameStore = defineStore('game', {
           const favorResult = completeFactionFavorBattle(this.run, favorBattle.factionId, favorBattle.choiceId)
           if (favorResult.ok) addLog(this.run, favorResult.text, favorResult.done ? 'good' : 'story')
           if (favorNodeId) completeFactionExpedition(this.run, favorNodeId)
+        }
+        if (controlReactionId) {
+          const reactionResult = completeControlReactionBattle(this.run, controlReactionId)
+          if (reactionResult.ok) addLog(this.run, reactionResult.text, 'story')
         }
         this.run.battle = null
         this.grantAchievements()

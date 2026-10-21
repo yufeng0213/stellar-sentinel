@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { cityPopulation } from '../game-core/city.js'
 import { cityControlInfo } from '../game-core/city-control.js'
+import { controlReactionChoices, controlReactionStatuses } from '../game-core/control-reactions.js'
 import { cityDevelopmentEffects } from '../game-core/city-development.js'
 import { RECONSTRUCTION_POLICIES, reconstructionStatus } from '../game-core/city-reconstruction.js'
 import { activeEscorts } from '../game-core/escort.js'
@@ -45,6 +46,7 @@ const controlLabel = computed(() => {
 const factionExpeditionResult = computed(() => run.value?.city?.factionExpedition || null)
 const controlInfo = computed(() => cityControlInfo(run.value?.city?.controlledBy))
 const controlAttitudes = computed(() => run.value?.city?.controlAttitudes || null)
+const controlEvents = computed(() => (run.value ? controlReactionStatuses(run.value) : []))
 const reconstruction = computed(() => (run.value ? reconstructionStatus(run.value) : null))
 const reconstructionPolicies = Object.values(RECONSTRUCTION_POLICIES)
 const patrol = computed(() => (run.value ? cityDevelopmentEffects(run.value).patrol || 0 : 0))
@@ -70,6 +72,13 @@ function finishRebuild(choice) {
 
 function patrolAction(choice) {
   const result = game.resolvePatrol(choice)
+  if (result.battleNodeId && run.value) {
+    router.push({ name: 'battle', params: { runId: run.value.id, nodeId: result.battleNodeId } })
+  }
+}
+
+function resolveControlEvent(event, choice) {
+  const result = game.resolveControlReaction(event.id, choice.id)
   if (result.battleNodeId && run.value) {
     router.push({ name: 'battle', params: { runId: run.value.id, nodeId: result.battleNodeId } })
   }
@@ -325,6 +334,40 @@ function payWanted() {
       <span class="tag violet">当前控制方</span>
     </section>
 
+    <section v-if="controlEvents.length" class="panel control-events">
+      <div class="control-events-head">
+        <div>
+          <p class="kicker">CONTROL AFTERMATH · FOLLOW-UP</p>
+          <h3>控制方变化之后</h3>
+          <p>有人投靠，有人离开，也有人还在等一个说法。</p>
+        </div>
+      </div>
+      <article v-for="event in controlEvents" :key="event.id" class="control-event" :class="{ 'is-due': event.due }">
+        <div class="control-event-top">
+          <div>
+            <b>{{ event.name }} · {{ event.label }}</b>
+            <span>{{ event.due ? '已经到期' : `还有 ${event.daysLeft} 天` }}</span>
+          </div>
+          <span class="tag" :class="event.type === 'revenge' ? 'red' : event.type === 'defect' ? 'violet' : 'amber'">
+            {{ event.label }}
+          </span>
+        </div>
+        <p>{{ event.text }}</p>
+        <div class="control-event-choices">
+          <button
+            v-for="choice in controlReactionChoices(event)"
+            :key="choice.id"
+            type="button"
+            class="btn btn-sm"
+            :disabled="!event.due"
+            @click="resolveControlEvent(event, choice)"
+          >
+            {{ choice.label }}
+          </button>
+        </div>
+      </article>
+    </section>
+
     <section class="city-grid">
       <button type="button" class="city-card" @click="open('city-market')">
         <span class="city-glyph">▤</span>
@@ -526,6 +569,16 @@ function payWanted() {
 .city-control .control-effect { color: var(--amber) !important; font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))) !important; }
 .city-control .control-attitude { color: var(--dim) !important; font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))) !important; }
 .city-control .control-reaction { color: var(--red) !important; font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))) !important; }
+.control-events { padding: 13px 15px; border-color: rgba(255, 196, 107, .3); background: rgba(255, 196, 107, .035); }
+.control-events-head h3 { margin-top: 3px; color: var(--amber); font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 500; }
+.control-events-head p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
+.control-event { margin-top: 9px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; }
+.control-event.is-due { border-color: rgba(255, 138, 138, .35); background: rgba(255, 138, 138, .035); }
+.control-event-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.control-event-top b { font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.control-event-top span:not(.tag) { display: block; margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.control-event p { margin-top: 5px; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.55; }
+.control-event-choices { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;

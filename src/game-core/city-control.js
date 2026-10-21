@@ -2,6 +2,8 @@
  * 城市控制方：谁控制空港，市场、任务、巡逻和 NPC 态度就会不同。
  */
 
+import { scheduleControlReactionFollowUps } from './control-reactions.js'
+
 export const CITY_CONTROL_INFO = {
   tower: {
     label: '白塔残余',
@@ -187,6 +189,7 @@ export function applyControlAttitudes(run, cityId, control) {
     opponents.push(npc.name)
   })
 
+  scheduleControlReactionFollowUps(run, cityId, reactions)
   if (run.city) {
     run.city.controlAttitudes = {
       day: run.day,
