@@ -60,6 +60,7 @@ import {
   exploreSite,
   gather,
   resolveSiteEncounter,
+  completeSiteGuardian,
   getNode,
   hasMats,
   nodeRemaining,
@@ -397,12 +398,45 @@ export const useGameStore = defineStore('game', {
       if (!this.run) return { ok: false }
       const result = resolveSiteEncounter(this.run, nodeId, choiceId)
       if (result.ok) {
-        this.notify(result.reward ? `深层遭遇 · ${result.reward}` : '深层遭遇已处理', result.success ? 'good' : 'bad')
+        if (result.battle) {
+          result.battleNodeId = this.startSiteGuardianBattle(nodeId)
+        } else {
+          this.notify(result.reward ? `深层遭遇 · ${result.reward}` : '深层遭遇已处理', result.success ? 'good' : 'bad')
+        }
         this.save()
       } else {
         this.notify(result.message, 'bad')
       }
       return result
+    },
+
+    startSiteGuardianBattle(siteId) {
+      if (!this.run) return null
+      const site = this.run.map.nodes?.[siteId]
+      if (!site) return null
+      let nodeId = `site-guardian-${siteId}-${this.run.day}`
+      while (this.run.map.nodes[nodeId]) nodeId = `${nodeId}-a`
+      const danger = Math.max(1, Number(site.region === 'rift' ? 3 : site.region === 'silence' ? 2 : 1))
+      const node = {
+        id: nodeId,
+        type: 'elite',
+        region: site.region,
+        accent: site.accent,
+        title: '守门者',
+        subtitle: '深层守卫',
+        enemy: {
+          name: '守门者',
+          hp: 26 + danger * 4,
+          morale: 20,
+          attack: 5 + danger,
+          traits: ['armored', 'guarded'],
+        },
+      }
+      this.run.map.nodes[nodeId] = node
+      this.run.battle = createBattle(this.run, node)
+      this.run.battle.siteId = siteId
+      this.save()
+      return nodeId
     },
 
     exploreSiteAt(nodeId, approachId = 'force') {
@@ -932,9 +966,11 @@ export const useGameStore = defineStore('game', {
           applyNpcBattleOutcome(this.run, npcId, choice)
         }
         const choices = result.reward?.cardChoices || []
+        const siteId = this.run.battle?.siteId
         this.run.pendingCardReward = choices.length
           ? { nodeId: result.reward.nodeId || this.run.battle?.nodeId || null, choices }
           : null
+        if (siteId) completeSiteGuardian(this.run, siteId)
         this.run.battle = null
         this.grantAchievements()
         this.settleExpedition()

@@ -238,7 +238,12 @@ function siteEncounterDc(choice) {
 function doSiteEncounter(choice) {
   if (!selected.value) return
   const result = game.resolveSiteEncounterAt(selected.value.id, choice.id)
-  if (result.ok) game.notify(result.reward || '深层遭遇已处理', result.success ? 'good' : 'bad')
+  if (!result.ok) return
+  if (result.battleNodeId && run.value) {
+    router.push({ name: 'battle', params: { runId: run.value.id, nodeId: result.battleNodeId } })
+    return
+  }
+  game.notify(result.reward || '深层遭遇已处理', result.success ? 'good' : 'bad')
 }
 
 function doEvent() {

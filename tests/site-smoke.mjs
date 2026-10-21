@@ -3,7 +3,7 @@
  */
 
 import { randomDraft } from '../src/game-core/character.js'
-import { createRun, exploreSite, resolveSiteEncounter, siteEncounterFor } from '../src/game-core/run.js'
+import { completeSiteGuardian, createRun, exploreSite, resolveSiteEncounter, siteEncounterFor } from '../src/game-core/run.js'
 import { NODE_TYPES, SITE_APPROACHES } from '../src/game-core/data.js'
 
 const errors = []
@@ -30,9 +30,11 @@ check(second.ok && second.depth === 2, '第二层探索失败')
 const blocked = exploreSite(run, site.id)
 check(!blocked.ok && blocked.encounter, '深层遭遇没有拦住探索')
 const encounter = siteEncounterFor(site)
-const encounterChoice = encounter.id === 'survivor'
-  ? encounter.choices.find((choice) => choice.id === 'question')
-  : encounter.choices[0]
+const encounterChoice = encounter.id === 'guardian'
+  ? encounter.choices.find((choice) => choice.id === 'talk')
+  : encounter.id === 'trap'
+    ? encounter.choices.find((choice) => choice.id === 'bypass')
+    : encounter.choices.find((choice) => choice.id === 'question')
 const encounterResult = resolveSiteEncounter(run, site.id, encounterChoice.id)
 check(encounterResult.ok, '深层遭遇处理失败')
 check(run.nodeState[site.id].encounterDone, '深层遭遇没有记录完成')
@@ -40,6 +42,17 @@ const third = exploreSite(run, site.id)
 check(third.ok && third.depth === 3, '第三层探索失败')
 check(third.cleared && run.cleared.includes(site.id), '探索点到底后没有标记清理')
 check(!exploreSite(run, site.id).ok, '探索点可以无限深入')
+
+const guardRun = createRun(randomDraft(), 'SITE-GUARD-TEST')
+const guardSite = Object.values(guardRun.map.nodes).find((node) => node.type === 'site')
+guardSite.site.encounter = 'guardian'
+guardRun.location = guardSite.id
+guardRun.nodeState[guardSite.id] = { depth: 2 }
+const guardFight = resolveSiteEncounter(guardRun, guardSite.id, 'fight')
+check(guardFight.ok && guardFight.battle === true, '守门者没有进入战斗')
+check(!guardRun.nodeState[guardSite.id].encounterDone, '守门者战斗前就标记完成')
+const guardDone = completeSiteGuardian(guardRun, guardSite.id)
+check(guardDone.ok && guardRun.nodeState[guardSite.id].encounterDone, '守门者战斗后没有完成遭遇')
 
 const scanRun = createRun(randomDraft(), 'SITE-SCAN-TEST')
 const scanSite = Object.values(scanRun.map.nodes).find((node) => node.type === 'site')

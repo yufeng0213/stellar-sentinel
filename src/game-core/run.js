@@ -360,6 +360,19 @@ export function resolveSiteEncounter(run, nodeId, choiceId) {
   const choice = encounter?.choices.find((item) => item.id === choiceId)
   if (!encounter || !choice) return { ok: false, message: '没有这个选择' }
 
+  if (encounter.id === 'guardian' && choiceId === 'fight') {
+    return {
+      ok: true,
+      battle: true,
+      encounter,
+      choice,
+      text: '守卫的传感器亮起。你把武器握紧，向前走了一步。',
+      reward: '战斗胜利后继续深入',
+      survivor: null,
+      success: true,
+    }
+  }
+
   let success = true
   let text = ''
   let reward = ''
@@ -445,6 +458,19 @@ export function resolveSiteEncounter(run, nodeId, choiceId) {
   run.nodeState[nodeId] = state
   addLog(run, `${encounter.title}：${reward}。`, success ? 'good' : 'bad')
   return { ok: true, success, encounter, choice, text, reward, survivor }
+}
+
+export function completeSiteGuardian(run, nodeId) {
+  const node = getNode(run, nodeId)
+  if (!node || node.type !== 'site') return { ok: false }
+  const state = run.nodeState[nodeId] || {}
+  state.encounterDone = true
+  state.encounterChoice = 'fight'
+  state.encounterText = '守卫倒下了。它身后的门终于打开。'
+  run.nodeState[nodeId] = state
+  if ((run.inv.ration || 0) >= 0) addItem(run, node.site?.coreLoot || 'chip', 1)
+  addLog(run, `守门者倒下。你从它身后的舱室里拿到了 ${ITEMS[node.site?.coreLoot]?.name || '一件遗物'}。`, 'good')
+  return { ok: true }
 }
 
 export function exploreSite(run, nodeId, approachId = 'force') {

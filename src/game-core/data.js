@@ -332,7 +332,7 @@ export const SITE_ENCOUNTERS = {
     title: '守门者',
     text: '第三层入口被一台还没有断电的旧式守卫挡住。\n\n它的传感器转向你，但没有立刻开火。',
     choices: [
-      { id: 'fight', label: '正面突破', attr: 'vit', dcMod: 3, desc: '强行拆掉守卫。成功获得额外战利品，失败会受伤。' },
+      { id: 'fight', label: '正面突破', battle: true, desc: '进入战斗。击败守卫后可以继续深入，并拿走它守着的遗物。' },
       { id: 'talk', label: '尝试交涉', attr: 'soc', dcMod: 1, desc: '也许它还在等一个旧口令。', cost: 15 },
       { id: 'sneak', label: '绕过去', attr: 'agi', dcMod: 2, desc: '从盲区绕过守卫，奖励较少。' },
     ],
