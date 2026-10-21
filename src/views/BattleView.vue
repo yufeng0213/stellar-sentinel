@@ -225,6 +225,16 @@ function leaveBattle() {
       </div>
     </header>
 
+    <div v-if="battle.companions?.length" class="b-companions">
+      <span v-for="companion in battle.companions" :key="companion.npcId" class="b-companion" :class="{ 'is-hurt': companion.injured, 'is-distant': companion.distant }">
+        <b>{{ companion.name }}</b>
+        <span>{{ companion.cardName }}</span>
+        <em v-if="companion.injured">受伤</em>
+        <em v-else-if="companion.distant">冷战</em>
+        <em v-else>支援</em>
+      </span>
+    </div>
+
     <div class="b-stage">
       <div class="enemy-row" :class="{ 'is-attacking': fx?.type === 'enemy' }">
         <button
@@ -761,6 +771,15 @@ function leaveBattle() {
 .result-note { margin-top: 6px; color: var(--muted); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); line-height: 1.8; }
 .result-note.dim { margin-top: 12px; color: var(--dim); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); }
 
+.b-companions { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0; }
+.b-companion { display: flex; align-items: baseline; gap: 5px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 7px; background: rgba(124, 231, 255, .035); }
+.b-companion b { font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); font-weight: 500; }
+.b-companion span { color: var(--muted); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
+.b-companion em { color: var(--cyan); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-style: normal; }
+.b-companion.is-hurt { border-color: rgba(255, 196, 107, .3); }
+.b-companion.is-hurt em { color: var(--amber); }
+.b-companion.is-distant { border-color: rgba(255, 138, 138, .3); }
+.b-companion.is-distant em { color: var(--red); }
 .card-reward-panel { width: min(720px, 100%); }
 .card-reward-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 14px; }
 .card-reward {

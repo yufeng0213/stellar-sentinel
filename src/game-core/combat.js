@@ -13,7 +13,7 @@ import { createRng } from './rng.js'
 
 function battleEffects(run) {
   const effects = {}
-  ;[gearEffects(run), calibrationEffects(run)].forEach((source) => {
+  ;[gearEffects(run), calibrationEffects(run), companionEffects(run)].forEach((source) => {
     Object.entries(source || {}).forEach(([key, value]) => {
       effects[key] = (effects[key] || 0) + value
     })
@@ -136,6 +136,166 @@ export const CARDS = {
 
 export { BASE_DECK } from './data.js'
 
+export const COMPANION_CARDS = {
+  comp_gloomy: {
+    key: 'comp_gloomy', name: '阴影牵制', cost: 1, type: 'psi', attr: 'psi', morale: 6,
+    companionName: '阴湿男鬼', banter: '“别回头。我会看着他。”',
+    desc: '同伴从阴影里牵制目标，削减士气。',
+  },
+  comp_dry: {
+    key: 'comp_dry', name: '侧翼突击', cost: 1, type: 'attack', attr: 'per', power: 7,
+    companionName: '干燥男鬼', banter: '“我到了。你继续。”',
+    desc: '同伴从侧面切入，补上一击。',
+  },
+  comp_jiahao: {
+    key: 'comp_jiahao', name: '笨拙掩护', cost: 1, type: 'defense', block: 5,
+    companionName: '嘉豪', banter: '“这次我真的准备好了。”',
+    desc: '同伴挡在前面，获得护盾。',
+  },
+  comp_sunshine: {
+    key: 'comp_sunshine', name: '递来的热饮', cost: 1, type: 'heal', mental: 6, hp: 4,
+    companionName: '阳光小太阳', banter: '“先喝一口。很快就好。”',
+    desc: '同伴递来热饮，恢复精神和生命。',
+  },
+  comp_tycoon: {
+    key: 'comp_tycoon', name: '提前清场', cost: 1, type: 'defense', block: 7,
+    companionName: '霸总', banter: '“路已经清好了。”',
+    desc: '同伴提前处理了威胁，获得护盾。',
+  },
+  comp_tsundere: {
+    key: 'comp_tsundere', name: '嘴硬支援', cost: 1, type: 'attack', attr: 'vit', power: 5, counter: 3,
+    companionName: '傲娇', banter: '“谁担心你了。让开。”',
+    desc: '同伴嘴硬地挡上来，造成伤害并获得反击。',
+  },
+  comp_madman: {
+    key: 'comp_madman', name: '疯狂方案', cost: 2, type: 'psi', all: true, morale: 5,
+    companionName: '疯批', banter: '“信我一次。就一次。”',
+    desc: '同伴执行疯狂方案，对所有敌人造成士气伤害。',
+  },
+  comp_yandere: {
+    key: 'comp_yandere', name: '盯住他', cost: 1, type: 'attack', attr: 'per', power: 6,
+    companionName: '病娇', banter: '“我不会让他靠近你。”',
+    desc: '同伴盯住目标，造成伤害。',
+  },
+  comp_cold: {
+    key: 'comp_cold', name: '精准记录', cost: 1, type: 'buff', focus: 2, draw: 1,
+    companionName: '清冷高岭', banter: '“弱点在这里。”',
+    desc: '同伴指出弱点，获得专注并抽牌。',
+  },
+  comp_loyal: {
+    key: 'comp_loyal', name: '跟上来', cost: 1, type: 'attack', attr: 'per', power: 6,
+    companionName: '忠犬奶狗', banter: '“我在。我一直都在。”',
+    desc: '同伴跟上你的节奏，补上一击。',
+  },
+  comp_schemer: {
+    key: 'comp_schemer', name: '情报支援', cost: 1, type: 'social', attr: 'soc', morale: 7,
+    companionName: '腹黑', banter: '“他刚才多看了一眼。用这个。”',
+    desc: '同伴提供情报，削减目标士气。',
+  },
+  comp_homemaker: {
+    key: 'comp_homemaker', name: '急救包', cost: 1, type: 'heal', hp: 8,
+    companionName: '靠谱人夫', banter: '“别动。先处理伤口。”',
+    desc: '同伴替你处理伤口，恢复生命。',
+  },
+  comp_tease: {
+    key: 'comp_tease', name: '分心', cost: 1, type: 'defense', evasion: 4,
+    companionName: '钓系', banter: '“看我这边。别看他。”',
+    desc: '同伴吸引注意，减少本回合受到的伤害。',
+  },
+  comp_rough: {
+    key: 'comp_rough', name: '挡在前面', cost: 1, type: 'defense', block: 7,
+    companionName: '糙汉', banter: '“退后。这里我来。”',
+    desc: '同伴挡在前面，获得护盾。',
+  },
+  comp_injured: {
+    key: 'comp_injured', name: '带伤支援', cost: 1, type: 'attack', attr: 'per', power: 3,
+    companionName: '受伤的同伴', banter: '“我还能动。”',
+    desc: '同伴带着伤补上一击，威力有限。',
+  },
+  comp_distant: {
+    key: 'comp_distant', name: '冷淡支援', cost: 1, type: 'defense', block: 3,
+    companionName: '冷战的同伴', banter: '“……别误会。只是不想你死在这里。”',
+    desc: '冷战中仍然伸了一次手，护盾有限。',
+  },
+  assist: CARDS.assist,
+}
+
+const COMPANION_BY_ARCHETYPE = {
+  gloomy_ghost: 'comp_gloomy',
+  dry_ghost: 'comp_dry',
+  jiahao: 'comp_jiahao',
+  sunshine: 'comp_sunshine',
+  tycoon: 'comp_tycoon',
+  tsundere: 'comp_tsundere',
+  madman: 'comp_madman',
+  yandere: 'comp_yandere',
+  cold_elite: 'comp_cold',
+  loyal_dog: 'comp_loyal',
+  schemer: 'comp_schemer',
+  homemaker: 'comp_homemaker',
+  tease: 'comp_tease',
+  rough: 'comp_rough',
+}
+
+const COMPANION_PASSIVES = {
+  comp_gloomy: { mentalResist: 1 },
+  comp_dry: { firstAttack: 1 },
+  comp_jiahao: { shield: 2 },
+  comp_sunshine: { healing: 2 },
+  comp_tycoon: { shield: 3 },
+  comp_tsundere: { counter: 3 },
+  comp_madman: { startAp: 1 },
+  comp_yandere: { firstAttack: 1 },
+  comp_cold: { focus: 1 },
+  comp_loyal: { shield: 2 },
+  comp_schemer: { credits: 0.1 },
+  comp_homemaker: { healing: 2 },
+  comp_tease: { evasion: 2 },
+  comp_rough: { shield: 3 },
+}
+
+export function companionParty(run) {
+  return (run?.party || [])
+    .map((npcId) => run.npcs?.[npcId])
+    .filter((npc) => npc && npc.alive && npc.active !== false)
+    .map((npc) => {
+      const baseKey = COMPANION_BY_ARCHETYPE[npc.archetype?.id] || 'assist'
+      const injured = Boolean(npc.injured)
+      const distant = Boolean(npc.quarrel?.active)
+      const geared = Object.keys(npc.gear || {}).length >= 2
+      const close = npc.lover || npc.relation?.trust >= 60 || geared
+      let cardKey = baseKey
+      if (injured) cardKey = 'comp_injured'
+      else if (distant) cardKey = 'comp_distant'
+      else if (close) cardKey = `${baseKey}+`
+      const passive = injured || distant
+        ? {}
+        : { ...(COMPANION_PASSIVES[baseKey] || {}) }
+      if (!injured && !distant && close) {
+        passive.shield = (passive.shield || 0) + 1
+      }
+      return {
+        npc,
+        npcId: npc.id,
+        cardKey,
+        card: cardDef(cardKey),
+        passive,
+        injured,
+        distant,
+      }
+    })
+}
+
+function companionEffects(run) {
+  return companionParty(run).reduce((effects, companion) => {
+    Object.entries(companion.passive || {}).forEach(([key, value]) => {
+      effects[key] = (effects[key] || 0) + value
+    })
+    return effects
+  }, {})
+}
+
+
 export const CARD_TYPES = {
   attack: '攻击',
   buff: '战术',
@@ -185,9 +345,11 @@ export function cardDef(key) {
   if (!key) return null
   const upgraded = String(key).endsWith('+')
   const baseKey = upgraded ? String(key).slice(0, -1) : String(key)
-  const base = CARDS[baseKey]
+  const base = CARDS[baseKey] || COMPANION_CARDS[baseKey]
   if (!base) return null
-  const update = upgraded ? (CARD_UPGRADES[baseKey] || fallbackUpgrade(base)) : {}
+  const update = upgraded
+    ? (COMPANION_CARDS[baseKey] ? fallbackUpgrade(base) : CARD_UPGRADES[baseKey] || fallbackUpgrade(base))
+    : {}
   return {
     ...base,
     ...update,
@@ -476,8 +638,8 @@ export function createBattle(run, node) {
   const seed = `${run.seed}:battle:${node.id}`
   const rng = createRng(`${seed}:setup`)
   const deck = [...ensureDeck(run)]
-  const party = Array.isArray(run.party) ? run.party.slice(0, 2) : []
-  party.forEach(() => deck.push('assist'))
+  const companions = companionParty(run)
+  companions.forEach((companion) => deck.push(companion.cardKey))
   const effects = battleEffects(run)
 
   const battle = {
@@ -491,9 +653,18 @@ export function createBattle(run, node) {
     guard: effects.shield || 0,
     attacksThisTurn: 0,
     bossWeakness: node.enemy?.weakness || null,
-    focus: 0,
+    focus: effects.focus || 0,
     evasion: effects.evasion || 0,
     counter: effects.counter || 0,
+    companions: companions.map((companion) => ({
+      npcId: companion.npcId,
+      name: companion.npc.name,
+      archetype: companion.npc.archetype?.name || '',
+      cardKey: companion.cardKey,
+      cardName: companion.card?.name || '同伴支援',
+      injured: companion.injured,
+      distant: companion.distant,
+    })),
     firstStrikeUsed: false,
     hand: [],
     drawPile: rng.shuffle(deck),
@@ -563,6 +734,10 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
   battle.ap -= card.cost
   battle.hand.splice(handIndex, 1)
   battle.discard.push(cardKey)
+
+  if (card.companionName) {
+    addBattleLog(battle, `${card.companionName}：“${card.banter}”`, 'info')
+  }
 
   if (card.type === 'attack') {
     const rng = battleRng(battle)

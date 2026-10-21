@@ -87,7 +87,7 @@ const battle = createBattle(run, {
   region: 'ruins',
   enemy: { name: '测试敌人', hp: 20, morale: 14, attack: 5, traits: [] },
 })
-check([...battle.hand, ...battle.drawPile].includes('assist'), '组队后战斗牌堆没有同伴支援')
+check([...battle.hand, ...battle.drawPile].some((key) => key === 'assist' || key.startsWith('comp_')), '组队后战斗牌堆没有同伴支援')
 
 const hostile = list.find((item) => item.id !== npc.id)
 hostile.relation.grievance = 55
