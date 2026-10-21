@@ -175,7 +175,7 @@ export function cityDevelopmentEffects(run, cityId = null) {
   if (city.reconstruction?.completed) {
     const policy = city.reconstruction.policy
     const policyEffects = {
-      fortify: { healPct: 0.05, mentalHeal: 2, marketStock: -1 },
+      fortify: { healPct: 0.05, mentalHeal: 2, marketStock: -1, patrol: 1 },
       relief: { healPct: 0.1, mentalHeal: 6 },
       open: { marketStock: 2, marketDiscount: 0.05 },
     }[policy]

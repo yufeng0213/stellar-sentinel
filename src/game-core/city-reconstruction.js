@@ -12,7 +12,7 @@ export const RECONSTRUCTION_POLICIES = {
     desc: '先修墙、设岗，让城市能挡住下一次战争。',
     costText: '20 废料',
     result: '城市会变得更安全，但街上的人会觉得自己住在军营里。',
-    effects: { healPct: 0.05, mentalHeal: 2, marketStock: -1 },
+    effects: { healPct: 0.05, mentalHeal: 2, marketStock: -1, patrol: 1 },
   },
   relief: {
     id: 'relief',

@@ -2,6 +2,8 @@
  * 城市通缉：商店扒窃败露后的悬赏、价格惩罚与罚金清除。
  */
 
+import { cityDevelopmentEffects } from './city-development.js'
+
 export function createWantedState() {
   return {
     level: 0,
@@ -88,7 +90,8 @@ export function wantedPriceMarkup(run) {
 export function decayWanted(run) {
   const wanted = ensureWanted(run)
   if (!wanted.level) return wanted
-  if (run.day - wanted.sinceDay < 3) return wanted
+  const patrol = cityDevelopmentEffects(run).patrol || 0
+  if (run.day - wanted.sinceDay < (patrol ? 2 : 3)) return wanted
   wanted.level = Math.max(0, wanted.level - 1)
   wanted.sinceDay = run.day
   wanted.fine = wanted.level ? fineFor(wanted.level) : 0

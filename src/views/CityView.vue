@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { cityPopulation } from '../game-core/city.js'
+import { cityDevelopmentEffects } from '../game-core/city-development.js'
 import { RECONSTRUCTION_POLICIES, reconstructionStatus } from '../game-core/city-reconstruction.js'
 import { activeEscorts } from '../game-core/escort.js'
 import { wantedStatus } from '../game-core/wanted.js'
@@ -28,6 +29,7 @@ const warControl = computed(() => {
 })
 const reconstruction = computed(() => (run.value ? reconstructionStatus(run.value) : null))
 const reconstructionPolicies = Object.values(RECONSTRUCTION_POLICIES)
+const patrol = computed(() => (run.value ? cityDevelopmentEffects(run.value).patrol || 0 : 0))
 
 onMounted(() => game.enterCity())
 
@@ -116,7 +118,11 @@ function payWanted() {
       <div>
         <p class="kicker">WANTED · {{ wanted.cityName }}</p>
         <h3>通缉等级 {{ wanted.level }}</h3>
-        <p>{{ wanted.reason }} · 城市价格 +{{ Math.round(wanted.priceMarkup * 100) }}% · 3 天后自动降低</p>
+        <p>
+          {{ wanted.reason }} · 城市价格 +{{ Math.round(wanted.priceMarkup * 100) }}% ·
+          {{ patrol ? '巡逻队上街，通缉 2 天后降低' : '3 天后自动降低' }}
+        </p>
+        <span v-if="patrol" class="tag jade">设防巡逻 · 犯罪压制</span>
       </div>
       <button type="button" class="btn btn-sm" :disabled="run.player.credits < wanted.fine" @click="payWanted">
         缴纳罚金 · {{ wanted.fine }}

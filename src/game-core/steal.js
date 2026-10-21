@@ -3,6 +3,7 @@
  * 判定完全本地、可复现；LLM 不参与。
  */
 
+import { cityDevelopmentEffects } from './city-development.js'
 import { ITEMS } from './data.js'
 import {
   addItem, addLog, effectiveAttr, getNode, makeGear,
@@ -198,11 +199,12 @@ export function stealFromShop(run, nodeId, index) {
   run.player.mental = clamp(run.player.mental - 4, 0, run.player.mentalMax)
   run.nodeState[nodeId] = { resolved: true, alerted: true, text: '摊主看见了你，收起了货。' }
   if (!run.cleared.includes(nodeId)) run.cleared.push(nodeId)
+  const patrol = cityDevelopmentEffects(run).patrol || 0
   const wanted = raiseWanted(
     run,
     run.activeCityId || 'dock',
     check.fumble ? '商店货架被撞倒' : '商店扒窃败露',
-    check.fumble ? 2 : 1
+    (check.fumble ? 2 : 1) + patrol
   )
   addLog(run, `顺手牵羊｜${rollText} → 失败。摊主收摊，损失 ${lost} 信用点。通缉等级 ${wanted.level}。`, 'bad')
 
@@ -211,8 +213,8 @@ export function stealFromShop(run, nodeId, index) {
     success: false,
     wanted,
     text: check.fumble
-      ? '你碰倒了货架。摊主抓起手边的工具，你只能先退开。\n\n城市频道里多了一条悬赏记录。'
-      : '摊主抬头看了你一眼，把货往柜台里收了收。\n\n城市频道里多了一条悬赏记录。',
+      ? `你碰倒了货架。摊主抓起手边的工具，你只能先退开。\n\n城市频道里多了一条悬赏记录。${patrol ? '\n\n巡逻队已经记下了你的脸。' : ''}`
+      : `摊主抬头看了你一眼，把货往柜台里收了收。\n\n城市频道里多了一条悬赏记录。${patrol ? '\n\n巡逻队已经记下了你的脸。' : ''}`,
     check,
   }
 }

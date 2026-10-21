@@ -14,6 +14,7 @@ import {
   wantedStatus,
 } from '../src/game-core/wanted.js'
 import { factionInterveneWanted, wantedFactionOptions } from '../src/game-core/wanted-faction.js'
+import { cityDevelopmentEffects } from '../src/game-core/city-development.js'
 
 const errors = []
 const check = (condition, label) => { if (!condition) errors.push(label) }
@@ -64,6 +65,14 @@ run.player.credits = 500
 raiseWanted(run, 'dock', '市场出面', 2)
 const reduced = factionInterveneWanted(run, 'market')
 check(reduced.ok && reduced.level === 1, '低声望派系没有降低通缉等级')
+
+run.city.reconstruction = { completed: true, policy: 'fortify' }
+check(cityDevelopmentEffects(run).patrol === 1, '设防重建没有生成巡逻队')
+run.wanted.level = 2
+run.wanted.sinceDay = run.day
+run.day += 2
+decayWanted(run)
+check(run.wanted.level === 1, '巡逻队没有加快通缉衰减')
 
 console.log(JSON.stringify({
   ok: errors.length === 0,
