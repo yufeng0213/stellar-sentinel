@@ -38,6 +38,7 @@ import {
   maybeTriggerPatrol,
   resolvePatrolCheck,
 } from '../game-core/patrol.js'
+import { bailPlayer, ensureArrest } from '../game-core/arrest.js'
 import {
   chooseWarCamp,
   chooseWarPrep,
@@ -255,6 +256,7 @@ export const useGameStore = defineStore('game', {
       ensureBastion(stored)
       ensureWar(stored)
       ensurePatrolCheck(stored)
+      ensureArrest(stored)
       ensureWanted(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
@@ -525,6 +527,19 @@ export const useGameStore = defineStore('game', {
       const result = resolveBastionEventCore(this.run, eventId, choiceId)
       if (result.ok) {
         addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    payBail(method = 'credits') {
+      if (!this.run) return { ok: false }
+      const result = bailPlayer(this.run, method)
+      if (result.ok) {
+        addLog(this.run, result.text, 'good')
+        this.notify('保释完成，拘留记录已清除', 'good')
         this.save()
       } else {
         this.notify(result.message, 'bad')

@@ -3,6 +3,7 @@
  * 有通缉、且城市有巡逻效果时，进入城市会触发一次。
  */
 
+import { arrestPlayer, ensureArrest } from './arrest.js'
 import { cityDevelopmentEffects } from './city-development.js'
 import { createRng } from './rng.js'
 import { ensureWanted, raiseWanted, reduceWanted } from './wanted.js'
@@ -35,6 +36,7 @@ export function maybeTriggerPatrol(run) {
   const state = ensurePatrolCheck(run)
   const wanted = ensureWanted(run)
   if (state.pending || state.battle) return false
+  if (ensureArrest(run).active) return false
   if (wanted.level <= 0) return false
   if (state.resolvedDay === run.day) return false
   if ((cityDevelopmentEffects(run).patrol || 0) <= 0) return false
@@ -100,6 +102,14 @@ export function resolvePatrolCheck(run, choiceId) {
       text: state.text,
       wanted: ensureWanted(run),
     }
+  }
+  if (choiceId === 'surrender') {
+    const arrest = arrestPlayer(run, '巡逻队盘查')
+    state.pending = false
+    state.resolvedDay = run.day
+    state.choice = choiceId
+    state.text = arrest.text
+    return { ok: true, choice: choiceId, arrest: arrest.arrest, text: arrest.text, wanted: ensureWanted(run) }
   }
   if (choiceId === 'fight') {
     state.pending = true

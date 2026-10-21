@@ -31,6 +31,7 @@ const reconstruction = computed(() => (run.value ? reconstructionStatus(run.valu
 const reconstructionPolicies = Object.values(RECONSTRUCTION_POLICIES)
 const patrol = computed(() => (run.value ? cityDevelopmentEffects(run.value).patrol || 0 : 0))
 const patrolCheck = computed(() => run.value?.patrolCheck || null)
+const arrest = computed(() => run.value?.arrest || null)
 
 onMounted(() => {
   game.enterCity()
@@ -52,6 +53,11 @@ function patrolAction(choice) {
   if (result.battleNodeId && run.value) {
     router.push({ name: 'battle', params: { runId: run.value.id, nodeId: result.battleNodeId } })
   }
+}
+
+function payBail(method) {
+  const result = game.payBail(method)
+  if (result.ok) game.notify('保释完成', 'good')
 }
 
 function open(name) {
@@ -207,6 +213,22 @@ function payWanted() {
       <span v-if="reconstruction.policyInfo" class="tag violet">{{ reconstruction.policyInfo.name }}</span>
     </section>
 
+    <section v-if="arrest?.active" class="panel arrest-banner">
+      <div>
+        <p class="kicker">DETENTION · {{ arrest.cityId.toUpperCase() }}</p>
+        <h3>你被巡逻队拘留了</h3>
+        <p>{{ arrest.reason }}。保释金 {{ arrest.bail }} 信用点。在保释前无法离开城市。</p>
+      </div>
+      <div class="arrest-actions">
+        <button type="button" class="btn btn-sm btn-primary" :disabled="run.player.credits < arrest.bail" @click="payBail('credits')">
+          缴纳保释金 · {{ arrest.bail }}
+        </button>
+        <button type="button" class="btn btn-sm" :disabled="(run.inv.relic || 0) < 1" @click="payBail('relic')">
+          用遗物抵押
+        </button>
+      </div>
+    </section>
+
     <section class="city-grid">
       <button type="button" class="city-card" @click="open('city-market')">
         <span class="city-glyph">▤</span>
@@ -312,6 +334,10 @@ function payWanted() {
               <b>先动手</b>
               <span>进入巡逻队战斗。胜利后仍然会被通缉。</span>
             </button>
+            <button type="button" class="patrol-choice" @click="patrolAction('surrender')">
+              <b>束手就擒</b>
+              <span>被带回拘留室。之后可以缴纳保释金或用遗物抵押。</span>
+            </button>
           </div>
         </div>
       </div>
@@ -381,6 +407,10 @@ function payWanted() {
 .rebuild-result { padding: 13px 15px; border-color: rgba(138, 222, 184, .3); background: rgba(138, 222, 184, .03); }
 .rebuild-result h3 { margin-top: 3px; color: var(--jade); font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 500; }
 .rebuild-result p { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
+.arrest-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border-color: rgba(255, 138, 138, .45); background: rgba(255, 138, 138, .06); }
+.arrest-banner h3 { margin-top: 3px; color: var(--red); font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 500; }
+.arrest-banner p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
+.arrest-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;

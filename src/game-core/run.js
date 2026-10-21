@@ -11,6 +11,7 @@ import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
 import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
 import { createStats } from './achievements.js'
+import { createArrestState, ensureArrest } from './arrest.js'
 import { createBastionState } from './bastion.js'
 import { createWarState } from './border-war.js'
 import { createPatrolCheckState } from './patrol.js'
@@ -172,6 +173,7 @@ export function createRun(draft, seedInput) {
     bastion: createBastionState(),
     borderWar: createWarState(),
     patrolCheck: createPatrolCheckState(),
+    arrest: createArrestState(),
     wanted: createWantedState(),
     door: createDoorState(),
     escorts: createEscortState(),
@@ -232,6 +234,7 @@ export function reachableNodes(run) {
 }
 
 export function travel(run, nodeId) {
+  if (ensureArrest(run).active) return { ok: false, message: '你还在拘留中，先处理保释' }
   const node = getNode(run, nodeId)
   if (!node) return { ok: false, message: '目标不存在' }
   const current = currentNode(run)

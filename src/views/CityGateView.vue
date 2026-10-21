@@ -23,6 +23,10 @@ function renameDungeon(useLlm) {
 
 function enter() {
   if (!run.value) return
+  if (run.value.arrest?.active) {
+    game.notify('你还在拘留中，先处理保释', 'bad')
+    return
+  }
   router.push({ name: 'map', params: { runId: run.value.id } })
 }
 
