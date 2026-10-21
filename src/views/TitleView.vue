@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.49.0 · CITY PACT</dd>
+            <dd class="mono">0.50.0 · RISK NODES</dd>
           </div>
         </dl>
       </section>

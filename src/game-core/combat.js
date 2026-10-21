@@ -450,7 +450,8 @@ export function cardRewardChoices(run, battle) {
     : [...new Set([...roleBias, ...keys])]
   const chosen = []
   const available = rng.shuffle(pool)
-  const rewardCount = 3 + (expeditionEffects(run).cardRewardBonus || 0)
+  const risk = run.map?.nodes?.[battle.nodeId]?.risk
+  const rewardCount = 3 + (expeditionEffects(run).cardRewardBonus || 0) + (risk?.cardBonus || 0)
   while (chosen.length < rewardCount && available.length) {
     const key = available.pop()
     if (chosen.includes(key)) continue
@@ -507,13 +508,16 @@ function makeEnemyEntity(base, index, { minion = false, defense = ENEMY_DEFENSE 
 }
 
 function makeEnemies(run, node) {
-  const base = node.enemy || {
-    name: '未登记目标', hp: 16, morale: 14, attack: 5, traits: [],
+  const risk = node.risk || {}
+  const base = {
+    ...(node.enemy || { name: '未登记目标', hp: 16, morale: 14, attack: 5, traits: [] }),
   }
+  base.attack = Math.max(1, (base.attack || 0) + (risk.enemyAttack || 0))
+  base.hp = Math.max(1, (base.hp || 0) + (risk.enemyHp || 0))
   const defense = ENEMY_DEFENSE + (node.type === 'boss' ? 2 : node.type === 'elite' ? 1 : 0)
   const enemies = [makeEnemyEntity(base, 0, { defense })]
 
-  const extra = node.type === 'elite' ? 1 : node.type === 'boss' ? 1 : 0
+  const extra = (node.type === 'elite' ? 1 : node.type === 'boss' ? 1 : 0) + (risk.extraEnemy || 0)
   for (let index = 0; index < extra; index += 1) {
     enemies.push(makeEnemyEntity(base, index + 1, { minion: true }))
   }
@@ -700,6 +704,7 @@ export function createBattle(run, node) {
     bossIntel: Boolean(run.story?.flags?.bossIntel),
     bossMechanic: node.enemy?.mechanic || '',
     bossPhases: (node.enemy?.phases || []).map((phase) => ({ ...phase })),
+    risk: node.risk ? { ...node.risk } : null,
     accuracyMod: effects.accuracy || 0,
     focus: effects.focus || 0,
     evasion: effects.evasion || 0,
@@ -1082,6 +1087,7 @@ export function resolveBattle(run, battle, choice) {
   const baseReward = 30 + battle.round * 4 + (battle.nodeType === 'boss' ? 60 : battle.nodeType === 'elite' ? 25 : 0)
   const surrendered = battle.enemies.some((enemy) => enemy.surrendered)
   const boss = battle.nodeType === 'boss'
+  const risk = node?.risk || battle.risk || null
   const stats = ensureStats(run)
   stats.battlesWon += 1
   if (boss) {
@@ -1144,6 +1150,13 @@ export function resolveBattle(run, battle, choice) {
   const expeditionCredit = expeditionEffects(run).creditPct || 0
   if (credits && (gearCreditBonus || expeditionCredit)) {
     credits = Math.round(credits * (1 + gearCreditBonus + expeditionCredit))
+  }
+  if (risk) {
+    credits += risk.credits || 0
+    if (risk.item && ITEMS[risk.item]) {
+      run.inv[risk.item] = (run.inv[risk.item] || 0) + (risk.itemCount || 1)
+    }
+    text += ` 高危目标清除了。`
   }
   let bossRecord = null
   if (boss) {

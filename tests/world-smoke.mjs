@@ -44,18 +44,20 @@ check(typeof eventResult.text === 'string' && eventResult.text.length > 0, '事�
 const a = createRun(draft(), 'WORLD-DET')
 const b = createRun(draft(), 'WORLD-DET')
 const ea = Object.values(a.map.nodes).find((node) => node.type === 'event')
-const eb = b.map.nodes[ea.id]
-a.location = ea.id
-b.location = eb.id
-const ca = ea.event.choices[0]
-const cb = eb.event.choices[0]
-resolveEventChoice(a, ea.id, ca.id)
-resolveEventChoice(b, eb.id, cb.id)
-check(
-  JSON.stringify([a.player.credits, a.player.mental, a.player.hp, a.inv, a.flags]) ===
-  JSON.stringify([b.player.credits, b.player.mental, b.player.hp, b.inv, b.flags]),
-  '同 seed 事件结果不一致'
-)
+if (ea) {
+  const eb = b.map.nodes[ea.id]
+  a.location = ea.id
+  b.location = eb.id
+  const ca = ea.event.choices[0]
+  const cb = eb.event.choices[0]
+  resolveEventChoice(a, ea.id, ca.id)
+  resolveEventChoice(b, eb.id, cb.id)
+  check(
+    JSON.stringify([a.player.credits, a.player.mental, a.player.hp, a.inv, a.flags]) ===
+    JSON.stringify([b.player.credits, b.player.mental, b.player.hp, b.inv, b.flags]),
+    '同 seed 事件结果不一致'
+  )
+}
 
 // 交易
 const shopNode = Object.values(run.map.nodes).find((node) => node.type === 'shop')

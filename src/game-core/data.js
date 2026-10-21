@@ -296,6 +296,45 @@ export const BOSS_PROFILES = [
   },
 ]
 
+export const NODE_RISKS = {
+  patrol: {
+    id: 'patrol',
+    name: '高危巡逻',
+    desc: '敌方增派了一支巡逻队。战斗更难，但战利品更多。',
+    enemyAttack: 2,
+    extraEnemy: 1,
+    credits: 50,
+    item: 'scrap',
+    itemCount: 1,
+    cardBonus: 0,
+    rewardText: '额外信用点 +50 · 废料 +1',
+  },
+  unstable: {
+    id: 'unstable',
+    name: '不稳定区',
+    desc: '这里的空间读数不稳定，敌人更耐打，但可能留下旧世芯片。',
+    enemyAttack: 1,
+    enemyHp: 8,
+    credits: 40,
+    item: 'chip',
+    itemCount: 1,
+    cardBonus: 0,
+    rewardText: '额外信用点 +40 · 旧世芯片 +1',
+  },
+  cache: {
+    id: 'cache',
+    name: '遗存富集',
+    desc: '敌人守着一处旧时代遗存。风险更高，卡牌奖励也更多。',
+    enemyAttack: 3,
+    enemyHp: 4,
+    credits: 80,
+    item: 'relic',
+    itemCount: 1,
+    cardBonus: 1,
+    rewardText: '额外信用点 +80 · 遗物 +1 · 卡牌四选一',
+  },
+}
+
 export const NODE_TYPES = {
   start: { name: '起点', glyph: '◉' },
   gather: { name: '采集', glyph: '◆' },

@@ -417,7 +417,7 @@ function nextNodes(node) {
             :data-node="entry.node.id"
             :class="[
               `is-${stateOf(entry.node.id)}`,
-              { 'is-quest': questAt(entry.node.id), 'is-act-end': entry.layer === run.map.layers.length - 1 },
+              { 'is-quest': questAt(entry.node.id), 'is-act-end': entry.layer === run.map.layers.length - 1, 'is-risk': entry.node.risk },
             ]"
             :style="{ left: `${entry.x}px`, top: `${entry.y}px`, '--accent': entry.node.accent }"
             @click="openNode(entry.node.id)"
@@ -426,6 +426,7 @@ function nextNodes(node) {
               <span class="dt-glyph">{{ NODE_TYPES[entry.node.type].glyph }}</span>
               <span class="dt-floor">F{{ entry.layer + 1 }}</span>
               <span v-if="questAt(entry.node.id)" class="dt-quest">约</span>
+              <span v-if="entry.node.risk" class="dt-risk">危</span>
             </span>
             <b>{{ entry.node.title }}</b>
             <span class="dt-meta">{{ REGIONS[entry.node.region].name }} · {{ NODE_TYPES[entry.node.type].name }}</span>
@@ -528,6 +529,13 @@ function nextNodes(node) {
                 <span v-if="selected.type === 'boss' && run.story?.flags?.bossIntel && run.story.flags.bossResistance" class="tag">
                   抗性 {{ ATTR_NAME[run.story.flags.bossResistance] || '未知' }}
                 </span>
+                <span v-if="selected.risk" class="tag red">高危 · {{ selected.risk.name }}</span>
+              </div>
+
+              <div v-if="selected.risk" class="risk-box">
+                <b>{{ selected.risk.name }}</b>
+                <p>{{ selected.risk.desc }}</p>
+                <span>{{ selected.risk.rewardText }}</span>
               </div>
 
               <!-- 采集 -->
@@ -859,6 +867,19 @@ function nextNodes(node) {
   font-family: var(--mono);
   font-size: max(var(--ui-min), calc(7px * var(--ui-scale)));
 }
+.dt-risk {
+  padding: 0 3px;
+  border: 1px solid rgba(255, 138, 138, .5);
+  border-radius: 3px;
+  color: var(--red);
+  font-family: var(--mono);
+  font-size: max(var(--ui-min), calc(7px * var(--ui-scale)));
+}
+.dungeon-tile.is-risk { border-color: rgba(255, 138, 138, .52); }
+.risk-box { margin-top: 8px; padding: 8px 10px; border: 1px solid rgba(255, 138, 138, .28); border-radius: 8px; background: rgba(255, 138, 138, .045); }
+.risk-box b { color: var(--red); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; }
+.risk-box p { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.55; }
+.risk-box span { display: block; margin-top: 4px; color: var(--amber); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .dungeon-tile b {
   display: -webkit-box;
   -webkit-line-clamp: 2;

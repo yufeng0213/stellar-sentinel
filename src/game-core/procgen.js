@@ -3,7 +3,7 @@
  * 结构为 10 层、3 幕的分支节点图，玩家只能向前移动。
  */
 
-import { BOSS_PROFILES, REGIONS } from './data.js'
+import { BOSS_PROFILES, NODE_RISKS, REGIONS } from './data.js'
 import { createRng } from './rng.js'
 
 const TOTAL_LAYERS = 10
@@ -667,7 +667,10 @@ function makeNode(rng, layer, slot, type, profile = null) {
   } else if (type === 'battle' || type === 'elite' || type === 'boss') {
     node.enemy = makeEnemy(rng, region, type)
     if (type === 'boss') node.title = node.enemy.name
-    node.subtitle = `${region.name} · ${type === 'boss' ? '区域首领' : type === 'elite' ? '高危目标' : '敌对信号'}`
+    if (type !== 'boss' && rng.chance(0.32)) {
+      node.risk = { ...rng.pick(Object.values(NODE_RISKS)) }
+    }
+    node.subtitle = `${region.name} · ${type === 'boss' ? '区域首领' : type === 'elite' ? '高危目标' : '敌对信号'}${node.risk ? ' · 高危' : ''}`
   } else if (type === 'shop') {
     node.stock = makeStock(rng, region)
     node.subtitle = `${region.name} · 交易`
