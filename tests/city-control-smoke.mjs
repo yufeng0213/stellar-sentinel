@@ -37,6 +37,32 @@ check(attitudes.supporters.length > 0, '控制方没有支持者')
 check(marketNpc && marketNpc.relation.trust >= marketTrust, '同派系 NPC 信任没有变化')
 check(towerNpc && towerNpc.relation.trust <= towerTrust, '敌对 NPC 信任没有下降')
 check(run.city.controlAttitudes?.control === 'market', '城市没有记录 NPC 态度')
+check(attitudes.avengers.length > 0, '高攻击性 NPC 没有报复反应')
+
+const defectRun = createRun(randomDraft(), 'CITY-CONTROL-DEFECT-TEST')
+const defector = Object.values(defectRun.npcs).find((npc) => npc.alive && npc.faction === 'tower')
+if (defector) {
+  defector.cityId = 'dock'
+  defector.relation.trust = 60
+  defector.relation.grievance = 0
+  defector.personality.aggression = 10
+  defector.personality.loyalty = 20
+  const defectAttitudes = applyControlAttitudes(defectRun, 'dock', 'market')
+  check(defectAttitudes.defectors.includes(defector.name), '高信任 NPC 没有投靠')
+}
+
+const leaveRun = createRun(randomDraft(), 'CITY-CONTROL-LEAVE-TEST')
+const leaver = Object.values(leaveRun.npcs).find((npc) => npc.alive && npc.faction === 'tower')
+if (leaver) {
+  leaver.cityId = 'dock'
+  leaver.relation.trust = 0
+  leaver.relation.grievance = 0
+  leaver.personality.aggression = 10
+  leaver.personality.loyalty = 20
+  const leaveAttitudes = applyControlAttitudes(leaveRun, 'dock', 'market')
+  check(leaveAttitudes.leavers.includes(leaver.name), '低信任 NPC 没有离开')
+  check(leaver.active === false, '离开的 NPC 没有退出城市')
+}
 
 console.log(JSON.stringify({
   ok: errors.length === 0,

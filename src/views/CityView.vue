@@ -314,7 +314,12 @@ function payWanted() {
         <p v-if="controlInfo" class="control-effect">{{ controlInfo.effectText }}</p>
         <p v-if="controlAttitudes" class="control-attitude">
           支持 {{ controlAttitudes.supporters?.length || 0 }} 人 · 不满 {{ controlAttitudes.opponents?.length || 0 }} 人 ·
-          {{ controlAttitudes.text }}
+          投靠 {{ controlAttitudes.defectors?.length || 0 }} 人 · 离开 {{ controlAttitudes.leavers?.length || 0 }} 人 ·
+          报复 {{ controlAttitudes.avengers?.length || 0 }} 人
+        </p>
+        <p v-if="controlAttitudes?.text" class="control-attitude">{{ controlAttitudes.text }}</p>
+        <p v-for="reaction in controlAttitudes?.reactions || []" :key="reaction.npcId + reaction.type" class="control-reaction">
+          {{ reaction.text }}
         </p>
       </div>
       <span class="tag violet">当前控制方</span>
@@ -520,6 +525,7 @@ function payWanted() {
 .city-control p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
 .city-control .control-effect { color: var(--amber) !important; font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))) !important; }
 .city-control .control-attitude { color: var(--dim) !important; font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))) !important; }
+.city-control .control-reaction { color: var(--red) !important; font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))) !important; }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;

@@ -73,8 +73,33 @@ export function cityControlEffects(control) {
   return cityControlInfo(control)?.effects || {}
 }
 
+function leaveCity(run, cityId, npc) {
+  const city = run.cities?.[cityId] || run.city
+  if (city) {
+    city.npcIds = (city.npcIds || []).filter((id) => id !== npc.id)
+    city.visitorIds = (city.visitorIds || []).filter((id) => id !== npc.id)
+  }
+  npc.active = false
+  npc.cityId = null
+  npc.party = false
+  npc.controlStance = '离开'
+  npc.life = npc.life || {}
+  npc.life.leftCity = true
+  npc.life.returnDay = run.day + 5
+  run.party = (run.party || []).filter((id) => id !== npc.id)
+  if (npc.bastionResident) {
+    npc.bastionResident = false
+    if (run.bastion) {
+      run.bastion.residents = (run.bastion.residents || []).filter((id) => id !== npc.id)
+      Object.keys(run.bastion.assignments || {}).forEach((key) => {
+        if (run.bastion.assignments[key] === npc.id) delete run.bastion.assignments[key]
+      })
+    }
+  }
+}
+
 export function applyControlAttitudes(run, cityId, control) {
-  if (!run?.npcs || !control) return { supporters: [], opponents: [] }
+  if (!run?.npcs || !control) return { supporters: [], opponents: [], defectors: [], leavers: [], avengers: [] }
   const info = cityControlInfo(control)
   const residents = Object.values(run.npcs).filter((npc) => (
     npc.alive &&
@@ -84,37 +109,96 @@ export function applyControlAttitudes(run, cityId, control) {
   ))
   const supporters = []
   const opponents = []
+  const defectors = []
+  const leavers = []
+  const avengers = []
+  const reactions = []
+  const factionControl = ['tower', 'market', 'drifters', 'whisper'].includes(control)
+
   residents.forEach((npc) => {
+    const trust = npc.relation?.trust || 0
+    const grievance = npc.relation?.grievance || 0
+    const aggression = npc.personality?.aggression || 0
+    const loyalty = npc.personality?.loyalty || 0
+
     if (control === 'council') {
-      npc.relation.trust = Math.min(100, (npc.relation.trust || 0) + 2)
+      npc.relation.trust = Math.min(100, trust + 2)
       npc.controlStance = '观望'
       return
     }
+
     if (control === 'crew') {
-      npc.relation.trust = Math.max(0, (npc.relation.trust || 0) - 3)
+      if (aggression >= 65 && trust < 30) {
+        npc.hostile = true
+        npc.controlStance = '报复'
+        avengers.push(npc.name)
+        if (!run.pendingAmbush) run.pendingAmbush = npc.id
+        reactions.push({ npcId: npc.id, name: npc.name, type: 'revenge', text: `${npc.name} 不接受方舟接管，开始在你的路上等着。` })
+        return
+      }
+      if (trust < 20) {
+        leaveCity(run, cityId, npc)
+        leavers.push(npc.name)
+        reactions.push({ npcId: npc.id, name: npc.name, type: 'leave', text: `${npc.name} 收拾东西离开了空港。` })
+        return
+      }
+      npc.relation.trust = Math.max(0, trust - 3)
       npc.controlStance = '疏远'
       opponents.push(npc.name)
       return
     }
+
     if (npc.faction === control) {
-      npc.relation.trust = Math.min(100, (npc.relation.trust || 0) + 6)
-      npc.relation.grievance = Math.max(0, (npc.relation.grievance || 0) - 2)
+      npc.relation.trust = Math.min(100, trust + 6)
+      npc.relation.grievance = Math.max(0, grievance - 2)
       npc.controlStance = '支持'
       supporters.push(npc.name)
-    } else if (npc.faction) {
-      npc.relation.trust = Math.max(0, (npc.relation.trust || 0) - 4)
-      npc.controlStance = '不满'
-      opponents.push(npc.name)
+      return
     }
+
+    if (factionControl && npc.faction && trust >= 55 && loyalty < 60) {
+      npc.faction = control
+      npc.controlStance = '投靠'
+      npc.relation.trust = Math.min(100, trust + 3)
+      defectors.push(npc.name)
+      supporters.push(npc.name)
+      reactions.push({ npcId: npc.id, name: npc.name, type: 'defect', text: `${npc.name} 转而投靠了${info?.label || control}。` })
+      return
+    }
+
+    if (aggression >= 60 || grievance >= 45) {
+      npc.hostile = true
+      npc.controlStance = '报复'
+      avengers.push(npc.name)
+      if (!run.pendingAmbush) run.pendingAmbush = npc.id
+      reactions.push({ npcId: npc.id, name: npc.name, type: 'revenge', text: `${npc.name} 不承认新的控制方，开始准备报复。` })
+      return
+    }
+
+    if (trust < 25 || loyalty < 35) {
+      leaveCity(run, cityId, npc)
+      leavers.push(npc.name)
+      reactions.push({ npcId: npc.id, name: npc.name, type: 'leave', text: `${npc.name} 不愿意留在这座城市，离开了空港。` })
+      return
+    }
+
+    npc.relation.trust = Math.max(0, trust - 4)
+    npc.controlStance = '不满'
+    opponents.push(npc.name)
   })
+
   if (run.city) {
     run.city.controlAttitudes = {
       day: run.day,
       control,
       supporters,
       opponents,
+      defectors,
+      leavers,
+      avengers,
+      reactions,
       text: info?.attitude || '',
     }
   }
-  return { supporters, opponents }
+  return { supporters, opponents, defectors, leavers, avengers, reactions }
 }
