@@ -4,7 +4,7 @@
  */
 
 import { ITEMS } from './data.js'
-import { factionStatus } from './faction.js'
+import { adjustReputation, factionStatus } from './faction.js'
 
 export const CITY_FACILITIES = [
   {
@@ -80,11 +80,55 @@ export const CITY_PROJECTS = {
   },
 }
 
+export const CITY_PACTS = {
+  tower: {
+    id: 'tower',
+    name: '白塔盟约',
+    faction: 'tower',
+    project: 'tower_beacon',
+    desc: '让白塔回收队进驻空港，换取旧档案与更便宜的 Boss 情报。',
+    effects: { intelDiscount: 20, healPct: 0.05 },
+    rivals: ['market', 'whisper'],
+    rewardText: '黑市情报 -20 · 治疗 +5% · 敌对市场/低语者',
+  },
+  market: {
+    id: 'market',
+    name: '市场盟约',
+    faction: 'market',
+    project: 'market_hub',
+    desc: '把空港的货源交给市场公会，换来更多商品和更低价格。',
+    effects: { marketStock: 2, marketDiscount: 0.08 },
+    rivals: ['tower', 'drifters'],
+    rewardText: '市场商品 +2 / 价格 -8% · 敌对白塔/漂流者',
+  },
+  drifters: {
+    id: 'drifters',
+    name: '拾荒者盟约',
+    faction: 'drifters',
+    project: 'drifters_road',
+    desc: '公开支持漂流者的路网，让采集队愿意把更多东西带回来。',
+    effects: { gatherBonus: 1 },
+    rivals: ['market', 'tower'],
+    rewardText: '采集产出 +1 · 敌对市场/白塔',
+  },
+  whisper: {
+    id: 'whisper',
+    name: '低语者盟约',
+    faction: 'whisper',
+    project: 'whisper_quiet',
+    desc: '允许低语者在空港保留静默室，换取更稳定的精神恢复。',
+    effects: { mentalHeal: 12, healPct: 0.05 },
+    rivals: ['tower', 'market'],
+    rewardText: '诊所精神恢复 +12 / 治疗 +5% · 敌对白塔/市场',
+  },
+}
+
 export function ensureCityDevelopment(city) {
   if (!city) return null
   if (!city.upgrades || typeof city.upgrades !== 'object') city.upgrades = {}
   if (!city.projects || typeof city.projects !== 'object') city.projects = {}
   if (!city.influence || typeof city.influence !== 'object') city.influence = {}
+  if (city.pact === undefined) city.pact = null
   CITY_FACILITIES.forEach((facility) => {
     if (typeof city.upgrades[facility.id] !== 'number') city.upgrades[facility.id] = 0
   })
@@ -127,6 +171,7 @@ export function cityDevelopmentEffects(run, cityId = null) {
     if (!city.projects[id]) return
     add(CITY_PROJECTS[id]?.effects)
   })
+  if (city.pact) add(CITY_PACTS[city.pact]?.effects)
   return effects
 }
 
@@ -202,6 +247,44 @@ export function completeCityProject(run, cityId, projectId) {
   city.projects[projectId] = true
   city.influence[project.faction] = (city.influence[project.faction] || 0) + 20
   return { ok: true, project, influence: city.influence[project.faction] }
+}
+
+export function pactStatuses(run, cityId = null) {
+  const city = cityStateFor(run, cityId)
+  if (!city) return []
+  ensureCityDevelopment(city)
+  return Object.values(CITY_PACTS).map((pact) => {
+    const status = factionStatus(run, pact.faction)
+    const projectDone = Boolean(city.projects[pact.project])
+    const chosen = city.pact === pact.id
+    const locked = Boolean(city.pact) && !chosen
+    return {
+      ...pact,
+      factionName: status.name,
+      rep: status.score,
+      projectDone,
+      chosen,
+      locked,
+      canChoose: !city.pact && status.score >= 30 && projectDone,
+    }
+  })
+}
+
+export function chooseCityPact(run, cityId, pactId) {
+  const city = cityStateFor(run, cityId)
+  if (!city) return { ok: false, message: '这里没有可以结盟的城市' }
+  ensureCityDevelopment(city)
+  const pact = CITY_PACTS[pactId]
+  if (!pact) return { ok: false, message: '没有这个盟约' }
+  if (city.pact) return { ok: false, message: '这座城市已经选择了盟约' }
+  const status = factionStatus(run, pact.faction)
+  if (status.score < 30) return { ok: false, message: `需要 ${status.name} 声望 30` }
+  if (!city.projects[pact.project]) return { ok: false, message: '需要先完成对应城市项目' }
+  city.pact = pactId
+  city.influence[pact.faction] = (city.influence[pact.faction] || 0) + 25
+  adjustReputation(run, pact.faction, 15, `城市盟约：${pact.name}`)
+  pact.rivals.forEach((id) => adjustReputation(run, id, -15, `城市盟约：${pact.name}`))
+  return { ok: true, pact }
 }
 
 export function cityInfluence(run, cityId = null) {

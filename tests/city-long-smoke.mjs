@@ -7,11 +7,13 @@ import { createRun } from '../src/game-core/run.js'
 import { ensureCity } from '../src/game-core/city.js'
 import {
   CITY_PROJECTS,
+  chooseCityPact,
   cityDevelopmentEffects,
   cityInfluence,
   completeCityProject,
   ensureCityDevelopment,
   facilityStatuses,
+  pactStatuses,
   projectStatuses,
   upgradeCityFacility,
 } from '../src/game-core/city-development.js'
@@ -50,6 +52,14 @@ const second = completeCityProject(run, 'dock', 'tower_beacon')
 check(!second.ok, '项目可以重复完成')
 const project = CITY_PROJECTS.tower_beacon
 check(project.cost.item === 'chip' && project.cost.count === 1, '项目成本定义错误')
+
+const pact = chooseCityPact(run, 'dock', 'tower')
+check(pact.ok, '白塔盟约签订失败')
+check(city.pact === 'tower', '盟约没有写入城市状态')
+check(cityDevelopmentEffects(run).healPct >= 0.05, '盟约效果没有生效')
+check(pactStatuses(run).find((item) => item.id === 'market')?.locked, '其他盟约没有被排斥')
+check(run.reputation.market < 0, '敌对派系声望没有下降')
+check(!chooseCityPact(run, 'dock', 'market').ok, '可以重复签订盟约')
 
 console.log(JSON.stringify({
   ok: errors.length === 0,

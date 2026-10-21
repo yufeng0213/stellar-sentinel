@@ -2,9 +2,9 @@
 
 import { computed } from 'vue'
 import {
-  CITY_FACILITIES,
   cityInfluence,
   facilityStatuses,
+  pactStatuses,
   projectStatuses,
 } from '../game-core/city-development.js'
 import { useGameStore } from '../stores/game.js'
@@ -14,6 +14,7 @@ const run = computed(() => game.run)
 const city = computed(() => run.value?.cities?.[run.value?.activeCityId] || null)
 const facilities = computed(() => (run.value ? facilityStatuses(run.value) : []))
 const projects = computed(() => (run.value ? projectStatuses(run.value) : []))
+const pacts = computed(() => (run.value ? pactStatuses(run.value) : []))
 const influences = computed(() => (run.value ? cityInfluence(run.value) : []))
 
 function upgrade(facility) {
@@ -24,6 +25,11 @@ function upgrade(facility) {
 function build(project) {
   const result = game.completeCityProject(project.id)
   if (result.ok) game.notify(`${project.name} 完成`, 'good')
+}
+
+function sign(pact) {
+  const result = game.chooseCityPact(pact.id)
+  if (result.ok) game.notify(`${pact.name} 已生效`, 'good')
 }
 
 </script>
@@ -54,6 +60,45 @@ function build(project) {
             <span>{{ influence.projectDone ? '城市项目已完成' : '等待投资' }}</span>
           </div>
           <em>{{ influence.influence }}</em>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel pact-box">
+      <div class="section-head">
+        <div>
+          <p class="kicker">CITY PACT</p>
+          <h2>城市盟约</h2>
+        </div>
+        <span class="hint">每座城市只能选择一次</span>
+      </div>
+      <div class="pact-grid">
+        <article
+          v-for="pact in pacts"
+          :key="pact.id"
+          class="pact-card"
+          :class="{ 'is-chosen': pact.chosen, 'is-locked': pact.locked }"
+        >
+          <div class="pact-top">
+            <b>{{ pact.name }}</b>
+            <span class="tag" :class="pact.chosen ? 'jade' : pact.canChoose ? 'violet' : 'muted'">
+              {{ pact.chosen ? '已签订' : pact.locked ? '已排斥' : pact.factionName }}
+            </span>
+          </div>
+          <p>{{ pact.desc }}</p>
+          <span class="pact-reward">{{ pact.rewardText }}</span>
+          <div class="pact-req">
+            <span :class="{ ok: pact.rep >= 30 }">声望 {{ pact.rep }} / 30</span>
+            <span :class="{ ok: pact.projectDone }">{{ pact.projectDone ? '项目已完成' : '需要对应城市项目' }}</span>
+          </div>
+          <button
+            type="button"
+            class="btn btn-sm"
+            :disabled="pact.chosen || pact.locked || !pact.canChoose"
+            @click="sign(pact)"
+          >
+            {{ pact.chosen ? '盟约生效中' : pact.locked ? '被其他盟约排斥' : pact.canChoose ? '签订盟约' : '条件不足' }}
+          </button>
         </article>
       </div>
     </section>
@@ -136,7 +181,18 @@ function build(project) {
 .development-head h1 { margin-top: 4px; font-size: max(var(--ui-min), calc(30px * var(--ui-scale))); font-weight: 300; letter-spacing: .08em; }
 .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .section-head h2 { margin-top: 3px; font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 400; }
-.influence-box, .facility-box, .project-box { padding: 14px; }
+.influence-box, .facility-box, .project-box, .pact-box { padding: 14px; }
+.pact-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
+.pact-card { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .4); }
+.pact-card.is-chosen { border-color: rgba(138, 222, 184, .4); background: rgba(138, 222, 184, .05); }
+.pact-card.is-locked { opacity: .45; border-style: dashed; }
+.pact-top { display: flex; align-items: baseline; justify-content: space-between; gap: 5px; }
+.pact-top b { font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.pact-card p { flex: 1; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.55; }
+.pact-reward { color: var(--violet); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.pact-req { display: flex; flex-wrap: wrap; gap: 6px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.pact-req .ok { color: var(--cyan); }
+.pact-card .btn { height: 28px; padding: 0 7px; font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .influence-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
 .influence-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; }
 .influence-row b { display: block; font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; }
@@ -162,10 +218,10 @@ function build(project) {
 .development-note { padding: 0 4px; }
 @media (max-width: 800px) {
   .development-head { flex-direction: column; }
-  .influence-list, .facility-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .influence-list, .facility-grid, .pact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .project-row { align-items: flex-start; flex-direction: column; }
 }
 @media (max-width: 480px) {
-  .influence-list, .facility-grid { grid-template-columns: 1fr; }
+  .influence-list, .facility-grid, .pact-grid { grid-template-columns: 1fr; }
 }
 </style>

@@ -25,6 +25,7 @@ import { completeEscort, ensureEscorts } from '../game-core/escort.js'
 import { ensurePromises, fulfillPromise } from '../game-core/npc-promises.js'
 import { chooseDateOption, ensureDateState, finishDate as finishDateCore } from '../game-core/date-story.js'
 import {
+  chooseCityPact as chooseCityPactCore,
   completeCityProject as completeCityProjectCore,
   upgradeCityFacility as upgradeCityFacilityCore,
 } from '../game-core/city-development.js'
@@ -434,6 +435,19 @@ export const useGameStore = defineStore('game', {
       if (result.ok) {
         addLog(this.run, `城市项目完成：${result.project.name}。`, 'good')
         this.notify(`城市项目完成 · ${result.project.name}`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    chooseCityPact(pactId) {
+      if (!this.run) return { ok: false }
+      const result = chooseCityPactCore(this.run, this.run.activeCityId || 'dock', pactId)
+      if (result.ok) {
+        addLog(this.run, `城市盟约：${result.pact.name}。`, 'story')
+        this.notify(`已签订 · ${result.pact.name}`, 'good')
         this.save()
       } else {
         this.notify(result.message, 'bad')
