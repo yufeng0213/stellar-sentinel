@@ -246,7 +246,7 @@ export function cityPopulation(run, cityId = 'dock') {
 function pickCityVisitors(run, city, count = 3) {
   const locals = city.npcIds
     .map((id) => run.npcs?.[id])
-    .filter((npc) => npc && npc.alive && !npc.life?.leftCity)
+    .filter((npc) => npc && npc.alive && npc.active !== false && !npc.life?.leftCity)
   const old = new Set(city.visitorIds || [])
   const pool = locals.filter((npc) => !old.has(npc.id))
   const chosen = createRng(`${run.seed}:city-visitors:${city.id}:${city.refreshCount}:${run.day}`)

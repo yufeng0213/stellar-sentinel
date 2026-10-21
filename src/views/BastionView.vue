@@ -22,6 +22,11 @@ const facilities = computed(() => BASTION_FACILITIES.map((facility) => ({
 })))
 const event = computed(() => bastion.value?.pendingEvent || null)
 const residentsWithMood = computed(() => residents.value.map((npc) => ({ npc, mood: residentMood(npc) })))
+const pressureName = computed(() => ({
+  calm: '平静',
+  tense: '紧张',
+  chaos: '混乱',
+}[bastion.value?.pressure] || '平静'))
 const candidates = computed(() => {
   if (!run.value) return []
   return npcList(run.value)
@@ -112,7 +117,7 @@ function resolveEvent(choice) {
           <h2>{{ event.title }}</h2>
         </div>
         <span class="tag" :class="bastion.tension >= 55 ? 'red' : bastion.tension >= 35 ? 'amber' : 'jade'">
-          气氛 {{ bastion.tension }}
+          气氛 {{ bastion.tension }} · {{ pressureName }}
         </span>
       </div>
       <p class="event-text">{{ event.text }}</p>

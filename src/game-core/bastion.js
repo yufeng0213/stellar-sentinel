@@ -49,6 +49,7 @@ export function createBastionState() {
     lastReport: [],
     pendingEvent: null,
     tension: 0,
+    pressure: 'calm',
   }
 }
 
@@ -64,6 +65,7 @@ export function ensureBastion(run) {
   if (!Array.isArray(bastion.lastReport)) bastion.lastReport = []
   if (bastion.pendingEvent === undefined) bastion.pendingEvent = null
   if (typeof bastion.tension !== 'number') bastion.tension = 0
+  if (!['calm', 'tense', 'chaos'].includes(bastion.pressure)) bastion.pressure = 'calm'
   bastion.residents.forEach((npcId) => ensureResidentNeeds(run.npcs?.[npcId]))
   return bastion
 }
@@ -229,20 +231,120 @@ export function buildBastionEvent(run) {
       npcId: persona.id,
     }
   }
+  const wanted = run.wanted?.level || 0
+  const pressure = tension >= 70 || wanted >= 3 ? 'chaos'
+    : tension >= 35 || wanted >= 1 ? 'tense'
+      : 'calm'
+  bastion.pressure = pressure
+  let target = rng.pick(residents)
+
+  if (pressure === 'chaos') {
+    const type = rng.pick(['raid', 'defect', 'fire', 'theft'])
+    if (type === 'raid') {
+      return {
+        id: `bastion-${run.day}-raid`,
+        type,
+        pressure,
+        npcId: target.id,
+        title: '警报响了一整夜',
+        text: '有人摸到了方舟外沿。舱壁被什么东西刮过，声音一直没有停。\n\n值班的人站在门口，等你决定。',
+        choices: [
+          { id: 'defend', label: '带人守住外沿' },
+          { id: 'hide', label: '封闭舱门，先保人' },
+          { id: 'pay', label: '丢下一箱物资打发他们' },
+        ],
+      }
+    }
+    if (type === 'defect') {
+      return {
+        id: `bastion-${run.day}-defect`,
+        type,
+        pressure,
+        npcId: target.id,
+        title: `${target.name} 收拾好了行李`,
+        text: `他站在舱门口，没有看你。\n\n“这里不适合我。”他说，“至少今天不适合。”`,
+        choices: [
+          { id: 'listen', label: '问他到底发生了什么' },
+          { id: 'let_go', label: '让他走' },
+          { id: 'promise', label: '答应他一个条件' },
+        ],
+      }
+    }
+    if (type === 'fire') {
+      return {
+        id: `bastion-${run.day}-fire`,
+        type,
+        pressure,
+        npcId: target.id,
+        title: '温室短路了',
+        text: `警报灯把整条走廊照成红色。温室里有烟，但还没有明火。\n\n${target.name} 站在门口，手里拿着灭火器。`,
+        choices: [
+          { id: 'fight', label: '冲进去灭火' },
+          { id: 'evacuate', label: '先撤人，放弃温室' },
+          { id: 'repair', label: '花钱请人连夜修' },
+        ],
+      }
+    }
+    return {
+      id: `bastion-${run.day}-theft`,
+      type: 'theft',
+      pressure,
+      npcId: target.id,
+      title: '储物舱少了一箱东西',
+      text: '清单对不上。有人拿走了物资，也可能只是有人忘了登记。\n\n据点里没有人承认。',
+      choices: [
+        { id: 'investigate', label: '逐个问清楚' },
+        { id: 'lockdown', label: '先封锁储物舱' },
+        { id: 'ignore', label: '当作损耗处理' },
+      ],
+    }
+  }
+
+  if (pressure === 'calm') {
+    const type = rng.pick(['visitor', 'visitor', 'windfall'])
+    if (type === 'visitor') {
+      return {
+        id: `bastion-${run.day}-visitor`,
+        type,
+        pressure,
+        npcId: target.id,
+        title: '有人敲了舱门',
+        text: '一个自称路过的人站在外面，带着一只旧箱子。\n\n“听说你们这里能换东西。”',
+        choices: [
+          { id: 'trade', label: '和他换一批物资' },
+          { id: 'talk', label: '先请他进来坐坐' },
+          { id: 'turn_away', label: '让他离开' },
+        ],
+      }
+    }
+    return {
+      id: `bastion-${run.day}-windfall`,
+      type: 'windfall',
+      pressure,
+      npcId: target.id,
+      title: `${target.name} 找到了一箱旧货`,
+      text: `他在储物舱最里面翻出一只没有登记的箱子。\n\n“不是我的。”他说，“但也没人认领。”`,
+      choices: [
+        { id: 'celebrate', label: '今晚开一桌' },
+        { id: 'store', label: '登记入库' },
+        { id: 'train', label: '让值班的人研究一下' },
+      ],
+    }
+  }
+
   const quarrel = residents.find((npc) => npc.quarrel?.active || (npc.relation?.trust || 0) < 25)
   const homesick = residents.find((npc) => (npc.bastionNeeds?.belonging || 60) < 45)
   const injured = residents.find((npc) => (npc.bastionNeeds?.safety || 70) < 45)
   const candidates = []
   if (quarrel) candidates.push('quarrel')
   if (homesick) candidates.push('homesick')
-  if (injured || (run.wanted?.level || 0) >= 2) candidates.push('injury')
-  if (tension < 35) candidates.push('windfall')
-  if (!candidates.length) candidates.push(tension >= 55 ? 'quarrel' : 'windfall')
+  if (injured || wanted >= 2) candidates.push('injury')
+  candidates.push('faction_pressure')
   const type = rng.pick(candidates)
-  const target = type === 'quarrel' ? quarrel || residents[0]
-    : type === 'homesick' ? homesick || residents[0]
-      : type === 'injury' ? injured || residents[0]
-        : residents[0]
+  target = type === 'quarrel' ? quarrel || target
+    : type === 'homesick' ? homesick || target
+      : type === 'injury' ? injured || target
+        : target
 
   if (type === 'quarrel') {
     return {
@@ -283,6 +385,21 @@ export function buildBastionEvent(run) {
         { id: 'treat', label: '带他去医疗舱' },
         { id: 'rest', label: '让他今天休息' },
         { id: 'ignore', label: '先把手头的事做完' },
+      ],
+    }
+  }
+  if (type === 'faction_pressure') {
+    return {
+      id: `bastion-${run.day}-faction-pressure`,
+      type,
+      pressure,
+      npcId: target.id,
+      title: '派系的人来敲门',
+      text: `一个穿制服的人站在舱门外，手里拿着一份名单。\n\n“你们收留的人里，有一个我们想带走。”`,
+      choices: [
+        { id: 'comply', label: '配合他们' },
+        { id: 'refuse', label: '把门关上' },
+        { id: 'bargain', label: '谈一个条件' },
       ],
     }
   }
@@ -330,6 +447,104 @@ export function resolveBastionEvent(run, eventId, choiceId) {
       npc.bastionPersonaDone.push(event.personaId)
     }
     text = choice.text
+  } else if (event.type === 'visitor') {
+    if (choiceId === 'trade') {
+      run.player.credits += 18
+      run.inv.scrap = (run.inv.scrap || 0) + 1
+      needs.purpose = clamp(needs.purpose + 5)
+      text = '你和访客换了一批物资。信用点 +18，废料 +1。'
+    } else if (choiceId === 'talk') {
+      needs.belonging = clamp(needs.belonging + 9)
+      needs.safety = clamp(needs.safety + 3)
+      text = '你们让访客进来坐了一会儿。他没有留下名字，但留下了一条附近的航线。'
+    } else {
+      needs.safety = clamp(needs.safety + 3)
+      needs.belonging = clamp(needs.belonging - 4)
+      text = '你没有开门。脚步声在舱门外停了一会儿，然后走远了。'
+    }
+  } else if (event.type === 'raid') {
+    if (choiceId === 'defend') {
+      run.player.hp = Math.max(1, run.player.hp - 8)
+      needs.safety = clamp(needs.safety + 14)
+      needs.purpose = clamp(needs.purpose + 8)
+      run.player.credits += 10
+      text = '你们守住了外沿。有人受了伤，但没有人被带走。'
+    } else if (choiceId === 'hide') {
+      run.player.credits = Math.max(0, run.player.credits - 15)
+      needs.safety = clamp(needs.safety + 5)
+      needs.belonging = clamp(needs.belonging - 3)
+      text = '你们封死了舱门。外面的声音持续了很久，储物舱少了一点东西。'
+    } else {
+      run.player.credits = Math.max(0, run.player.credits - 25)
+      needs.safety = clamp(needs.safety + 10)
+      text = '你丢下一箱物资。脚步声停了，但没有人为这个决定鼓掌。'
+    }
+  } else if (event.type === 'defect') {
+    if (choiceId === 'listen') {
+      needs.belonging = clamp(needs.belonging + 14)
+      needs.purpose = clamp(needs.purpose + 4)
+      npc.relation.trust = clamp(npc.relation.trust + 4)
+      text = '你听他说完。他最后把行李放回了柜子里：“再给我一点时间。”'
+    } else if (choiceId === 'let_go') {
+      removeNpcFromBastion(run, npc.id)
+      npc.active = false
+      npc.activity = '离开了方舟'
+      text = `${npc.name} 走了。没有人拦他，也没有人知道他会去哪里。`
+    } else {
+      needs.belonging = clamp(needs.belonging + 8)
+      needs.purpose = clamp(needs.purpose + 8)
+      npc.relation.trust = clamp(npc.relation.trust + 3)
+      text = '你答应了一个不算小的条件。他留下来了，但你知道这不是免费的。'
+    }
+  } else if (event.type === 'fire') {
+    if (choiceId === 'fight') {
+      run.player.hp = Math.max(1, run.player.hp - 5)
+      needs.safety = clamp(needs.safety + 12)
+      run.inv.scrap = (run.inv.scrap || 0) + 2
+      text = '火被扑灭了。你的手被烫了一下，但温室保住了大半。'
+    } else if (choiceId === 'evacuate') {
+      needs.safety = clamp(needs.safety + 8)
+      needs.purpose = clamp(needs.purpose - 6)
+      run.inv.ration = Math.max(0, (run.inv.ration || 0) - 2)
+      text = '你们先撤了人。温室烧掉了一部分，但没有人被困在里面。'
+    } else {
+      run.player.credits = Math.max(0, run.player.credits - 30)
+      needs.safety = clamp(needs.safety + 11)
+      text = '维修队连夜换了线路。账单不便宜，但警报终于停了。'
+    }
+  } else if (event.type === 'theft') {
+    if (choiceId === 'investigate') {
+      needs.purpose = clamp(needs.purpose + 8)
+      needs.belonging = clamp(needs.belonging - 3)
+      run.player.credits += 8
+      text = '你逐个问过去。东西没有全找回来，但有人把多拿的那份放了回去。'
+    } else if (choiceId === 'lockdown') {
+      needs.safety = clamp(needs.safety + 9)
+      needs.belonging = clamp(needs.belonging - 5)
+      text = '储物舱被锁上了。没有人再丢东西，但也没有人愿意多说话。'
+    } else {
+      run.inv.scrap = Math.max(0, (run.inv.scrap || 0) - 2)
+      needs.purpose = clamp(needs.purpose - 4)
+      text = '你把这次损失记在账上。储物舱里少了一点废料，也少了一点信任。'
+    }
+  } else if (event.type === 'faction_pressure') {
+    if (choiceId === 'comply') {
+      needs.safety = clamp(needs.safety + 8)
+      needs.belonging = clamp(needs.belonging - 6)
+      npc.relation.trust = clamp(npc.relation.trust - 3)
+      run.player.credits += 16
+      text = '你把名单交了出去。制服的人留下了 16 信用点，没有说谢谢。'
+    } else if (choiceId === 'refuse') {
+      needs.safety = clamp(needs.safety - 8)
+      needs.purpose = clamp(needs.purpose + 11)
+      npc.relation.trust = clamp(npc.relation.trust + 6)
+      text = '你把门关上了。门外的人敲了三下，然后离开。据点里的人看着你，没有说话。'
+    } else {
+      run.player.credits = Math.max(0, run.player.credits - 15)
+      needs.safety = clamp(needs.safety + 5)
+      npc.relation.trust = clamp(npc.relation.trust + 2)
+      text = '你谈了一个条件。对方拿走 15 信用点，名单上的人暂时留了下来。'
+    }
   } else if (event.type === 'quarrel') {
     if (choiceId === 'mediate') {
       needs.belonging = clamp(needs.belonging + 12)
