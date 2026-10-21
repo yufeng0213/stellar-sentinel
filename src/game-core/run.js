@@ -751,14 +751,50 @@ export function retreatAfterDefeat(run) {
   return { ok: true, day: run.day, mapSeed }
 }
 
+export function isMapExhausted(run) {
+  const bossId = run?.map?.bossId
+  if (!bossId) return false
+  const bossDefeated = (run.cleared || []).includes(bossId) || (run.bossKills?.[bossId] || 0) > 0
+  return bossDefeated && run.location === bossId
+}
+
+function regenerateMap(run) {
+  const cycle = (run.mapCycle || 0) + 1
+  const mapSeed = `${run.seed}:CYCLE:${run.day}:${cycle}`
+  const map = generateRunMap(mapSeed, run.player)
+  run.map = map
+  run.mapSeed = mapSeed
+  run.mapCycle = cycle
+  resetDungeon(run)
+  run.location = map.startId
+  run.act = 1
+  run.visited = [map.startId]
+  run.cleared = [map.startId]
+  run.nodeState = {}
+  run.battle = null
+  run.pendingAmbush = null
+  if (run.city) {
+    run.city.quests = []
+    run.city.questsDay = 0
+  }
+  addLog(run, '旧星图已经没有可走的路。空港重新标定航线，一张新的星图在晨光里展开。', 'story')
+  return map
+}
+
 export function camp(run) {
-  if (run.ap > 0) return { ok: false, message: '还有行动点，不必扎营' }
+  const exhausted = isMapExhausted(run)
+  if (run.ap > 0 && !exhausted) return { ok: false, message: '还有行动点，不必扎营' }
+  const oldMapSeed = run.mapSeed
   run.day += 1
   run.ap = run.apMax
   run.player.hp = clamp(run.player.hp + Math.ceil(run.player.hpMax * 0.25), 0, run.player.hpMax)
   run.player.mental = clamp(run.player.mental + 20, 0, run.player.mentalMax)
   tickWorld(run)
   generateNpcEvents(run)
+  if (exhausted) {
+    const map = regenerateMap(run)
+    return { ok: true, refreshed: true, oldMapSeed, mapSeed: map.seed }
+  }
   addLog(run, '你在节点旁扎营。睡得很浅，但足够继续。', 'story')
   return { ok: true }
 }

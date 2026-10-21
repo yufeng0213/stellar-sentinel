@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.80.0 · CONTROL AFTERMATH</dd>
+            <dd class="mono">0.81.0 · MAP CYCLE</dd>
           </div>
         </dl>
       </section>

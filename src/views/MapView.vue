@@ -16,6 +16,13 @@ const settling = ref(null)
 const nightReport = ref('')
 const reportBusy = ref(false)
 let settleTimer = null
+const mapExhausted = computed(() => {
+  const value = run.value
+  const bossId = value?.map?.bossId
+  if (!bossId) return false
+  const defeated = (value.cleared || []).includes(bossId) || (value.bossKills?.[bossId] || 0) > 0
+  return defeated && value.location === bossId
+})
 
 const ACT_NAMES = {
   1: '第一幕 · 白塔的余烬',
@@ -349,6 +356,7 @@ function camp() {
   const before = run.value.worldEvents?.length || 0
   const result = game.makeCamp()
   if (!result?.ok) return
+  selectedId.value = run.value.location
   const events = (run.value.worldEvents || []).slice(0, Math.max(0, (run.value.worldEvents?.length || 0) - before)).slice(0, 10)
   settling.value = { progress: 0, phase: '扫描空港', done: false, events }
   nightReport.value = localSettlementReport(run.value, events)
@@ -413,7 +421,15 @@ function nextNodes(node) {
         <span v-if="run.story" class="tag violet">主线 {{ run.story.chapter }} · {{ run.story.title }}</span>
         <span class="tag cyan">AP {{ run.ap }} / {{ run.apMax }}</span>
         <button type="button" class="btn btn-sm" @click="goCity">回城</button>
-        <button type="button" class="btn btn-sm" :disabled="run.ap > 0" @click="camp">扎营</button>
+        <button
+          type="button"
+          class="btn btn-sm"
+          :disabled="run.ap > 0 && !mapExhausted"
+          :title="mapExhausted ? '星图已经清理，扎营会重排下一张星图' : '消耗完行动点后扎营'"
+          @click="camp"
+        >
+          {{ mapExhausted ? '扎营 · 重排星图' : '扎营' }}
+        </button>
       </div>
     </section>
 
