@@ -6,6 +6,7 @@ import { cityDevelopmentEffects } from '../game-core/city-development.js'
 import { RECONSTRUCTION_POLICIES, reconstructionStatus } from '../game-core/city-reconstruction.js'
 import { activeEscorts } from '../game-core/escort.js'
 import { factionBailOptions } from '../game-core/faction-bail.js'
+import { factionDebtStatuses } from '../game-core/faction-debt.js'
 import { wantedStatus } from '../game-core/wanted.js'
 import { useGameStore } from '../stores/game.js'
 
@@ -34,6 +35,7 @@ const patrol = computed(() => (run.value ? cityDevelopmentEffects(run.value).pat
 const patrolCheck = computed(() => run.value?.patrolCheck || null)
 const arrest = computed(() => run.value?.arrest || null)
 const bailOptions = computed(() => (run.value ? factionBailOptions(run.value) : []))
+const factionDebts = computed(() => (run.value ? factionDebtStatuses(run.value) : []))
 
 onMounted(() => {
   game.enterCity()
@@ -65,6 +67,11 @@ function payBail(method) {
 function bailWithFaction(option) {
   const result = game.factionBail(option.id)
   if (result.ok) game.notify(`${option.name}替你保释了`, 'good')
+}
+
+function resolveDebt(debt, choice) {
+  const result = game.resolveFactionDebt(debt.factionId, choice)
+  if (result.ok) game.notify(result.text, result.resolution === 'refuse' ? 'bad' : 'good')
 }
 
 function open(name) {
@@ -248,6 +255,39 @@ function payWanted() {
           <span>声望 {{ option.score }} · 消耗 {{ option.repCost }} 声望</span>
         </button>
       </div>
+    </section>
+
+    <section v-if="factionDebts.length" class="panel debt-box">
+      <div class="debt-head">
+        <div>
+          <p class="kicker">FACTION FAVOR · DUE</p>
+          <h3>派系的人情</h3>
+          <p>保释不是免费的。有人会在几天后回来，提醒你欠了什么。</p>
+        </div>
+      </div>
+      <article v-for="debt in factionDebts" :key="debt.factionId" class="debt-card" :class="{ 'is-overdue': debt.overdue }">
+        <div class="debt-info">
+          <b>{{ debt.name }}</b>
+          <span>
+            {{ debt.overdue ? '已经到期' : `还有 ${debt.daysLeft} 天` }} ·
+            偿还 {{ debt.amount }} 信用点
+          </span>
+        </div>
+        <div class="debt-actions">
+          <button type="button" class="btn btn-sm" :disabled="run.player.credits < debt.amount" @click="resolveDebt(debt, 'repay')">
+            还钱
+          </button>
+          <button type="button" class="btn btn-sm" :disabled="(run.inv.scrap || 0) < 2" @click="resolveDebt(debt, 'favor')">
+            帮他们做事 · 2 废料
+          </button>
+          <button type="button" class="btn btn-sm" @click="resolveDebt(debt, 'extend')">
+            请求延期
+          </button>
+          <button type="button" class="btn btn-sm btn-ghost" @click="resolveDebt(debt, 'refuse')">
+            拒绝
+          </button>
+        </div>
+      </article>
     </section>
 
     <section class="city-grid">
@@ -437,6 +477,14 @@ function payWanted() {
 .arrest-faction:disabled { opacity: .4; cursor: not-allowed; }
 .arrest-faction b { font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); font-weight: 500; }
 .arrest-faction span { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(7.5px * var(--ui-scale))); }
+.debt-box { padding: 13px 15px; border-color: rgba(185, 164, 255, .28); background: rgba(185, 164, 255, .035); }
+.debt-head h3 { margin-top: 3px; color: var(--violet); font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 500; }
+.debt-head p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
+.debt-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 8px; }
+.debt-card.is-overdue { border-color: rgba(255, 138, 138, .4); background: rgba(255, 138, 138, .035); }
+.debt-info b { display: block; font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.debt-info span { display: block; margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.debt-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;

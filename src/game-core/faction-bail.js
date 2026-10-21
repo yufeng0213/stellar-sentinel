@@ -3,6 +3,7 @@
  */
 
 import { ensureArrest } from './arrest.js'
+import { registerFactionDebt } from './faction-debt.js'
 import { adjustReputation, factionStatuses } from './faction.js'
 import { clearWanted, ensureWanted } from './wanted.js'
 
@@ -33,6 +34,11 @@ export function factionBail(run, factionId) {
   arrest.method = `faction:${factionId}`
   run.factionFavors = run.factionFavors || {}
   run.factionFavors[factionId] = run.day
+  registerFactionDebt(run, factionId, {
+    day: run.day,
+    dueDay: run.day + 5,
+    wantedLevel,
+  })
   return {
     ok: true,
     faction: status,
