@@ -736,6 +736,10 @@ export const useGameStore = defineStore('game', {
         if (npcId && this.run.npcs?.[npcId]) {
           applyNpcBattleOutcome(this.run, npcId, choice)
         }
+        const choices = result.reward?.cardChoices || []
+        this.run.pendingCardReward = choices.length
+          ? { nodeId: result.reward.nodeId || this.run.battle?.nodeId || null, choices }
+          : null
         this.run.battle = null
         this.grantAchievements()
         this.save()
@@ -743,6 +747,12 @@ export const useGameStore = defineStore('game', {
         this.notify(result.message, 'bad')
       }
       return result
+    },
+
+    clearCardReward() {
+      if (!this.run) return
+      this.run.pendingCardReward = null
+      this.save()
     },
 
     leaveBattle() {

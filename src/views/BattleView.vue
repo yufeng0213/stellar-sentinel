@@ -55,6 +55,11 @@ const surrendered = computed(() => !!battle.value?.enemies.some((enemy) => enemy
 const isBoss = computed(() => battle.value?.nodeType === 'boss')
 
 onMounted(() => {
+  const pending = game.run?.pendingCardReward
+  if (pending?.choices?.length) {
+    cardReward.value = pending.choices
+    return
+  }
   const created = game.ensureBattle(nodeId)
   if (!created) {
     router.replace({ name: 'map', params: { runId: run.value?.id } })
@@ -180,11 +185,13 @@ function pickReward(card) {
   const result = game.addDeckCard(card.key)
   if (!result.ok) return
   cardReward.value = null
+  game.clearCardReward()
   router.push({ name: 'map', params: { runId: run.value?.id } })
 }
 
 function skipReward() {
   cardReward.value = null
+  game.clearCardReward()
   router.push({ name: 'map', params: { runId: run.value?.id } })
 }
 
@@ -374,32 +381,6 @@ function leaveBattle() {
       </div>
     </div>
 
-    <!-- 牌组奖励 -->
-    <div v-if="cardReward" class="result-backdrop">
-      <div class="result-panel card-reward-panel">
-        <p class="kicker">DECK REWARD · 战利品</p>
-        <h2>选择一张牌</h2>
-        <p class="result-note">加入牌组，或者跳过。牌组会在之后的战斗中使用。</p>
-        <div class="card-reward-grid">
-          <button
-            v-for="card in cardReward"
-            :key="card.key"
-            type="button"
-            class="card-reward"
-            @click="pickReward(card)"
-          >
-            <span class="c-cost">{{ card.cost }}</span>
-            <b>{{ card.name }}</b>
-            <p>{{ card.desc }}</p>
-            <span class="c-type">{{ CARD_TYPES[card.type] }}</span>
-          </button>
-        </div>
-        <div class="result-actions">
-          <button type="button" class="btn btn-ghost" @click="skipReward">跳过</button>
-        </div>
-      </div>
-    </div>
-
     <!-- 战败 -->
     <div v-if="battle.status === 'lost'" class="result-backdrop">
       <div class="result-panel">
@@ -411,6 +392,33 @@ function leaveBattle() {
         <div class="result-actions">
           <button type="button" class="btn btn-primary" @click="leaveBattle">回城休整</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 牌组奖励独立于 battle 根节点：战斗结算后 run.battle 会被清空，
+       但奖励面板仍必须可见。 -->
+  <div v-if="cardReward" class="result-backdrop">
+    <div class="result-panel card-reward-panel">
+      <p class="kicker">DECK REWARD · 战利品</p>
+      <h2>选择一张牌</h2>
+      <p class="result-note">加入牌组，或者跳过。牌组会在之后的战斗中使用。</p>
+      <div class="card-reward-grid">
+        <button
+          v-for="card in cardReward"
+          :key="card.key"
+          type="button"
+          class="card-reward"
+          @click="pickReward(card)"
+        >
+          <span class="c-cost">{{ card.cost }}</span>
+          <b>{{ card.name }}</b>
+          <p>{{ card.desc }}</p>
+          <span class="c-type">{{ CARD_TYPES[card.type] }}</span>
+        </button>
+      </div>
+      <div class="result-actions">
+        <button type="button" class="btn btn-ghost" @click="skipReward">跳过</button>
       </div>
     </div>
   </div>
