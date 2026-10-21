@@ -253,6 +253,12 @@ function goDate() {
   router.push({ name: 'date', params: { runId: run.value.id, nodeId: selected.value.id } })
 }
 
+function goCityNode() {
+  if (!selected.value || !run.value) return
+  const result = game.visitCity(selected.value.id)
+  if (result.ok) router.push({ name: 'city', params: { runId: run.value.id } })
+}
+
 function goBattle() {
   if (!selected.value || !run.value) return
   const nodeId = selected.value.id
@@ -538,6 +544,24 @@ function nextNodes(node) {
                     调查
                   </button>
                 </template>
+              </template>
+
+              <!-- 城市 -->
+              <template v-else-if="selected.type === 'city'">
+                <p class="event-title">{{ selected.cityName || selected.title }}</p>
+                <p class="story">边境聚落。这里有自己的本地人口、访客、市场和诊所。</p>
+                <div class="kv">
+                  <div><span>本地人口</span><b>{{ selected.populationTarget || 14 }} 人</b></div>
+                  <div><span>服务</span><b>市场 · 酒馆 · 诊所</b></div>
+                </div>
+                <button
+                  v-if="selectedState === 'current'"
+                  type="button"
+                  class="btn btn-primary btn-block"
+                  @click="goCityNode"
+                >
+                  进入城市
+                </button>
               </template>
 
               <!-- 休整 -->

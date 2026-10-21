@@ -305,6 +305,7 @@ export const NODE_TYPES = {
   date: { name: '约会', glyph: '♡' },
   shop: { name: '交易', glyph: '◈' },
   rest: { name: '休整', glyph: '☾' },
+  city: { name: '城市', glyph: '⌂' },
   boss: { name: '首领', glyph: '✷' },
 }
 

@@ -7,6 +7,7 @@ import {
   claimCityQuest,
   createCityState,
   ensureCity,
+  enterCityNode,
   healAtClinic,
   refreshCityVisitors,
   tavernRumor,
@@ -380,6 +381,14 @@ export const useGameStore = defineStore('game', {
       ensureCity(this.run)
       this.save()
       return this.run.city
+    },
+
+    visitCity(nodeId) {
+      if (!this.run) return { ok: false }
+      const result = enterCityNode(this.run, nodeId)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
     },
 
     buyCityOffer(section, index) {

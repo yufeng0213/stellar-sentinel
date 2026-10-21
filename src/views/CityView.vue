@@ -9,7 +9,8 @@ const game = useGameStore()
 const router = useRouter()
 const run = computed(() => game.run)
 const city = computed(() => run.value?.city || null)
-const population = computed(() => (run.value ? cityPopulation(run.value, 'dock') : { total: 0, visitors: 0 }))
+const cityMeta = computed(() => (run.value ? run.value.cities?.[run.value.activeCityId] : null))
+const population = computed(() => (run.value ? cityPopulation(run.value, run.value.activeCityId || 'dock') : { total: 0, visitors: 0 }))
 const visitors = computed(() => (city.value?.visitorIds || [])
   .map((id) => run.value?.npcs?.[id])
   .filter((npc) => npc && npc.active !== false))
@@ -32,9 +33,9 @@ function finishEscort(escort) {
   <div v-if="run" class="run-page city-page">
     <section class="panel city-hero">
       <div>
-        <p class="kicker">SAFE HARBOR · D{{ run.day }}</p>
-        <h1>白塔空港</h1>
-        <p class="hint">远征之间的落脚点。市场、酒馆、诊所和城门都在步行范围内。</p>
+        <p class="kicker">{{ cityMeta?.name === '白塔空港' || !cityMeta ? 'SAFE HARBOR' : 'FRONTIER POST' }} · D{{ run.day }}</p>
+        <h1>{{ cityMeta?.name || '白塔空港' }}</h1>
+        <p class="hint">{{ cityMeta?.name === '白塔空港' ? '远征之间的落脚点。市场、酒馆、诊所和城门都在步行范围内。' : '边境聚落。这里有自己的本地人口、访客和物资。' }}</p>
         <div class="city-tags">
           <span class="tag cyan">信用点 {{ run.player.credits }}</span>
           <span class="tag jade">生命 {{ Math.round(run.player.hp) }} / {{ run.player.hpMax }}</span>

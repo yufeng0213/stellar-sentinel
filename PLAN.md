@@ -606,7 +606,9 @@ NPC 之间维护关系边：`{ a, b, trust, closeness, rivalry }`。
 - [x] `test:npcscale` 覆盖 500 NPC、英文名、唯一性与稀疏边
 - [x] NPC 分 core / active / background 三层；background 不参与每日关系和事件模拟
 - [x] 空港本地人口 cohort：首次进入补到 20 人，访客从本地池轮换，刷新不再新建 NPC
-- [ ] 多城市节点、Web Worker 每日 tick、IndexedDB 存档、NPC 列表分页（后续）
+- [x] 第二城市节点「矿脉站」：独立本地人口 14、独立市场/诊所/黑市/任务与访客
+- [x] 城市状态分城市保存，进入节点时切换 activeCityId
+- [ ] 更多城市、Web Worker 每日 tick、IndexedDB 存档、NPC 列表分页（后续）
 
 ### Phase 40 · 城市与派系长线（待实现）
 

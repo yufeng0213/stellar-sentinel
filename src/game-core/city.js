@@ -95,7 +95,7 @@ function makeOffers(rng, pool, count, ensureKey = null) {
 }
 
 function makeQuests(run) {
-  const rng = createRng(`${run.seed}:quests:${run.day}`)
+  const rng = createRng(`${run.seed}:${run.activeCityId || 'dock'}:quests:${run.day}`)
   const targets = Object.values(run.map?.nodes || {}).filter((node) => (
     node &&
     node.id !== run.location &&
@@ -131,30 +131,69 @@ export function createCitiesState() {
 export function ensureCities(run) {
   if (!run) return {}
   if (!run.cities || typeof run.cities !== 'object') run.cities = createCitiesState()
-  if (!run.cities.dock) {
-    run.cities.dock = {
-      id: 'dock',
-      name: '白塔空港',
+  ensureCityMeta(run, 'dock', { name: '白塔空港', target: 20 })
+  return run.cities
+}
+
+export function ensureCityMeta(run, cityId, meta = {}) {
+  if (!run.cities || typeof run.cities !== 'object') run.cities = createCitiesState()
+  if (!run.cities[cityId]) {
+    run.cities[cityId] = {
+      id: cityId,
+      name: meta.name || cityId,
       discoveredDay: run.day || 1,
       npcIds: [],
       visitorIds: [],
       refreshCount: 0,
-      target: 20,
+      target: meta.target || 20,
     }
   }
-  const dock = run.cities.dock
-  if (!Array.isArray(dock.npcIds)) dock.npcIds = []
-  if (!Array.isArray(dock.visitorIds)) dock.visitorIds = []
-  if (typeof dock.refreshCount !== 'number') dock.refreshCount = 0
-  if (typeof dock.target !== 'number') dock.target = 20
-  return run.cities
+  const city = run.cities[cityId]
+  if (meta.name) city.name = meta.name
+  if (meta.target) city.target = meta.target
+  if (!Array.isArray(city.npcIds)) city.npcIds = []
+  if (!Array.isArray(city.visitorIds)) city.visitorIds = []
+  if (typeof city.refreshCount !== 'number') city.refreshCount = 0
+  if (typeof city.target !== 'number') city.target = 20
+  return city
 }
 
-export function ensureCityPopulation(run, cityId = 'dock', target = 20) {
-  const cities = ensureCities(run)
-  const city = cities[cityId]
+export function ensureCityStates(run) {
+  if (!run) return
+  if (!run.cityStates || typeof run.cityStates !== 'object') run.cityStates = {}
+  if (!run.activeCityId) run.activeCityId = 'dock'
+  if (!run.cityStates[run.activeCityId]) {
+    run.cityStates[run.activeCityId] = run.city || createCityState()
+  }
+  run.city = run.cityStates[run.activeCityId]
+  ensureCities(run)
+}
+
+export function enterCityNode(run, nodeId) {
+  const node = run?.map?.nodes?.[nodeId]
+  if (!node || node.type !== 'city') return { ok: false, message: '这里不是城市' }
+  ensureCityStates(run)
+  ensureCity(run)
+  const cityId = node.cityId || 'outpost'
+  if (run.activeCityId === cityId) {
+    ensureCityMeta(run, cityId, { name: node.cityName || node.title, target: node.populationTarget || 14 })
+    ensureCity(run)
+    return { ok: true, cityId }
+  }
+  run.cityStates[run.activeCityId] = run.city
+  run.activeCityId = cityId
+  run.city = run.cityStates[cityId] || createCityState()
+  run.cityStates[cityId] = run.city
+  ensureCityMeta(run, cityId, { name: node.cityName || node.title, target: node.populationTarget || 14 })
+  ensureCity(run)
+  return { ok: true, cityId }
+}
+
+export function ensureCityPopulation(run, cityId = 'dock', target = null) {
+  ensureCities(run)
+  const city = ensureCityMeta(run, cityId, { target: target || undefined })
   if (!city) return null
-  city.target = Math.max(1, Number(target) || city.target || 20)
+  if (target) city.target = Math.max(1, Number(target) || city.target || 20)
 
   const ids = new Set(city.npcIds.filter((id) => run.npcs?.[id]))
   Object.values(run.npcs || {}).forEach((npc) => {
@@ -166,7 +205,7 @@ export function ensureCityPopulation(run, cityId = 'dock', target = 20) {
   let index = 0
   while (ids.size < city.target && index < city.target * 4) {
     const npc = spawnCityNpc(run, cityId, city.npcIds.length + index, {
-      home: cityId === 'dock' ? 'dock' : 'dock',
+      home: cityId === 'dock' ? 'dock' : nodeHome(run, cityId),
     })
     if (!npc) break
     ids.add(npc.id)
@@ -175,6 +214,11 @@ export function ensureCityPopulation(run, cityId = 'dock', target = 20) {
 
   city.npcIds = [...ids]
   return city
+}
+
+function nodeHome(run, cityId) {
+  const node = Object.values(run.map?.nodes || {}).find((item) => item.type === 'city' && item.cityId === cityId)
+  return node?.region || 'dock'
 }
 
 export function cityPopulation(run, cityId = 'dock') {
@@ -227,23 +271,24 @@ export function ensureCity(run) {
   if (typeof city.intelBought !== 'boolean') city.intelBought = false
   if (typeof city.doorKeyBought !== 'boolean') city.doorKeyBought = false
 
-  ensureCities(run)
-  const population = ensureCityPopulation(run, 'dock')
+  ensureCityStates(run)
+  const population = ensureCityPopulation(run, run.activeCityId || 'dock')
   if (population && !city.visitorIds.length) {
     city.visitorIds = pickCityVisitors(run, population).map((npc) => npc.id)
     city.refreshCount = population.refreshCount || 0
   }
 
+  const cityKey = run.activeCityId || 'dock'
   if (city.marketDay !== run.day) {
-    city.market = makeOffers(createRng(`${run.seed}:market:${run.day}`), MARKET_POOL, 6, 'wine')
+    city.market = makeOffers(createRng(`${run.seed}:${cityKey}:market:${run.day}`), MARKET_POOL, 6, 'wine')
     city.marketDay = run.day
   }
   if (city.clinicDay !== run.day) {
-    city.clinic = makeOffers(createRng(`${run.seed}:clinic:${run.day}`), CLINIC_POOL, 3)
+    city.clinic = makeOffers(createRng(`${run.seed}:${cityKey}:clinic:${run.day}`), CLINIC_POOL, 3)
     city.clinicDay = run.day
   }
   if (city.blackmarketDay !== run.day) {
-    city.blackmarket = makeOffers(createRng(`${run.seed}:blackmarket:${run.day}`), BLACKMARKET_POOL, 3)
+    city.blackmarket = makeOffers(createRng(`${run.seed}:${cityKey}:blackmarket:${run.day}`), BLACKMARKET_POOL, 3)
     city.blackmarketDay = run.day
   }
   if (city.questsDay !== run.day) {
@@ -303,7 +348,7 @@ export function refreshCityVisitors(run) {
 
   run.player.credits -= cost
   city.refreshCount += 1
-  const population = ensureCityPopulation(run, 'dock')
+  const population = ensureCityPopulation(run, run.activeCityId || 'dock')
   population.refreshCount = city.refreshCount
   pickCityVisitors(run, population)
   city.visitorIds = [...population.visitorIds]

@@ -675,6 +675,12 @@ function makeNode(rng, layer, slot, type, profile = null) {
     node.heal = 24 + region.danger * 4
     node.mental = 18 + region.danger * 3
     node.subtitle = `${region.name} · 休整点`
+  } else if (type === 'city') {
+    node.cityId = 'outpost'
+    node.cityName = '矿脉站'
+    node.title = '矿脉站'
+    node.populationTarget = 14
+    node.subtitle = `${region.name} · 边境聚落`
   } else {
     node.subtitle = `${region.name} · 异常`
     node.event = makeEvent(rng, region, profile)
@@ -721,6 +727,7 @@ export function generateRunMap(seed, profile = null) {
       let type
       if (layer === 0) type = 'start'
       else if (layer === TOTAL_LAYERS - 1) type = 'boss'
+      else if (layer === 4 && slot === 0) type = 'city'
       else type = weightedPick(rng, TYPE_WEIGHTS[ACT_OF_LAYER[layer]])
 
       const node = makeNode(rng, layer, slot, type, profile)
