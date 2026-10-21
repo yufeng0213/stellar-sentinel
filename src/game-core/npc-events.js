@@ -7,8 +7,9 @@ import { ITEMS, REGIONS } from './data.js'
 import { recordWeeklyMemories } from './memory.js'
 import { activeEscorts, startEscort } from './escort.js'
 import { PERSONA_EVENTS, personaEventFor } from './npc-persona-events.js'
+import { QUARREL_LINES, RECONCILE_LINES, RIVALRY_LINES } from './npc-conflict-events.js'
 import { STAGE_EVENTS, stageEventFor } from './npc-stage-events.js'
-import { markAmbiguous, relationStageOf } from './npc-stages.js'
+import { clearQuarrel, markAmbiguous, noteNpcInteraction, relationStageOf } from './npc-stages.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -24,6 +25,9 @@ export const EVENT_TYPES = {
   escort: { label: '护送', color: 'amber', base: 9, major: true },
   bond: { label: '好感', color: 'violet', base: 10, major: true },
   persona: { label: '专属', color: 'violet', base: 8, major: true },
+  quarrel: { label: '争吵', color: 'red', base: 8, major: true },
+  reconcile: { label: '和解', color: 'jade', base: 9, major: true },
+  rivalry: { label: '争宠', color: 'red', base: 7, major: true },
   conflict: { label: '冲突', color: 'red', base: 10, major: true },
   gossip: { label: '八卦', color: 'amber', base: 7, major: false },
 }
@@ -121,6 +125,18 @@ function eventEligible(run, npc, type, rng) {
 
   const relation = npc.relation
   if (type === 'message') return true
+  if (type === 'quarrel') {
+    return (npc.lover || npc.ambiguous) &&
+      !npc.quarrel?.active &&
+      npc.strain >= 25
+  }
+  if (type === 'reconcile') return Boolean(npc.quarrel?.active)
+  if (type === 'rivalry') {
+    if (npc.quarrel?.active || !(npc.lover || npc.ambiguous)) return false
+    return Object.values(run.npcs || {}).some((other) => (
+      other.id !== npc.id && other.alive && (other.lover || other.ambiguous)
+    ))
+  }
   if (type === 'bond') {
     const stage = relationStageOf(npc)
     return stage.id === 'goodwill' &&
@@ -139,6 +155,7 @@ function eventEligible(run, npc, type, rng) {
   if (type === 'quest') return relation.trust >= 30 && relation.closeness >= 15 && questTargets(run).length > 0
   if (type === 'romance') {
     return relationStageOf(npc).id === 'ambiguous' &&
+      !npc.quarrel?.active &&
       relation.trust >= 40 &&
       relation.closeness >= 55 &&
       !hasTag(npc, 'commitmentphobe') &&
@@ -147,6 +164,7 @@ function eventEligible(run, npc, type, rng) {
   if (type === 'confession') {
     return !npc.lover &&
       !npc.confessed &&
+      !npc.quarrel?.active &&
       relationStageOf(npc).id === 'ambiguous' &&
       relation.trust >= 50 &&
       relation.closeness >= 60 &&
@@ -174,6 +192,9 @@ function eventWeight(run, npc, type) {
   weight *= npc.tagEffects?.eventWeight?.[type] || 1
 
   if (type === 'message') weight *= 1 + relation.trust / 180
+  if (type === 'quarrel') weight *= 1 + (npc.strain || 0) / 40
+  if (type === 'reconcile') weight *= 2.2
+  if (type === 'rivalry') weight *= 1.4
   if (type === 'bond') weight *= 1 + relation.closeness / 80
   if (type === 'persona') weight *= 1 + relation.closeness / 100
   if (type === 'gift') weight *= 1 + npc.personality.generosity / 160
@@ -266,7 +287,41 @@ function buildEvent(run, rng, npc, type, weekly = false) {
     choices: [],
   }
 
-  if (type === 'bond') {
+  if (type === 'quarrel') {
+    const line = QUARREL_LINES[npc.archetype?.id] || QUARREL_LINES.default
+    base.title = line.title
+    base.text = line.text
+    base.payload = { kind: 'quarrel' }
+    base.choices = [
+      { id: 'explain', label: '解释' },
+      { id: 'apologize', label: '先道歉' },
+      { id: 'walk', label: '转身离开' },
+    ]
+  } else if (type === 'reconcile') {
+    const line = RECONCILE_LINES[npc.archetype?.id] || RECONCILE_LINES.default
+    base.title = `${npc.name} 还在等一个说法`
+    base.text = `${line}\n\n“我们还要这样多久？”`
+    base.payload = { kind: 'reconcile' }
+    base.choices = [
+      { id: 'apologize', label: '认真道歉' },
+      { id: 'listen', label: '先听他说完' },
+      { id: 'space', label: '再给彼此一点时间' },
+    ]
+  } else if (type === 'rivalry') {
+    const other = Object.values(run.npcs || {})
+      .filter((item) => item.id !== npc.id && item.alive && (item.lover || item.ambiguous))
+      .sort((left, right) => (right.relation?.closeness || 0) - (left.relation?.closeness || 0))[0]
+    if (!other) return null
+    const line = RIVALRY_LINES[npc.archetype?.id] || RIVALRY_LINES.default
+    base.title = `${npc.name} 不想再猜了`
+    base.text = `${line}\n\n他提到的人：${other.name}。`
+    base.payload = { otherId: other.id }
+    base.choices = [
+      { id: 'favor', label: '偏向这边' },
+      { id: 'reassure', label: '两边都安抚' },
+      { id: 'boundary', label: '把边界说清楚' },
+    ]
+  } else if (type === 'bond') {
     const definition = stageEventFor(npc)
     if (!definition) return null
     base.title = definition.title
@@ -486,6 +541,30 @@ export function generateNpcEvents(run, options = {}) {
         created.push(bondEvent)
       }
     }
+    const pendingReconcile = run.inbox.some((event) => event.status === 'pending' && event.type === 'reconcile')
+    const reconcileCandidate = daily.find((item) => item.type === 'reconcile')
+    if (!pendingReconcile && reconcileCandidate) {
+      const reconcileEvent = buildEvent(run, rng, reconcileCandidate.npc, 'reconcile')
+      if (reconcileEvent) {
+        run.inbox.unshift(reconcileEvent)
+        markCooldown(run, reconcileCandidate.npc, 'reconcile')
+        usedNpc.add(reconcileCandidate.npc.id)
+        usedTypes.add('reconcile')
+        created.push(reconcileEvent)
+      }
+    }
+    const pendingQuarrel = run.inbox.some((event) => event.status === 'pending' && event.type === 'quarrel')
+    const quarrelCandidate = daily.find((item) => item.type === 'quarrel' && !usedNpc.has(item.npc.id))
+    if (!pendingQuarrel && quarrelCandidate) {
+      const quarrelEvent = buildEvent(run, rng, quarrelCandidate.npc, 'quarrel')
+      if (quarrelEvent) {
+        run.inbox.unshift(quarrelEvent)
+        markCooldown(run, quarrelCandidate.npc, 'quarrel')
+        usedNpc.add(quarrelCandidate.npc.id)
+        usedTypes.add('quarrel')
+        created.push(quarrelEvent)
+      }
+    }
     const count = daily.length && rng.chance(0.35) ? 2 : daily.length ? 1 : 0
     for (let index = 0; index < count; index += 1) {
       const pool = daily.filter((item) => (
@@ -533,6 +612,76 @@ function resolveMessage(run, npc, event, choice) {
   }
   npc.relation.closeness = clamp(npc.relation.closeness - 1, 0, 100)
   return '你没有回复。消息停在那里。'
+}
+
+function resolveQuarrel(run, npc, event, choice) {
+  npc.quarrel = {
+    active: true,
+    day: run.day,
+    topic: event.payload?.kind || 'strain',
+  }
+  npc.strain = clamp((npc.strain || 0) + 6, 0, 100)
+  npc.lastQuarrelDay = run.day
+  if (choice === 'apologize') {
+    npc.relation.closeness = clamp(npc.relation.closeness + 3, 0, 100)
+    npc.relation.trust = clamp(npc.relation.trust + 2, 0, 100)
+    npc.strain = clamp(npc.strain - 14, 0, 100)
+    return '你先道了歉。他没有立刻接话，但也没有再挡着门。'
+  }
+  if (choice === 'explain') {
+    npc.relation.trust = clamp(npc.relation.trust + 3, 0, 100)
+    npc.relation.closeness = clamp(npc.relation.closeness + 1, 0, 100)
+    npc.strain = clamp(npc.strain - 7, 0, 100)
+    return '你把最近的事解释了一遍。他听完了，没有完全释怀，但愿意再听一次。'
+  }
+  npc.relation.closeness = clamp(npc.relation.closeness - 4, 0, 100)
+  npc.relation.grievance = clamp(npc.relation.grievance + 6, 0, 100)
+  npc.strain = clamp(npc.strain + 8, 0, 100)
+  return '你没有再解释。他站在原地，看着你离开。'
+}
+
+function resolveReconcile(run, npc, event, choice) {
+  if (choice === 'space') {
+    npc.strain = clamp((npc.strain || 0) + 2, 0, 100)
+    npc.relation.closeness = clamp(npc.relation.closeness - 1, 0, 100)
+    return '你说还需要一点时间。他点头，但这次没有先走。'
+  }
+  clearQuarrel(npc, run.day)
+  if (choice === 'listen') {
+    npc.relation.closeness = clamp(npc.relation.closeness + 4, 0, 100)
+    npc.relation.trust = clamp(npc.relation.trust + 2, 0, 100)
+    npc.strain = clamp(npc.strain - 10, 0, 100)
+    return '你先听他把话说完。他没有再逼你给答案，最后只是轻轻叹了口气。'
+  }
+  npc.relation.closeness = clamp(npc.relation.closeness + 8, 0, 100)
+  npc.relation.trust = clamp(npc.relation.trust + 4, 0, 100)
+  npc.relation.grievance = clamp(npc.relation.grievance - 5, 0, 100)
+  npc.strain = clamp(npc.strain - 20, 0, 100)
+  return '你认真道了歉。他沉默了很久，最后说：“下次别让我一个人猜。”'
+}
+
+function resolveRivalry(run, npc, event, choice) {
+  const other = run.npcs?.[event.payload.otherId]
+  if (!other) return { error: '另一个人已经不在了' }
+  if (choice === 'favor') {
+    npc.relation.closeness = clamp(npc.relation.closeness + 7, 0, 100)
+    npc.relation.trust = clamp(npc.relation.trust + 2, 0, 100)
+    other.relation.grievance = clamp(other.relation.grievance + 8, 0, 100)
+    other.relation.closeness = clamp(other.relation.closeness - 2, 0, 100)
+    return `你选择偏向${npc.name}。他松了口气；${other.name}那边安静了很久。`
+  }
+  if (choice === 'reassure') {
+    npc.relation.closeness = clamp(npc.relation.closeness + 3, 0, 100)
+    npc.relation.trust = clamp(npc.relation.trust + 2, 0, 100)
+    npc.strain = clamp((npc.strain || 0) - 6, 0, 100)
+    other.relation.closeness = clamp(other.relation.closeness + 2, 0, 100)
+    other.relation.trust = clamp(other.relation.trust + 2, 0, 100)
+    return '你把两边都安抚了一遍。谁都没有完全满意，但至少今晚没有再追问。'
+  }
+  npc.relation.trust = clamp(npc.relation.trust + 5, 0, 100)
+  npc.relation.closeness = clamp(npc.relation.closeness - 2, 0, 100)
+  other.relation.grievance = clamp(other.relation.grievance + 3, 0, 100)
+  return '你把边界说清楚了。他听懂了，虽然不算高兴，但不再逼你选。'
 }
 
 function resolveBond(run, npc, event, choice) {
@@ -718,6 +867,9 @@ export function resolveInboxEvent(run, eventId, choiceId) {
   let result = ''
   if (event.type === 'message') result = resolveMessage(run, npc, event, choiceId)
   else if (event.type === 'bond') result = resolveBond(run, npc, event, choiceId)
+  else if (event.type === 'quarrel') result = resolveQuarrel(run, npc, event, choiceId)
+  else if (event.type === 'reconcile') result = resolveReconcile(run, npc, event, choiceId)
+  else if (event.type === 'rivalry') result = resolveRivalry(run, npc, event, choiceId)
   else if (event.type === 'persona') result = resolvePersona(run, npc, event, choiceId)
   else if (event.type === 'gift') result = resolveGift(run, npc, event, choiceId)
   else if (event.type === 'favor') result = resolveFavor(run, npc, event, choiceId)
@@ -735,7 +887,10 @@ export function resolveInboxEvent(run, eventId, choiceId) {
   event.choice = choiceId
   event.resolvedDay = run.day
   event.result = result
-  pushWorld(run, `${npc.name}：${result}`, event.type === 'conflict' ? 'bad' : 'info')
+  const skipTouch = ['quarrel', 'rivalry'].includes(event.type) ||
+    (event.type === 'reconcile' && choiceId === 'space')
+  if (!skipTouch) noteNpcInteraction(npc, run.day)
+  pushWorld(run, `${npc.name}：${result}`, event.type === 'conflict' || event.type === 'quarrel' ? 'bad' : 'info')
   return { ok: true, text: result, npcId: npc.id, type: event.type }
 }
 

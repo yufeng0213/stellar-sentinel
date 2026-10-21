@@ -12,7 +12,7 @@ import {
   tagAffinity,
 } from './npc-tags.js'
 import { applyNpcArchetype, ensureNpcArchetype, pickNpcArchetype } from './npc-archetypes.js'
-import { clearAmbiguous, ensureNpcStage, relationStageInfo, relationStageOf } from './npc-stages.js'
+import { clearAmbiguous, ensureNpcStage, noteNpcInteraction, relationStageInfo, relationStageOf } from './npc-stages.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -355,6 +355,9 @@ function makeNpc(run, rng, id, seedRole, name) {
     ambiguous: false,
     ambiguousSince: 0,
     stageHistory: [],
+    strain: 0,
+    lastInteractionDay: 1,
+    quarrel: null,
     lore: { entries: [] },
     longMemory: [],
     personaDone: [],
@@ -458,7 +461,7 @@ export function ensureNpcTags(run) {
     if (typeof npc.confessed !== 'boolean') npc.confessed = false
     if (typeof npc.confessedDay !== 'number') npc.confessedDay = 0
     if (!Array.isArray(npc.personaDone)) npc.personaDone = []
-    ensureNpcStage(npc)
+    ensureNpcStage(npc, run.day)
     ensureNpcArchetype(run, npc)
     if (npc.tags?.length) return
     const seedRole = FIXED_NPCS.find((item) => item.name === npc.name) || null
@@ -592,6 +595,7 @@ export function romanceStatus(run, npcId) {
   const stage = relationStageOf(npc)
   const available = stage.id === 'ambiguous' &&
     !npc.lover &&
+    !npc.quarrel?.active &&
     npc.alive &&
     !npc.hostile &&
     npc.relation.trust >= 50 &&
@@ -614,6 +618,7 @@ export function confessToNpc(run, npcId) {
   const status = romanceStatus(run, npcId)
   if (status.lover) return { ok: false, message: '你们已经是恋人了' }
   if (status.stage !== 'ambiguous') return { ok: false, message: '关系还没到暧昧阶段，先把话说开一点' }
+  if (npc.quarrel?.active) return { ok: false, message: '你们还在冷战中，先把这件事解决' }
   if (!status.available) return { ok: false, message: '信任或亲近还不够，或者对方不打算谈这件事' }
 
   const rng = createRng(`${run.seed}:confess:${npcId}:${run.rollCount}`)
@@ -665,6 +670,7 @@ export function breakUpWithNpc(run, npcId) {
   npc.confessed = true
   npc.confessedDay = run.day
   npc.breakupDay = run.day
+  npc.quarrel = null
   clearAmbiguous(npc, run.day)
   npc.relation.closeness = clamp(npc.relation.closeness - 20, 0, 100)
   npc.relation.trust = clamp(npc.relation.trust - 8, 0, 100)
@@ -737,6 +743,7 @@ export function giftToNpc(run, npcId, itemId) {
 
   addMemory(npc, run.day, `你送了 ${ITEMS[itemId].name}。`)
   markSocial(run, npcId, 'gift', gain)
+  noteNpcInteraction(npc, run.day)
   return { ok: true, gain, reply }
 }
 
@@ -925,6 +932,7 @@ export function talkToNpc(run, npcId, topic = 'life') {
 
   addMemory(npc, run.day, `你们聊了${meta.label}。`)
   markSocial(run, npcId, 'talk', (meta.trust || 0) + (meta.closeness || 0))
+  noteNpcInteraction(npc, run.day)
   return { ok: true, reply: reveal ? `${reply} ${reveal}` : reply, topic: meta.label }
 }
 
@@ -1071,6 +1079,17 @@ export function tickWorld(run) {
   Object.values(run.npcs).forEach((npc) => {
     if (!npc.alive) return
     npc.activity = npc.schedule[(run.day + Number(npc.id.split('-')[1])) % npc.schedule.length]
+    if (npc.lover || npc.ambiguous) {
+      ensureNpcStage(npc)
+      const gap = run.day - (npc.lastInteractionDay || run.day)
+      if (npc.quarrel?.active) {
+        npc.strain = clamp(npc.strain + 1, 0, 100)
+      } else if (gap >= 2) {
+        npc.strain = clamp(npc.strain + Math.min(6, gap), 0, 100)
+      } else {
+        npc.strain = Math.max(0, npc.strain - 2)
+      }
+    }
   })
 
   rng.shuffle(Object.values(run.npcs).filter((npc) => npc.alive))

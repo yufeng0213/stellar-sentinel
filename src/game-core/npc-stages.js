@@ -13,11 +13,14 @@ export const RELATION_STAGES = [
 
 const STAGE_INDEX = Object.fromEntries(RELATION_STAGES.map((stage, index) => [stage.id, index]))
 
-export function ensureNpcStage(npc) {
+export function ensureNpcStage(npc, fallbackDay = 1) {
   if (!npc) return null
   if (typeof npc.ambiguous !== 'boolean') npc.ambiguous = false
   if (!npc.ambiguousSince) npc.ambiguousSince = 0
   if (!Array.isArray(npc.stageHistory)) npc.stageHistory = []
+  if (typeof npc.strain !== 'number') npc.strain = 0
+  if (typeof npc.lastInteractionDay !== 'number') npc.lastInteractionDay = fallbackDay
+  if (npc.quarrel === undefined) npc.quarrel = null
   return npc
 }
 
@@ -46,10 +49,29 @@ export function relationStageInfo(npc) {
     next,
     trust,
     closeness,
-    canBond: current.id === 'goodwill' && !npc?.ambiguous && !npc?.lover,
+    strain: npc?.strain || 0,
+    maintenance: Math.max(0, 100 - (npc?.strain || 0)),
+    quarrel: npc?.quarrel || null,
+    canBond: current.id === 'goodwill' && !npc?.ambiguous && !npc?.lover && !npc?.quarrel,
     trustToNext: next ? Math.max(0, next.minTrust - trust) : 0,
     closenessToNext: next ? Math.max(0, next.minCloseness - closeness) : 0,
   }
+}
+
+export function noteNpcInteraction(npc, day, relief = 8) {
+  if (!npc) return npc
+  ensureNpcStage(npc)
+  npc.lastInteractionDay = day
+  npc.strain = Math.max(0, npc.strain - relief)
+  return npc
+}
+
+export function clearQuarrel(npc, day) {
+  if (!npc?.quarrel) return
+  ensureNpcStage(npc)
+  npc.quarrel = null
+  npc.lastReconciledDay = day
+  npc.stageHistory.push({ stage: 'reconciled', day })
 }
 
 export function markAmbiguous(npc, day) {

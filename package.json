@@ -1,6 +1,6 @@
 {
   "name": "stellar-sentinel",
-  "version": "0.36.0",
+  "version": "0.37.0",
   "private": true,
   "type": "module",
   "description": "星穹哨向 · 星际哨兵向导 RPG",
@@ -11,7 +11,7 @@
     "build": "vite build",
     "start": "node server/index.js",
     "preview": "vite preview",
-    "test": "npm run test:core && npm run test:combat && npm run test:npc && npm run test:llm && npm run test:world && npm run test:chargen && npm run test:tags && npm run test:events && npm run test:lore && npm run test:narrative && npm run test:retreat && npm run test:story && npm run test:city && npm run test:mainline && npm run test:door && npm run test:ending && npm run test:faction && npm run test:visitorStory && npm run test:stream && npm run test:items && npm run test:social && npm run test:gear && npm run test:calibration && npm run test:eventpool && npm run test:persona && npm run test:stage",
+    "test": "npm run test:core && npm run test:combat && npm run test:npc && npm run test:llm && npm run test:world && npm run test:chargen && npm run test:tags && npm run test:events && npm run test:lore && npm run test:narrative && npm run test:retreat && npm run test:story && npm run test:city && npm run test:mainline && npm run test:door && npm run test:ending && npm run test:faction && npm run test:visitorStory && npm run test:stream && npm run test:items && npm run test:social && npm run test:gear && npm run test:calibration && npm run test:eventpool && npm run test:persona && npm run test:stage && npm run test:maintenance",
     "test:core": "node tests/core-smoke.mjs",
     "test:combat": "node tests/combat-smoke.mjs",
     "test:npc": "node tests/npc-smoke.mjs",
@@ -37,7 +37,8 @@
     "test:calibration": "node tests/calibration-smoke.mjs",
     "test:eventpool": "node tests/event-pool-smoke.mjs",
     "test:persona": "node tests/persona-smoke.mjs",
-    "test:stage": "node tests/stage-smoke.mjs"
+    "test:stage": "node tests/stage-smoke.mjs",
+    "test:maintenance": "node tests/maintenance-smoke.mjs"
   },
   "dependencies": {
     "express": "^4.21.2",

@@ -96,6 +96,8 @@ function doBreakUp() {
           <div class="sheet-tags">
             <span v-if="archetype" class="tag violet">{{ archetype.glyph }} {{ archetype.name }}</span>
             <span v-if="stageInfo" class="tag" :class="stageInfo.color">{{ stageInfo.name }}</span>
+            <span v-if="stageInfo?.quarrel" class="tag red">冷战中</span>
+            <span v-else-if="stageInfo?.strain >= 35" class="tag amber">关系紧张</span>
             <span v-if="npc.lover" class="tag red">恋人</span>
             <span v-if="npc.party" class="tag jade">队伍中</span>
             <span v-if="npc.hostile" class="tag red">敌视</span>
@@ -139,12 +141,22 @@ function doBreakUp() {
           {{ stage.name }}
         </span>
       </div>
-      <p v-if="stageInfo.next" class="stage-next">
+      <div class="strain-line">
+        <span>关系稳定度</span>
+        <span class="bar"><i :style="{ width: `${stageInfo.maintenance}%` }"></i></span>
+        <b>{{ stageInfo.maintenance }}</b>
+      </div>
+      <p v-if="stageInfo.id === 'ambiguous'" class="stage-next">
+        下一阶段「恋人」需要先完成一次表白。
+      </p>
+      <p v-else-if="stageInfo.next" class="stage-next">
         下一阶段「{{ stageInfo.next.name }}」还需要信任 +{{ stageInfo.trustToNext }}、亲近 +{{ stageInfo.closenessToNext }}
       </p>
       <p v-else class="stage-next">已经走到这段关系的当前终点。</p>
-      <p v-if="stageInfo.canBond" class="stage-hint">好感期会出现一次更明确的试探；接受后进入暧昧。</p>
+      <p v-if="stageInfo.quarrel" class="stage-hint">冷战中：先处理这次争吵，和解后才能继续约会或表白。</p>
+      <p v-else-if="stageInfo.canBond" class="stage-hint">好感期会出现一次更明确的试探；接受后进入暧昧。</p>
       <p v-else-if="stageInfo.id === 'ambiguous'" class="stage-hint">暧昧期可以继续靠近，也可以主动表达心意或等对方先开口。</p>
+      <p v-else-if="stageInfo.id === 'lover'" class="stage-hint">恋人关系需要维护：太久不联系、反复冷落都会让稳定度下降。</p>
     </section>
 
     <section class="panel npc-block">
@@ -299,6 +311,10 @@ function doBreakUp() {
 .stage-step.is-current { border-color: rgba(124, 231, 255, .45); background: rgba(124, 231, 255, .08); color: var(--cyan); }
 .stage-next { margin-top: 8px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
 .stage-hint { margin-top: 5px; color: var(--violet); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.strain-line { display: flex; align-items: center; gap: 7px; margin-top: 9px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
+.strain-line .bar { flex: 1; height: 5px; overflow: hidden; border-radius: 4px; background: rgba(255, 255, 255, .07); }
+.strain-line .bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(124, 231, 255, .45), var(--cyan)); transition: width .3s ease; }
+.strain-line b { min-width: 24px; color: var(--muted); text-align: right; font-weight: 400; }
 .archetype-block { border-color: rgba(185, 164, 255, .22); background: rgba(185, 164, 255, .045); }
 .archetype-head { display: flex; align-items: center; gap: 10px; }
 .archetype-glyph { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border: 1px solid rgba(185, 164, 255, .35); border-radius: 9px; color: var(--violet); font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); }
