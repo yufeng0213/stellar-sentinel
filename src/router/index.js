@@ -7,6 +7,7 @@ import StoryView from '../views/StoryView.vue'
 import StoryMainView from '../views/StoryMainView.vue'
 import DoorView from '../views/DoorView.vue'
 import EpilogueView from '../views/EpilogueView.vue'
+import ArchiveView from '../views/ArchiveView.vue'
 import EndingsView from '../views/EndingsView.vue'
 import CityView from '../views/CityView.vue'
 import CityQuestView from '../views/CityQuestView.vue'
@@ -43,6 +44,7 @@ const router = createRouter({
     { path: '/create', name: 'create', component: CreateView },
     { path: '/settings/llm', name: 'llm', component: LlmSettingsView },
     { path: '/endings', name: 'endings', component: EndingsView },
+    { path: '/archive', name: 'archive', component: ArchiveView },
     {
       path: '/run/:runId',
       component: RunShell,

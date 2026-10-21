@@ -46,6 +46,7 @@ function finishEscort(escort) {
           <span class="tag jade">生命 {{ Math.round(run.player.hp) }} / {{ run.player.hpMax }}</span>
           <span class="tag amber">精神 {{ Math.round(run.player.mental) }} / {{ run.player.mentalMax }}</span>
           <span class="tag violet">本地人口 {{ population.total }}</span>
+          <RouterLink to="/archive" class="tag">星区档案</RouterLink>
           <button v-if="run.activeCityId !== 'dock'" type="button" class="btn btn-sm" @click="returnDock">回空港</button>
         </div>
       </div>

@@ -6,6 +6,7 @@
 import { createNpcWorld, ensureNpcTags } from '../game-core/npc.js'
 import { createCityState } from '../game-core/city.js'
 import { ensureDoor } from '../game-core/door.js'
+import { ensureStats } from '../game-core/achievements.js'
 import { ensureBlueprints } from '../game-core/blueprint.js'
 import { ensureCalibration } from '../game-core/calibration.js'
 import { ensureDungeon } from '../game-core/dungeon.js'
@@ -82,6 +83,7 @@ export function validateRun(input) {
   if (!data.mapSeed && data.map?.seed) data.mapSeed = data.map.seed
   if (!data.story || typeof data.story !== 'object') data.story = createStoryState()
   if (!data.city || typeof data.city !== 'object') data.city = createCityState()
+  ensureStats(data)
   ensureBlueprints(data)
   ensureCalibration(data)
   ensureGear(data)

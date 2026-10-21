@@ -3,6 +3,7 @@
  * 到期未履行会伤关系，并生成失约事件。
  */
 
+import { ensureStats } from './achievements.js'
 import { ITEMS } from './data.js'
 import { noteNpcInteraction } from './npc-stages.js'
 
@@ -142,6 +143,7 @@ export function fulfillPromise(run, promiseId) {
 
   promise.status = 'done'
   promise.doneDay = run.day
+  ensureStats(run).promisesKept += 1
   npc.relation.trust = clamp(npc.relation.trust + 4, 0, 100)
   npc.relation.closeness = clamp(npc.relation.closeness + 3, 0, 100)
   npc.relation.grievance = clamp(npc.relation.grievance - 3, 0, 100)
@@ -164,6 +166,7 @@ export function expirePromises(run) {
     const npc = run.npcs?.[promise.npcId]
     promise.status = 'broken'
     promise.brokenDay = run.day
+    ensureStats(run).promisesBroken += 1
     releaseDateNode(run, promise)
     if (npc?.alive) {
       npc.relation.trust = clamp(npc.relation.trust - 6, 0, 100)

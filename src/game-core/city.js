@@ -5,6 +5,7 @@
 
 import { ITEMS } from './data.js'
 import { adjustReputation, FACTION_IDS } from './faction.js'
+import { ensureStats } from './achievements.js'
 import { spawnCityNpc } from './npc.js'
 import { createRng } from './rng.js'
 
@@ -279,6 +280,10 @@ export function ensureCity(run) {
   if (typeof city.doorKeyBought !== 'boolean') city.doorKeyBought = false
 
   ensureCityStates(run)
+  const stats = ensureStats(run)
+  if (!stats.citiesVisited.includes(run.activeCityId || 'dock')) {
+    stats.citiesVisited.push(run.activeCityId || 'dock')
+  }
   const population = ensureCityPopulation(run, run.activeCityId || 'dock')
   if (population && !city.visitorIds.length) {
     city.visitorIds = pickCityVisitors(run, population).map((npc) => npc.id)

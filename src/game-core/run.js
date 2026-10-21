@@ -9,6 +9,7 @@ import { createNpcWorld, tickWorld } from './npc.js'
 import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
 import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
+import { createStats } from './achievements.js'
 import { createBlueprintState, recipeKnown } from './blueprint.js'
 import { calibrationEffects, createCalibrationState } from './calibration.js'
 import { createCityState } from './city.js'
@@ -148,6 +149,8 @@ export function createRun(draft, seedInput) {
     player,
     deck: [...BASE_DECK],
     bossKills: {},
+    stats: createStats(),
+    achievementSeen: [],
     day: 1,
     ap: 8,
     apMax: 8,

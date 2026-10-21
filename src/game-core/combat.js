@@ -4,6 +4,7 @@
  * 规则全部在本地，LLM 不参与命中、伤害与士气。
  */
 
+import { ensureStats } from './achievements.js'
 import { unlockBossBlueprint } from './blueprint.js'
 import { BASE_DECK, GIFT_KEYS, ITEMS, REGIONS } from './data.js'
 import { calibrationEffects, grantCalibrationPoints } from './calibration.js'
@@ -1065,6 +1066,20 @@ export function resolveBattle(run, battle, choice) {
   const baseReward = 30 + battle.round * 4 + (battle.nodeType === 'boss' ? 60 : battle.nodeType === 'elite' ? 25 : 0)
   const surrendered = battle.enemies.some((enemy) => enemy.surrendered)
   const boss = battle.nodeType === 'boss'
+  const stats = ensureStats(run)
+  stats.battlesWon += 1
+  if (boss) {
+    stats.bosses += 1
+    if (battle.enemies.some((enemy) => (enemy.phase || 0) > 0)) stats.bossPhaseWins += 1
+    if (!battle.companions?.length) stats.noCompanionBoss += 1
+    if (run.story?.flags?.bossIntel) stats.bossIntelWins += 1
+    if (run.player.mental < 10) stats.lowMentalWins += 1
+  } else if (battle.nodeType === 'elite') {
+    stats.elites += 1
+    const equipped = Object.values(run.equipment || {}).filter(Boolean)
+    if (!equipped.length) stats.noGearElite += 1
+  }
+  if (run.player.mental < 10) stats.lowMentalWins += 1
 
   let credits = 0
   let mental = 0

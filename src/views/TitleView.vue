@@ -4,12 +4,14 @@ import { useRouter } from 'vue-router'
 import SoundToggle from '../components/SoundToggle.vue'
 import { ENDINGS } from '../game-core/ending.js'
 import { readEndingCollection } from '../game/collection.js'
+import { achievementCount, readProfile } from '../game/profile.js'
 import { useGameStore } from '../stores/game.js'
 
 const router = useRouter()
 const game = useGameStore()
 const hasSave = ref(false)
 const endingUnlocked = ref(0)
+const archiveUnlocked = ref(0)
 
 const apiLabel = computed(() => ({
   online: '链路在线',
@@ -20,6 +22,7 @@ const apiLabel = computed(() => ({
 onMounted(() => {
   hasSave.value = game.hasSave()
   endingUnlocked.value = Object.keys(readEndingCollection()).length
+  archiveUnlocked.value = achievementCount(readProfile())
 })
 
 function continueRun() {
@@ -61,6 +64,7 @@ function continueRun() {
             {{ hasSave ? '新的远征' : '开始新的远征' }}
           </RouterLink>
           <RouterLink to="/endings" class="text-link">结局收集 {{ endingUnlocked }} / {{ ENDINGS.length }}</RouterLink>
+          <RouterLink to="/archive" class="text-link">星区档案 {{ archiveUnlocked }}</RouterLink>
           <RouterLink to="/settings/llm" class="text-link">LLM 设置</RouterLink>
           <SoundToggle />
         </div>
@@ -76,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.45.0 · SECOND CITY</dd>
+            <dd class="mono">0.46.0 · ARCHIVE</dd>
           </div>
         </dl>
       </section>

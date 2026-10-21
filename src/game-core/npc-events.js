@@ -5,6 +5,7 @@
 
 import { ITEMS, REGIONS } from './data.js'
 import { recordWeeklyMemories } from './memory.js'
+import { ensureStats } from './achievements.js'
 import { activeEscorts, startEscort } from './escort.js'
 import { PERSONA_EVENTS, personaEventFor } from './npc-persona-events.js'
 import { QUARREL_LINES, RECONCILE_LINES, RIVALRY_LINES } from './npc-conflict-events.js'
@@ -690,6 +691,7 @@ function resolveBroken(run, npc, event, choice) {
 }
 
 function resolveQuarrel(run, npc, event, choice) {
+  ensureStats(run).quarrels += 1
   npc.quarrel = {
     active: true,
     day: run.day,
@@ -722,6 +724,7 @@ function resolveReconcile(run, npc, event, choice) {
     return '你说还需要一点时间。他点头，但这次没有先走。'
   }
   clearQuarrel(npc, run.day)
+  ensureStats(run).reconciles += 1
   if (choice === 'listen') {
     npc.relation.closeness = clamp(npc.relation.closeness + 4, 0, 100)
     npc.relation.trust = clamp(npc.relation.trust + 2, 0, 100)

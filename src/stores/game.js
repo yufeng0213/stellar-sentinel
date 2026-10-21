@@ -16,6 +16,7 @@ import {
 import { recordEnding } from '../game/collection.js'
 import { ensureDoor, resolveDoorFinale, resolveDoorStep } from '../game-core/door.js'
 import { endingFor, getEnding, localEpilogue } from '../game-core/ending.js'
+import { ACHIEVEMENT_BY_ID, checkAchievements, ensureStats } from '../game-core/achievements.js'
 import { ensureBlueprints } from '../game-core/blueprint.js'
 import { ensureCalibration, unlockCalibrationNode } from '../game-core/calibration.js'
 import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dungeon.js'
@@ -98,6 +99,7 @@ import {
   stripNarrative,
 } from '../game/narrative.js'
 import { resolveInboxEvent } from '../game-core/npc-events.js'
+import { unlockAchievements } from '../game/profile.js'
 import { buildNpcMessages, localNpcReply, parseNpcAction } from '../game/prompt.js'
 import { serializeRun, validateRun } from '../game/save.js'
 
@@ -203,6 +205,7 @@ export const useGameStore = defineStore('game', {
       if (stored.weekly === undefined) stored.weekly = null
       if (!stored.story || typeof stored.story !== 'object') stored.story = createStoryState()
       if (!stored.city || typeof stored.city !== 'object') stored.city = createCityState()
+      ensureStats(stored)
       ensureBlueprints(stored)
       ensureCalibration(stored)
       ensureGear(stored)
@@ -387,8 +390,12 @@ export const useGameStore = defineStore('game', {
     visitCity(nodeId) {
       if (!this.run) return { ok: false }
       const result = enterCityNode(this.run, nodeId)
-      if (result.ok) this.save()
-      else this.notify(result.message, 'bad')
+      if (result.ok) {
+        this.grantAchievements()
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
       return result
     },
 
@@ -708,6 +715,19 @@ export const useGameStore = defineStore('game', {
       return result
     },
 
+    grantAchievements() {
+      if (!this.run) return []
+      const unlocked = checkAchievements(this.run)
+      if (!unlocked.length) return []
+      const newly = unlockAchievements(unlocked.map((item) => item.id), this.run.day)
+      const titles = newly.map((id) => ACHIEVEMENT_BY_ID[id]?.title).filter(Boolean)
+      if (titles.length) {
+        addLog(this.run, `档案解锁：${titles.join(' / ')}。`, 'good')
+        this.notify(`档案解锁 · ${titles.join(' / ')}`, 'good')
+      }
+      return newly
+    },
+
     resolveBattleChoice(choice) {
       if (!this.run?.battle) return { ok: false }
       const npcId = this.run.battle.npcId
@@ -717,6 +737,7 @@ export const useGameStore = defineStore('game', {
           applyNpcBattleOutcome(this.run, npcId, choice)
         }
         this.run.battle = null
+        this.grantAchievements()
         this.save()
       } else {
         this.notify(result.message, 'bad')
@@ -815,6 +836,7 @@ export const useGameStore = defineStore('game', {
       const result = confessToNpc(this.run, npcId)
       if (result.ok) {
         addLog(this.run, result.text, 'story')
+        this.grantAchievements()
         this.save()
       } else {
         this.notify(result.message, 'bad')
@@ -887,6 +909,7 @@ export const useGameStore = defineStore('game', {
       const result = fulfillPromise(this.run, promiseId)
       if (result.ok) {
         addLog(this.run, result.text, 'good')
+        this.grantAchievements()
         this.save()
       } else {
         this.notify(result.message, 'bad')
@@ -907,6 +930,7 @@ export const useGameStore = defineStore('game', {
       const result = finishDateCore(this.run, nodeId)
       if (result.ok) {
         addLog(this.run, result.text, 'good')
+        this.grantAchievements()
         this.save()
       } else {
         this.notify(result.message, 'bad')
@@ -931,6 +955,7 @@ export const useGameStore = defineStore('game', {
       const result = addDeckCardCore(this.run, key)
       if (result.ok) {
         addLog(this.run, `牌组加入 ${result.name}。`, 'good')
+        this.grantAchievements()
         this.save()
       } else {
         this.notify(result.message, 'bad')
@@ -943,6 +968,7 @@ export const useGameStore = defineStore('game', {
       const result = upgradeDeckCardCore(this.run, index)
       if (result.ok) {
         addLog(this.run, `卡牌升级：${result.name}。`, 'good')
+        this.grantAchievements()
         this.save()
       } else {
         this.notify(result.message, 'bad')
@@ -955,6 +981,7 @@ export const useGameStore = defineStore('game', {
       const result = removeDeckCardCore(this.run, index)
       if (result.ok) {
         addLog(this.run, `从牌组移除 ${result.name}。`, 'info')
+        this.grantAchievements()
         this.save()
       } else {
         this.notify(result.message, 'bad')
@@ -1064,8 +1091,12 @@ export const useGameStore = defineStore('game', {
     resolveInbox(eventId, choiceId) {
       if (!this.run) return { ok: false }
       const result = resolveInboxEvent(this.run, eventId, choiceId)
-      if (result.ok) this.save()
-      else this.notify(result.message, 'bad')
+      if (result.ok) {
+        this.grantAchievements()
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
       return result
     },
 

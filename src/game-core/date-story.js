@@ -3,6 +3,7 @@
  * 文案按 NPC 人设区分，选择会改变关系和关系压力，不写露骨内容。
  */
 
+import { ensureStats } from './achievements.js'
 import { noteNpcInteraction } from './npc-stages.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -177,6 +178,7 @@ export function finishDate(run, nodeId) {
   const view = dateView(run, nodeId)
   if (!view || !view.state.done) return { ok: false, message: '这次约会还没有结束' }
   const { npc } = view
+  ensureStats(run).dates += 1
   const promise = (run.promises || []).find((item) => item.id === view.state.promiseId)
   if (promise && promise.status === 'open') {
     promise.status = 'done'
