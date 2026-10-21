@@ -3,6 +3,7 @@
  * 据点状态跨城市保存，和 run.city 分开。
  */
 
+import { bastionPersonaEventFor } from './bastion-persona-events.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min = 0, max = 100) => Math.min(max, Math.max(min, value))
@@ -75,6 +76,7 @@ export function ensureResidentNeeds(npc) {
   npc.bastionNeeds.safety = clamp(npc.bastionNeeds.safety ?? 70)
   npc.bastionNeeds.belonging = clamp(npc.bastionNeeds.belonging ?? 60)
   npc.bastionNeeds.purpose = clamp(npc.bastionNeeds.purpose ?? 60)
+  if (!Array.isArray(npc.bastionPersonaDone)) npc.bastionPersonaDone = []
   return npc.bastionNeeds
 }
 
@@ -201,6 +203,22 @@ export function buildBastionEvent(run) {
   if (!residents.length) return null
   const rng = createRng(`${run.seed}:bastion-event:${run.day}:${residents.length}`)
   const tension = bastionTension(run)
+  const persona = residents.find((npc) => {
+    const definition = bastionPersonaEventFor(npc)
+    return definition &&
+      !npc.bastionPersonaDone?.includes(definition.id) &&
+      run.day - (npc.bastionSince ?? run.day) >= 1
+  })
+  if (persona) {
+    const definition = bastionPersonaEventFor(persona)
+    return {
+      ...definition,
+      id: `bastion-${run.day}-persona-${definition.id}`,
+      type: 'personal',
+      personaId: definition.id,
+      npcId: persona.id,
+    }
+  }
   const quarrel = residents.find((npc) => npc.quarrel?.active || (npc.relation?.trust || 0) < 25)
   const homesick = residents.find((npc) => (npc.bastionNeeds?.belonging || 60) < 45)
   const injured = residents.find((npc) => (npc.bastionNeeds?.safety || 70) < 45)
@@ -284,7 +302,25 @@ export function resolveBastionEvent(run, eventId, choiceId) {
   const needs = ensureResidentNeeds(npc)
   let text = ''
 
-  if (event.type === 'quarrel') {
+  if (event.type === 'personal') {
+    const choice = event.choices.find((item) => item.id === choiceId)
+    if (!choice) return { ok: false, message: '没有这个选项' }
+    const effects = choice.effects || {}
+    Object.entries(effects.needs || {}).forEach(([key, value]) => {
+      needs[key] = clamp((needs[key] || 0) + value)
+    })
+    Object.entries(effects.relation || {}).forEach(([key, value]) => {
+      npc.relation[key] = clamp((npc.relation[key] || 0) + value)
+    })
+    Object.entries(effects.items || {}).forEach(([key, value]) => {
+      run.inv[key] = Math.max(0, (run.inv[key] || 0) + value)
+    })
+    if (effects.credits) run.player.credits = Math.max(0, run.player.credits + effects.credits)
+    if (!npc.bastionPersonaDone.includes(event.personaId)) {
+      npc.bastionPersonaDone.push(event.personaId)
+    }
+    text = choice.text
+  } else if (event.type === 'quarrel') {
     if (choiceId === 'mediate') {
       needs.belonging = clamp(needs.belonging + 12)
       needs.safety = clamp(needs.safety + 4)

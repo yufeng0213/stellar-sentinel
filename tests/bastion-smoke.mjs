@@ -8,6 +8,7 @@ import { npcList } from '../src/game-core/npc.js'
 import {
   assignBastionFacility,
   bastionStatus,
+  buildBastionEvent,
   canInviteNpc,
   ensureBastion,
   inviteNpcToBastion,
@@ -71,6 +72,20 @@ for (const npc of list.filter((item) => item.id !== first.id && !run.bastion.res
   if (canInviteNpc(run, npc).ok) inviteNpcToBastion(run, npc.id)
 }
 check(run.bastion.residents.length === 4, '据点容量不是 4')
+const personalNpc = run.bastion.residents
+  .map((id) => run.npcs[id])
+  .find((npc) => npc.archetype?.id && !npc.tags?.includes('solo'))
+personalNpc.bastionSince = run.day - 1
+personalNpc.bastionPersonaDone = []
+const personalEvent = buildBastionEvent(run)
+check(personalEvent?.type === 'personal', '没有生成居民专属事件')
+if (personalEvent) {
+  run.bastion.pendingEvent = personalEvent
+  const personalResolved = resolveBastionEvent(run, personalEvent.id, personalEvent.choices[0].id)
+  check(personalResolved.ok, '居民专属事件处理失败')
+  check(personalNpc.bastionPersonaDone.includes(personalEvent.personaId), '居民专属事件没有记录完成')
+}
+
 const extra = list.find((npc) => !run.bastion.residents.includes(npc.id))
 extra.relation.trust = 100
 check(!canInviteNpc(run, extra).ok, '满员后仍然可以邀请')
