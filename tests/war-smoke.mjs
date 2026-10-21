@@ -48,6 +48,11 @@ check(!run.borderWar.active && run.borderWar.completedDay > 0, '边境战争没�
 check(run.reputation.tower > repBefore, '选择派系没有提升声望')
 check(run.inv.relic >= 1, '边境战争没有独特奖励')
 check(settle.reward.includes('遗物'), '边境奖励文本错误')
+check(run.city.warAftermath?.outcome === 'faction', '城市没有记录战争后果')
+check(run.city.controlledBy === 'tower', '城市控制权没有改变')
+check(run.borderWar.aftermath?.stanceChanges?.length > 0, 'NPC 没有对战争结果表态')
+check(Array.isArray(run.borderWar.aftermath?.migrantsOut), '迁出名单缺失')
+check(run.borderWar.aftermath?.injured?.length === 1, '战争伤者没有记录')
 
 console.log(JSON.stringify({
   ok: errors.length === 0,

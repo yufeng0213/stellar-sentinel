@@ -17,6 +17,14 @@ const visitors = computed(() => (city.value?.visitorIds || [])
   .filter((npc) => npc && npc.active !== false))
 const escorts = computed(() => (run.value ? activeEscorts(run.value) : []))
 const wanted = computed(() => (run.value ? wantedStatus(run.value) : { active: false }))
+const warAftermath = computed(() => run.value?.city?.warAftermath || null)
+const warControl = computed(() => {
+  const control = warAftermath.value?.control
+  if (control === 'council') return '城市自治'
+  if (control === 'crew') return '方舟接管'
+  if (control) return '盟约派系接管'
+  return ''
+})
 
 onMounted(() => game.enterCity())
 
@@ -100,6 +108,23 @@ function payWanted() {
       <button type="button" class="btn btn-sm" :disabled="run.player.credits < wanted.fine" @click="payWanted">
         缴纳罚金 · {{ wanted.fine }}
       </button>
+    </section>
+
+    <section v-if="warAftermath" class="panel war-aftermath">
+      <div class="war-aftermath-head">
+        <div>
+          <p class="kicker">WAR AFTERMATH · D{{ warAftermath.day }}</p>
+          <h3>{{ warControl }}</h3>
+          <p>{{ warAftermath.text }}</p>
+        </div>
+        <div class="war-aftermath-tags">
+          <span v-if="warAftermath.migrantsOut?.length" class="tag red">迁出 {{ warAftermath.migrantsOut.length }} 人</span>
+          <span v-if="warAftermath.injured?.length" class="tag amber">伤者 {{ warAftermath.injured.length }} 人</span>
+        </div>
+      </div>
+      <div v-if="warAftermath.stanceChanges?.length" class="war-stance">
+        <span v-for="line in warAftermath.stanceChanges" :key="line">{{ line }}</span>
+      </div>
     </section>
 
     <section class="city-grid">
@@ -207,6 +232,12 @@ function payWanted() {
 .wanted-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 15px; border-color: rgba(255, 138, 138, .35); background: rgba(255, 138, 138, .04); }
 .wanted-banner h3 { margin-top: 3px; color: var(--red); font-size: max(var(--ui-min), calc(16px * var(--ui-scale))); font-weight: 500; }
 .wanted-banner p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.6; }
+.war-aftermath { padding: 12px 15px; border-color: rgba(255, 196, 107, .3); background: rgba(255, 196, 107, .03); }
+.war-aftermath-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.war-aftermath h3 { margin-top: 3px; color: var(--amber); font-size: max(var(--ui-min), calc(16px * var(--ui-scale))); font-weight: 500; }
+.war-aftermath p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; white-space: pre-line; }
+.war-aftermath-tags { display: flex; gap: 5px; flex-shrink: 0; }
+.war-stance { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;

@@ -7,6 +7,8 @@ import { ITEMS } from './data.js'
 import { adjustReputation } from './faction.js'
 import { createRng } from './rng.js'
 
+const clamp = (value, min = 0, max = 100) => Math.min(max, Math.max(min, value))
+
 export const WAR_ENEMIES = {
   raider: {
     id: 'raider',
@@ -150,6 +152,102 @@ export function completeWarBattle(run) {
   return { ok: true, war }
 }
 
+function cityNpcIds(run, cityId) {
+  const city = run.cities?.[cityId] || run.city
+  return Array.isArray(city?.npcIds) ? city.npcIds : []
+}
+
+function removeFromCity(run, cityId, npc) {
+  const city = run.cities?.[cityId] || run.city
+  if (!city) return
+  city.npcIds = (city.npcIds || []).filter((id) => id !== npc.id)
+  if (Array.isArray(city.visitorIds)) city.visitorIds = city.visitorIds.filter((id) => id !== npc.id)
+  npc.cityId = null
+  npc.active = false
+  npc.activity = '离开了城市'
+  npc.party = false
+  run.party = (run.party || []).filter((id) => id !== npc.id)
+  if (npc.bastionResident) {
+    npc.bastionResident = false
+    if (run.bastion) {
+      run.bastion.residents = (run.bastion.residents || []).filter((id) => id !== npc.id)
+      Object.keys(run.bastion.assignments || {}).forEach((id) => {
+        if (run.bastion.assignments[id] === npc.id) delete run.bastion.assignments[id]
+      })
+    }
+  }
+}
+
+function applyWarAftermath(run, war, choiceId) {
+  const city = run.city
+  const cityId = war.cityId || run.activeCityId || 'dock'
+  const rng = createRng(`${run.seed}:war-aftermath:${run.day}:${choiceId}`)
+  const result = {
+    day: run.day,
+    outcome: choiceId,
+    faction: war.faction || null,
+    control: choiceId === 'faction' ? war.faction : choiceId === 'city' ? 'council' : 'crew',
+    text: '',
+    migrantsOut: [],
+    injured: [],
+    stanceChanges: [],
+  }
+
+  const residents = Object.values(run.npcs || {}).filter((npc) => (
+    npc.alive && npc.active !== false && (
+      npc.cityId === cityId ||
+      (!npc.cityId && cityId === 'dock')
+    )
+  ))
+
+  if (choiceId === 'faction') {
+    const rivals = rng.shuffle(residents.filter((npc) => npc.faction && npc.faction !== war.faction)).slice(0, 2)
+    rivals.forEach((npc) => {
+      removeFromCity(run, cityId, npc)
+      result.migrantsOut.push(npc.name)
+    })
+    residents.filter((npc) => npc.faction === war.faction).forEach((npc) => {
+      npc.relation.trust = clamp(npc.relation.trust + 6)
+      npc.relation.grievance = clamp(npc.relation.grievance - 4)
+      result.stanceChanges.push(`${npc.name} 转而支持盟约`)
+    })
+    result.text = `盟约派系接管了城市。${result.migrantsOut.length ? `${result.migrantsOut.join('、')} 离开了这里。` : '没有人公开反对。'}`
+  } else if (choiceId === 'city') {
+    residents.slice(0, 3).forEach((npc) => {
+      npc.relation.trust = clamp(npc.relation.trust + 3)
+      result.stanceChanges.push(`${npc.name} 对城市自治表示认可`)
+    })
+    result.text = '城市没有落入任何派系手里。街上的人开始自己组织巡逻，至少今晚，他们相信这是自己的城市。'
+  } else {
+    residents.slice(0, 2).forEach((npc) => {
+      npc.relation.trust = clamp(npc.relation.trust - 3)
+      result.stanceChanges.push(`${npc.name} 对你带走物资有些不满`)
+    })
+    result.text = '你把能带走的东西都装上了方舟。城市没有阻止你，但有些人记住了这件事。'
+    if (city) city.stock = Math.max(0, (city.stock || 0) - 1)
+  }
+
+  const candidates = residents.filter((npc) => npc.alive && npc.active !== false)
+  const injured = candidates.length ? rng.pick(candidates) : null
+  if (injured) {
+    injured.injured = true
+    result.injured.push(injured.name)
+    result.text += ` ${injured.name} 在回程时受了伤。`
+  } else {
+    run.player.hp = Math.max(1, run.player.hp - 12)
+    result.text += ' 回程时你也挂了彩。'
+  }
+
+  if (city) {
+    city.warAftermath = result
+    if (choiceId === 'faction') city.controlledBy = war.faction
+    else if (choiceId === 'city') city.controlledBy = 'council'
+    else city.controlledBy = 'crew'
+  }
+  war.aftermath = result
+  return result
+}
+
 export function settleBorderWar(run, choiceId) {
   const war = ensureWar(run)
   if (!war.active || war.stage !== 4) return { ok: false, message: '现在还不能结算' }
@@ -179,6 +277,8 @@ export function settleBorderWar(run, choiceId) {
   run.player.credits += credits
   if (!run.inv.relic) run.inv.relic = 0
   run.inv.relic += 1
+  const aftermath = applyWarAftermath(run, war, choiceId)
+  text = `${text}\n\n${aftermath.text}`
   war.active = false
   war.stage = 5
   war.completedDay = run.day
@@ -189,6 +289,7 @@ export function settleBorderWar(run, choiceId) {
     war,
     text,
     credits,
+    aftermath,
     reward: `信用点 +${credits} · 遗物 +1`,
   }
 }
