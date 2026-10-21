@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ITEMS, REGIONS } from '../game-core/data.js'
 import { AXES, PERSONALITY_LABELS, canInviteToParty, factionName, romanceStatus } from '../game-core/npc.js'
+import { openPromises } from '../game-core/npc-promises.js'
 import { RELATION_STAGES, relationStageInfo } from '../game-core/npc-stages.js'
 import { TAG_CATEGORIES } from '../game-core/npc-tags.js'
 import { visitorStoryStatus } from '../game-core/visitor-story.js'
@@ -17,6 +18,7 @@ const bagItems = computed(() => Object.keys(npc.value?.bag || {})
   .map((key) => ({ key, ...ITEMS[key], count: npc.value.bag[key] })))
 const npcGear = computed(() => Object.values(npc.value?.gear || {}))
 const archetype = computed(() => npc.value?.archetype || null)
+const promises = computed(() => (run.value && npc.value ? openPromises(run.value, npc.value.id) : []))
 
 const inviteCheck = computed(() => (
   npc.value ? canInviteToParty(run.value, npc.value.id) : { ok: false, reason: '' }
@@ -80,6 +82,17 @@ function doBreakUp() {
   const result = game.breakUpNpc(npc.value.id)
   reply.value = result.text || result.message || ''
   if (result.ok) game.notify('关系结束了', 'bad')
+}
+
+function fulfill(promise) {
+  const result = game.fulfillPromise(promise.id)
+  reply.value = result.text || result.message || ''
+  if (result.ok) game.notify('约定已履行', 'good')
+}
+
+function promiseLabel(promise) {
+  if (promise.type === 'gift') return `带一件${ITEMS[promise.itemId]?.name || '东西'}过去`
+  return '在约定期限内去看他'
 }
 </script>
 
@@ -198,6 +211,22 @@ function doBreakUp() {
       <p v-if="!npc.party" class="hint">组队需要信任 50、亲近 30，队伍上限 2 人。</p>
     </section>
 
+    <section v-if="promises.length" class="panel npc-block promise-block">
+      <h3>约定</h3>
+      <p class="hint">答应过的事会在到期时结算；失约会让关系变差。</p>
+      <div class="promise-list">
+        <article v-for="promise in promises" :key="promise.id" class="promise-row">
+          <div>
+            <b>{{ promiseLabel(promise) }}</b>
+            <span>D{{ promise.deadline }} 前 · {{ promise.type === 'gift' ? '需要交付物品' : '去见一面' }}</span>
+          </div>
+          <button type="button" class="btn btn-sm" :disabled="promise.type === 'gift' && (run.inv[promise.itemId] || 0) < 1" @click="fulfill(promise)">
+            履行约定
+          </button>
+        </article>
+      </div>
+    </section>
+
     <section v-if="bagItems.length" class="panel npc-block">
       <h3>随身物品</h3>
       <p class="hint">他收下的东西。受伤时，如果他带着医疗包或营养膏，会自己使用。</p>
@@ -301,6 +330,11 @@ function doBreakUp() {
 .npc-block { padding: 14px 16px; }
 .npc-block h3 { margin-bottom: 10px; color: var(--ink); font-size: max(var(--ui-min), calc(14px * var(--ui-scale))); font-weight: 500; letter-spacing: .06em; }
 .bag-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.promise-block { border-color: rgba(138, 222, 184, .22); background: rgba(138, 222, 184, .04); }
+.promise-list { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.promise-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .4); }
+.promise-row b { display: block; font-size: max(var(--ui-min), calc(10.5px * var(--ui-scale))); font-weight: 500; }
+.promise-row span { display: block; margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
 .stage-block { border-color: rgba(124, 231, 255, .16); }
 .stage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .stage-head h3 { margin: 2px 0 0; }

@@ -8,6 +8,7 @@ import { recordWeeklyMemories } from './memory.js'
 import { activeEscorts, startEscort } from './escort.js'
 import { PERSONA_EVENTS, personaEventFor } from './npc-persona-events.js'
 import { QUARREL_LINES, RECONCILE_LINES, RIVALRY_LINES } from './npc-conflict-events.js'
+import { createPromise, expirePromises, giftForNpc, openPromises } from './npc-promises.js'
 import { STAGE_EVENTS, stageEventFor } from './npc-stage-events.js'
 import { clearQuarrel, markAmbiguous, noteNpcInteraction, relationStageOf } from './npc-stages.js'
 import { createRng } from './rng.js'
@@ -24,6 +25,8 @@ export const EVENT_TYPES = {
   jealousy: { label: '吃醋', color: 'red', base: 8, major: true },
   escort: { label: '护送', color: 'amber', base: 9, major: true },
   bond: { label: '好感', color: 'violet', base: 10, major: true },
+  promise: { label: '约定', color: 'jade', base: 8, major: true },
+  broken: { label: '失约', color: 'red', base: 10, major: true },
   persona: { label: '专属', color: 'violet', base: 8, major: true },
   quarrel: { label: '争吵', color: 'red', base: 8, major: true },
   reconcile: { label: '和解', color: 'jade', base: 9, major: true },
@@ -125,6 +128,11 @@ function eventEligible(run, npc, type, rng) {
 
   const relation = npc.relation
   if (type === 'message') return true
+  if (type === 'promise') {
+    return !npc.quarrel?.active &&
+      relation.trust >= 20 &&
+      openPromises(run, npc.id).length === 0
+  }
   if (type === 'quarrel') {
     return (npc.lover || npc.ambiguous) &&
       !npc.quarrel?.active &&
@@ -192,6 +200,7 @@ function eventWeight(run, npc, type) {
   weight *= npc.tagEffects?.eventWeight?.[type] || 1
 
   if (type === 'message') weight *= 1 + relation.trust / 180
+  if (type === 'promise') weight *= 1 + relation.trust / 160
   if (type === 'quarrel') weight *= 1 + (npc.strain || 0) / 40
   if (type === 'reconcile') weight *= 2.2
   if (type === 'rivalry') weight *= 1.4
@@ -287,7 +296,19 @@ function buildEvent(run, rng, npc, type, weekly = false) {
     choices: [],
   }
 
-  if (type === 'quarrel') {
+  if (type === 'promise') {
+    const promiseType = rng.chance(0.45) ? 'gift' : 'visit'
+    const itemId = promiseType === 'gift' ? giftForNpc(npc) : null
+    base.title = `${npc.name} 跟你约了一件事`
+    base.text = promiseType === 'gift'
+      ? `“下次来的时候，能不能帮我带一件${ITEMS[itemId].name}？”他说得很随意，但没有把这件事当成玩笑。`
+      : '“过两天你有空吗？”他停了一下，“不用待很久。来一趟就行。”'
+    base.payload = { promiseType, itemId }
+    base.choices = [
+      { id: 'accept', label: '答应他' },
+      { id: 'decline', label: '这次不答应' },
+    ]
+  } else if (type === 'quarrel') {
     const line = QUARREL_LINES[npc.archetype?.id] || QUARREL_LINES.default
     base.title = line.title
     base.text = line.text
@@ -518,6 +539,27 @@ export function generateNpcEvents(run, options = {}) {
   run.lastEventDay = run.day
   expireInbox(run)
   expireQuests(run)
+  expirePromises(run).forEach(({ promise, npc }) => {
+    if (!npc) return
+    run.inbox.unshift({
+      id: `broken-${promise.id}`,
+      day: run.day,
+      week: Math.floor((run.day - 1) / 7) + 1,
+      npcId: npc.id,
+      type: 'broken',
+      status: 'pending',
+      title: `${npc.name} 还记得你答应过`,
+      text: promise.type === 'gift'
+        ? `“你说的${ITEMS[promise.itemId]?.name || '东西'}，我一直没等到。”他没有责备，只是把这句话说得很慢。`
+        : '“你说过会来的。”他站在门口，像是已经站了很久。',
+      payload: { promiseId: promise.id, promiseType: promise.type, itemId: promise.itemId },
+      choices: [
+        { id: 'apologize', label: '道歉并补偿' },
+        { id: 'excuse', label: '解释' },
+        { id: 'avoid', label: '避而不谈' },
+      ],
+    })
+  })
 
   const rng = createRng(`${run.seed}:npc-events:${run.day}`)
   const created = []
@@ -612,6 +654,36 @@ function resolveMessage(run, npc, event, choice) {
   }
   npc.relation.closeness = clamp(npc.relation.closeness - 1, 0, 100)
   return '你没有回复。消息停在那里。'
+}
+
+function resolvePromise(run, npc, event, choice) {
+  if (choice === 'decline') {
+    npc.relation.closeness = clamp(npc.relation.closeness - 1, 0, 100)
+    return '你没有答应。他说“没事”，把话题岔开了。'
+  }
+  const result = createPromise(run, npc, event.payload.promiseType || 'visit')
+  if (!result.ok) return { error: result.message }
+  return result.promise.type === 'gift'
+    ? `你答应带${result.item?.name || '东西'}给他。约定期限是 D${result.promise.deadline}。`
+    : `你答应在 D${result.promise.deadline} 前去看他。`
+}
+
+function resolveBroken(run, npc, event, choice) {
+  if (choice === 'apologize') {
+    run.player.credits = Math.max(0, run.player.credits - 15)
+    npc.relation.trust = clamp(npc.relation.trust + 2, 0, 100)
+    npc.relation.closeness = clamp(npc.relation.closeness + 1, 0, 100)
+    npc.strain = clamp((npc.strain || 0) - 4, 0, 100)
+    return '你为失约道了歉，还补了一点补偿。他没有说原谅，但脸色缓了一些。'
+  }
+  if (choice === 'excuse') {
+    npc.relation.closeness = clamp(npc.relation.closeness - 5, 0, 100)
+    npc.relation.grievance = clamp(npc.relation.grievance + 6, 0, 100)
+    return '你解释了一堆理由。他听完，只说“知道了”。'
+  }
+  npc.relation.closeness = clamp(npc.relation.closeness - 8, 0, 100)
+  npc.relation.grievance = clamp(npc.relation.grievance + 8, 0, 100)
+  return '你没有回应。那条约定在他那里停了很久。'
 }
 
 function resolveQuarrel(run, npc, event, choice) {
@@ -866,6 +938,8 @@ export function resolveInboxEvent(run, eventId, choiceId) {
 
   let result = ''
   if (event.type === 'message') result = resolveMessage(run, npc, event, choiceId)
+  else if (event.type === 'promise') result = resolvePromise(run, npc, event, choiceId)
+  else if (event.type === 'broken') result = resolveBroken(run, npc, event, choiceId)
   else if (event.type === 'bond') result = resolveBond(run, npc, event, choiceId)
   else if (event.type === 'quarrel') result = resolveQuarrel(run, npc, event, choiceId)
   else if (event.type === 'reconcile') result = resolveReconcile(run, npc, event, choiceId)
@@ -887,7 +961,7 @@ export function resolveInboxEvent(run, eventId, choiceId) {
   event.choice = choiceId
   event.resolvedDay = run.day
   event.result = result
-  const skipTouch = ['quarrel', 'rivalry'].includes(event.type) ||
+  const skipTouch = ['quarrel', 'rivalry', 'broken'].includes(event.type) ||
     (event.type === 'reconcile' && choiceId === 'space')
   if (!skipTouch) noteNpcInteraction(npc, run.day)
   pushWorld(run, `${npc.name}：${result}`, event.type === 'conflict' || event.type === 'quarrel' ? 'bad' : 'info')

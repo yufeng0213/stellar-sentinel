@@ -11,6 +11,7 @@ import { ensureCalibration } from '../game-core/calibration.js'
 import { ensureDungeon } from '../game-core/dungeon.js'
 import { ensureGear } from '../game-core/gear.js'
 import { ensureEscorts } from '../game-core/escort.js'
+import { ensurePromises } from '../game-core/npc-promises.js'
 import { ensureReputation } from '../game-core/faction.js'
 import { createStoryState } from '../game-core/story.js'
 
@@ -87,6 +88,7 @@ export function validateRun(input) {
   ensureDungeon(data)
   ensureReputation(data)
   ensureEscorts(data)
+  ensurePromises(data)
   if (!data.story.flags || typeof data.story.flags !== 'object') data.story.flags = {}
 
   Object.values(data.npcChats).forEach((messages) => {

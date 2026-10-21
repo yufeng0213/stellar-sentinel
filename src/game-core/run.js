@@ -14,6 +14,7 @@ import { calibrationEffects, createCalibrationState } from './calibration.js'
 import { createCityState } from './city.js'
 import { createDoorState } from './door.js'
 import { createEscortState } from './escort.js'
+import { createPromiseState } from './npc-promises.js'
 import { generateDungeonName, resetDungeon } from './dungeon.js'
 import { createReputationState } from './faction.js'
 import { gearTierFor, rollGearAffixes } from './gear.js'
@@ -156,6 +157,7 @@ export function createRun(draft, seedInput) {
     city: createCityState(),
     door: createDoorState(),
     escorts: createEscortState(),
+    ...createPromiseState(),
     ...createBlueprintState(),
     calibration: createCalibrationState(),
     ...createReputationState(),

@@ -19,6 +19,7 @@ import { ensureCalibration, unlockCalibrationNode } from '../game-core/calibrati
 import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dungeon.js'
 import { ensureGear, upgradeGear as upgradeGearCore } from '../game-core/gear.js'
 import { completeEscort, ensureEscorts } from '../game-core/escort.js'
+import { ensurePromises, fulfillPromise } from '../game-core/npc-promises.js'
 import {
   adjustReputation,
   buyFactionShopItem,
@@ -202,6 +203,7 @@ export const useGameStore = defineStore('game', {
       ensureDungeon(stored)
       ensureReputation(stored)
       ensureEscorts(stored)
+      ensurePromises(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
           if (!message.streaming) return
@@ -847,6 +849,18 @@ export const useGameStore = defineStore('game', {
     completeEscort(npcId) {
       if (!this.run) return { ok: false }
       const result = completeEscort(this.run, npcId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    fulfillPromise(promiseId) {
+      if (!this.run) return { ok: false }
+      const result = fulfillPromise(this.run, promiseId)
       if (result.ok) {
         addLog(this.run, result.text, 'good')
         this.save()
