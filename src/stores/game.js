@@ -9,6 +9,7 @@ import {
   ensureCity,
   enterCityNode,
   healAtClinic,
+  switchCity,
   refreshCityVisitors,
   tavernRumor,
 } from '../game-core/city.js'
@@ -388,6 +389,13 @@ export const useGameStore = defineStore('game', {
       const result = enterCityNode(this.run, nodeId)
       if (result.ok) this.save()
       else this.notify(result.message, 'bad')
+      return result
+    },
+
+    returnToDock() {
+      if (!this.run) return { ok: false }
+      const result = switchCity(this.run, 'dock', { name: '白塔空港', target: 20 })
+      if (result.ok) this.save()
       return result
     },
 

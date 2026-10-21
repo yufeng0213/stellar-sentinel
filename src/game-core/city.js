@@ -169,14 +169,11 @@ export function ensureCityStates(run) {
   ensureCities(run)
 }
 
-export function enterCityNode(run, nodeId) {
-  const node = run?.map?.nodes?.[nodeId]
-  if (!node || node.type !== 'city') return { ok: false, message: '这里不是城市' }
+export function switchCity(run, cityId, meta = {}) {
   ensureCityStates(run)
   ensureCity(run)
-  const cityId = node.cityId || 'outpost'
   if (run.activeCityId === cityId) {
-    ensureCityMeta(run, cityId, { name: node.cityName || node.title, target: node.populationTarget || 14 })
+    ensureCityMeta(run, cityId, meta)
     ensureCity(run)
     return { ok: true, cityId }
   }
@@ -184,9 +181,19 @@ export function enterCityNode(run, nodeId) {
   run.activeCityId = cityId
   run.city = run.cityStates[cityId] || createCityState()
   run.cityStates[cityId] = run.city
-  ensureCityMeta(run, cityId, { name: node.cityName || node.title, target: node.populationTarget || 14 })
+  ensureCityMeta(run, cityId, meta)
   ensureCity(run)
   return { ok: true, cityId }
+}
+
+export function enterCityNode(run, nodeId) {
+  const node = run?.map?.nodes?.[nodeId]
+  if (!node || node.type !== 'city') return { ok: false, message: '这里不是城市' }
+  const cityId = node.cityId || 'outpost'
+  return switchCity(run, cityId, {
+    name: node.cityName || node.title,
+    target: node.populationTarget || 14,
+  })
 }
 
 export function ensureCityPopulation(run, cityId = 'dock', target = null) {

@@ -9,6 +9,7 @@ import {
   cityVisitors,
   ensureCity,
   enterCityNode,
+  switchCity,
 } from '../src/game-core/city.js'
 
 const errors = []
@@ -30,6 +31,11 @@ check(cityVisitors(run).length === 3, '第二城市没有访客')
 check(run.city.market.length === 6, '第二城市没有独立市场')
 check(cityPopulation(run, 'dock').total === 20, '空港人口池没有保留')
 check(run.cityStates.dock && run.cityStates.outpost, '城市状态没有分城市保存')
+
+const back = switchCity(run, 'dock')
+check(back.ok && run.activeCityId === 'dock', '没有切回空港')
+check(cityPopulation(run, 'dock').total === 20, '切回空港后人口池错误')
+check(run.city.market.length === 6, '切回空港后市场状态错误')
 
 console.log(JSON.stringify({
   ok: errors.length === 0,

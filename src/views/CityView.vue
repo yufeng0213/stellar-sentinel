@@ -23,6 +23,11 @@ function open(name) {
   router.push({ name, params: { runId: run.value.id } })
 }
 
+function returnDock() {
+  const result = game.returnToDock()
+  if (result.ok) game.notify('回到白塔空港', 'good')
+}
+
 function finishEscort(escort) {
   const result = game.completeEscort(escort.npcId)
   if (result.ok) game.notify(`护送完成 · ${result.credits} 信用点`, 'good')
@@ -41,6 +46,7 @@ function finishEscort(escort) {
           <span class="tag jade">生命 {{ Math.round(run.player.hp) }} / {{ run.player.hpMax }}</span>
           <span class="tag amber">精神 {{ Math.round(run.player.mental) }} / {{ run.player.mentalMax }}</span>
           <span class="tag violet">本地人口 {{ population.total }}</span>
+          <button v-if="run.activeCityId !== 'dock'" type="button" class="btn btn-sm" @click="returnDock">回空港</button>
         </div>
       </div>
       <div class="city-visitors">
