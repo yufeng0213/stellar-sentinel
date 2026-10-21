@@ -475,6 +475,11 @@ function makeEnemyEntity(base, index, { minion = false, defense = ENEMY_DEFENSE 
     defense,
     baseDefense: defense,
     armor: traits.includes('armored') ? 2 : 0,
+    resistance: minion ? null : base.resistance || null,
+    bossId: minion ? null : base.bossId || null,
+    mechanic: minion ? null : base.mechanic || null,
+    phases: minion ? [] : (base.phases || []).map((phase) => ({ ...phase })),
+    phase: 0,
     traits,
     intent: null,
     guard: !minion && traits.includes('guarded') ? 3 : 0,
@@ -527,6 +532,9 @@ function chooseIntent(battle, enemy) {
   if (battle.enemies.filter((item) => !item.downed && !item.surrendered && !item.fled).length >= 3) {
     pool = pool.filter((type) => type !== 'summon')
   }
+
+  const activePhase = enemy.phase > 0 ? enemy.phases?.[enemy.phase - 1] : null
+  if (activePhase?.intents?.length) pool = activePhase.intents
 
   const type = rng.pick(pool)
   const value = type === 'attack'
@@ -607,6 +615,26 @@ function checkEnd(battle, run) {
   return battle.status
 }
 
+export function applyBossPhase(battle, enemy) {
+  if (!enemy?.phases?.length) return false
+  let changed = false
+  let next = enemy.phases[enemy.phase]
+  while (next && enemy.hp / enemy.hpMax <= next.at) {
+    enemy.phase += 1
+    enemy.attack += next.attack || 0
+    enemy.armor = Math.max(0, (enemy.armor || 0) + (next.armor || 0))
+    enemy.guard = Math.max(0, (enemy.guard || 0) + (next.guard || 0))
+    enemy.morale = clamp(enemy.morale + (next.morale || 0), 0, enemy.moraleMax)
+    if (next.traits?.length) {
+      enemy.traits = [...new Set([...enemy.traits, ...next.traits])]
+    }
+    addBattleLog(battle, `首领进入「${next.name}」：${next.text}`, 'bad')
+    changed = true
+    next = enemy.phases[enemy.phase]
+  }
+  return changed
+}
+
 function damageEnemy(battle, enemy, damage, moraleDamage = 0) {
   if (enemy.downed || enemy.surrendered || enemy.fled) return
 
@@ -623,6 +651,7 @@ function damageEnemy(battle, enemy, damage, moraleDamage = 0) {
 
   if (remaining > 0) enemy.hp = clamp(enemy.hp - remaining, 0, enemy.hpMax)
   if (moraleDamage) enemy.morale = clamp(enemy.morale - moraleDamage, 0, enemy.moraleMax)
+  applyBossPhase(battle, enemy)
 
   if (enemy.hp <= 0) {
     enemy.downed = true
@@ -653,6 +682,10 @@ export function createBattle(run, node) {
     guard: effects.shield || 0,
     attacksThisTurn: 0,
     bossWeakness: node.enemy?.weakness || null,
+    bossResistance: node.enemy?.resistance || null,
+    bossIntel: Boolean(run.story?.flags?.bossIntel),
+    bossMechanic: node.enemy?.mechanic || '',
+    bossPhases: (node.enemy?.phases || []).map((phase) => ({ ...phase })),
     focus: effects.focus || 0,
     evasion: effects.evasion || 0,
     counter: effects.counter || 0,
@@ -764,6 +797,7 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
       if (run.player.mental < 30) situational += effects.lowMental || 0
       if (battle.nodeType === 'boss') situational += effects.boss || 0
       if (battle.nodeType === 'boss' && run.story?.flags?.bossIntel && card.attr === battle.bossWeakness) situational += 3
+      if (target.resistance && card.attr === target.resistance) situational -= 2
       if ((effects.firstAttack || 0) && battle.attacksThisTurn === 0) situational += effects.firstAttack
       if ((effects.armor || 0) && (target.armor > 0 || target.traits?.includes('armored'))) situational += effects.armor
       if ((effects.execute || 0) && target.hp / target.hpMax <= 0.35) situational += effects.execute
@@ -1077,6 +1111,16 @@ export function resolveBattle(run, battle, choice) {
 
   const gearCreditBonus = battleEffects(run).credits || 0
   if (credits && gearCreditBonus) credits = Math.round(credits * (1 + gearCreditBonus))
+  let bossRecord = null
+  if (boss) {
+    run.bossKills = run.bossKills || {}
+    const before = run.bossKills[battle.nodeId] || 0
+    const first = before === 0
+    run.bossKills[battle.nodeId] = before + 1
+    if (credits) credits += first ? 20 : 6
+    bossRecord = { first, count: before + 1 }
+    text += first ? ' 这是你第一次击败它。' : ' 它又一次倒在你面前。'
+  }
   run.player.credits += credits
   run.player.mental = clamp(run.player.mental + mental, 0, run.player.mentalMax)
   let blueprint = null
@@ -1097,7 +1141,7 @@ export function resolveBattle(run, battle, choice) {
   markNodeResolved(run, battle, { resolved: true, outcome: choice })
 
   const cardChoices = cardRewardChoices(run, battle)
-  battle.reward = { choice, credits, mental, text, blueprint, calibration, cardChoices }
+  battle.reward = { choice, credits, mental, text, blueprint, calibration, cardChoices, bossRecord }
   addLog(run, `${text}${credits ? ` 信用点 +${credits}。` : ''}`, 'story')
   return { ok: true, reward: battle.reward }
 }

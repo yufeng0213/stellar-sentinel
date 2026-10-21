@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { CARD_TYPES, INTENTS, cardDef } from '../game-core/combat.js'
-import { REGIONS } from '../game-core/data.js'
+import { ATTR_NAME, REGIONS } from '../game-core/data.js'
 import { play as playSound, cardSound } from '../audio.js'
 import SoundToggle from '../components/SoundToggle.vue'
 import { useGameStore } from '../stores/game.js'
@@ -225,6 +225,16 @@ function leaveBattle() {
       </div>
     </header>
 
+    <div v-if="battle.nodeType === 'boss' && battle.bossIntel" class="b-intel">
+      <div class="b-intel-top">
+        <span class="kicker">BOSS INTEL</span>
+        <span>弱点 {{ ATTR_NAME[battle.bossWeakness] || '未知' }}</span>
+        <span v-if="battle.bossResistance">抗性 {{ ATTR_NAME[battle.bossResistance] || '未知' }}</span>
+        <span>{{ battle.bossPhases?.length || 0 }} 阶段</span>
+      </div>
+      <p>{{ battle.bossMechanic }}</p>
+    </div>
+
     <div v-if="battle.companions?.length" class="b-companions">
       <span v-for="companion in battle.companions" :key="companion.npcId" class="b-companion" :class="{ 'is-hurt': companion.injured, 'is-distant': companion.distant }">
         <b>{{ companion.name }}</b>
@@ -255,6 +265,9 @@ function leaveBattle() {
           <span class="e-name">{{ enemy.name }}</span>
           <span class="e-traits">
             <span v-for="trait in traitsOf(enemy)" :key="trait" class="e-trait">{{ trait }}</span>
+          </span>
+          <span v-if="enemy.phases?.length" class="e-phase">
+            阶段 {{ enemy.phase + 1 }}/{{ enemy.phases.length + 1 }}
           </span>
           <span v-if="statusTags(enemy).length" class="e-status">
             <span v-for="tag in statusTags(enemy)" :key="tag">{{ tag }}</span>
@@ -771,6 +784,11 @@ function leaveBattle() {
 .result-note { margin-top: 6px; color: var(--muted); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); line-height: 1.8; }
 .result-note.dim { margin-top: 12px; color: var(--dim); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); }
 
+.b-intel { padding: 8px 10px; border: 1px solid rgba(255, 196, 107, .28); border-radius: 8px; background: rgba(255, 196, 107, .045); }
+.b-intel-top { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; color: var(--amber); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
+.b-intel-top .kicker { color: var(--amber); }
+.b-intel p { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.55; }
+.e-phase { display: inline-block; margin-top: 2px; color: var(--red); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .b-companions { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0; }
 .b-companion { display: flex; align-items: baseline; gap: 5px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 7px; background: rgba(124, 231, 255, .035); }
 .b-companion b { font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); font-weight: 500; }

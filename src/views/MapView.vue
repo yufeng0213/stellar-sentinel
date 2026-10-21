@@ -461,6 +461,9 @@ function nextNodes(node) {
                 <span v-if="selected.type === 'boss' && run.story?.flags?.bossIntel" class="tag amber">
                   弱点 {{ ATTR_NAME[run.story.flags.bossWeakness] || '未知' }}
                 </span>
+                <span v-if="selected.type === 'boss' && run.story?.flags?.bossIntel && run.story.flags.bossResistance" class="tag">
+                  抗性 {{ ATTR_NAME[run.story.flags.bossResistance] || '未知' }}
+                </span>
               </div>
 
               <!-- 采集 -->
@@ -583,6 +586,9 @@ function nextNodes(node) {
                 </button>
                 <p v-if="selected.type === 'boss' && !selectedCleared" class="hint">
                   首领无法绕开。
+                </p>
+                <p v-if="selected.type === 'boss' && run.story?.flags?.bossIntel" class="hint">
+                  {{ run.story.flags.bossMechanic }} · {{ run.story.flags.bossPhases?.length || 0 }} 个阶段
                 </p>
               </template>
 

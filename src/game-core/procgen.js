@@ -3,7 +3,7 @@
  * 结构为 10 层、3 幕的分支节点图，玩家只能向前移动。
  */
 
-import { REGIONS } from './data.js'
+import { BOSS_PROFILES, REGIONS } from './data.js'
 import { createRng } from './rng.js'
 
 const TOTAL_LAYERS = 10
@@ -56,10 +56,23 @@ function makeEnemy(rng, region, type) {
   const traits = new Set()
 
   if (type === 'boss') {
-    traits.add('psychic')
-    traits.add('guarded')
-    traits.add(rng.pick(['armored', 'summoner', 'frenzy']))
-  } else if (type === 'elite') {
+    const profile = rng.pick(BOSS_PROFILES)
+    return {
+      name: profile.name,
+      hp: profile.hp + rng.int(0, 6),
+      morale: profile.morale,
+      attack: 6 + region.danger * 2 + rng.int(0, 2),
+      weakness: profile.weakness,
+      resistance: profile.resistance,
+      bossId: profile.id,
+      mechanic: profile.mechanic,
+      phases: profile.phases.map((phase) => ({ ...phase })),
+      phase: 0,
+      traits: [...profile.traits],
+    }
+  }
+
+  if (type === 'elite') {
     traits.add(rng.pick(['armored', 'regenerator', 'summoner']))
     traits.add(rng.pick(['aggressive', 'guarded']))
   } else {
@@ -653,6 +666,7 @@ function makeNode(rng, layer, slot, type, profile = null) {
     node.subtitle = `${region.name} · 可采集`
   } else if (type === 'battle' || type === 'elite' || type === 'boss') {
     node.enemy = makeEnemy(rng, region, type)
+    if (type === 'boss') node.title = node.enemy.name
     node.subtitle = `${region.name} · ${type === 'boss' ? '区域首领' : type === 'elite' ? '高危目标' : '敌对信号'}`
   } else if (type === 'shop') {
     node.stock = makeStock(rng, region)

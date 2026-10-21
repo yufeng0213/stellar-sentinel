@@ -248,14 +248,24 @@ export function buyBlackMarketIntel(run) {
   city.intelBought = true
   run.story = run.story || {}
   run.story.flags = run.story.flags || {}
+  const bossNode = Object.values(run.map?.nodes || {}).find((node) => node.type === 'boss')
+  const boss = bossNode?.enemy || {}
   run.story.flags.intel = true
   run.story.flags.bossIntel = true
-  run.story.flags.bossWeakness = 'psi'
+  run.story.flags.bossId = boss.bossId || null
+  run.story.flags.bossWeakness = boss.weakness || 'psi'
+  run.story.flags.bossResistance = boss.resistance || null
+  run.story.flags.bossMechanic = boss.mechanic || ''
+  run.story.flags.bossPhases = (boss.phases || []).map((phase) => ({
+    name: phase.name,
+    at: phase.at,
+    text: phase.text,
+  }))
   adjustReputation(run, 'market', 3, '黑市情报')
   return {
     ok: true,
     cost,
-    text: '摊主把一枚旧芯片推过来：白塔的信号源不在塔里，在塔下面的旧矿脉。',
+    text: `摊主把一枚旧芯片推过来：${boss.name || '裂隙核心'}的弱点在${boss.weakness || '灵能'}，它还有 ${boss.phases?.length || 0} 个阶段。`,
   }
 }
 

@@ -251,6 +251,51 @@ export const BASE_DECK = [
   'soothe', 'meditate', 'parley', 'patch',
 ]
 
+export const BOSS_PROFILES = [
+  {
+    id: 'rift_core',
+    name: '裂隙核心',
+    hp: 56,
+    morale: 40,
+    weakness: 'psi',
+    resistance: 'vit',
+    traits: ['psychic', 'guarded'],
+    mechanic: '外壳会分两阶段崩解；灵能压制有效，体魄攻击被外壳削弱。',
+    phases: [
+      { at: 0.66, name: '外壳崩解', text: '外壳裂开，核心暴露。攻击 +2，护甲 +1。', attack: 2, armor: 1, intents: ['psychic', 'drain', 'attack'] },
+      { at: 0.33, name: '核心过载', text: '核心开始过载，攻击 +3，进入狂暴。', attack: 3, traits: ['frenzy'], intents: ['psychic', 'attack', 'drain', 'summon'] },
+    ],
+  },
+  {
+    id: 'silent_choir',
+    name: '无声合唱',
+    hp: 60,
+    morale: 46,
+    weakness: 'soc',
+    resistance: 'psi',
+    traits: ['psychic', 'summoner'],
+    mechanic: '它用低语分裂出回声；交涉能削减士气，灵能攻击被抗性削弱。',
+    phases: [
+      { at: 0.7, name: '回声分裂', text: '合唱分成多道回声。攻击 +1，开始召唤随从。', attack: 1, traits: ['summoner'], intents: ['summon', 'psychic', 'attack'] },
+      { at: 0.35, name: '齐声', text: '所有回声同时开口。攻击 +2，士气恢复。', attack: 2, morale: 8, intents: ['psychic', 'drain', 'attack'] },
+    ],
+  },
+  {
+    id: 'tower_echo',
+    name: '白塔残响',
+    hp: 64,
+    morale: 38,
+    weakness: 'tec',
+    resistance: 'per',
+    traits: ['armored', 'guarded'],
+    mechanic: '残响会不断修复装甲；技艺攻击能拆开结构，感知攻击被干扰。',
+    phases: [
+      { at: 0.65, name: '装甲闭合', text: '残响合拢装甲。护甲 +2，戒备 +2。', armor: 2, guard: 2, intents: ['guard', 'attack', 'buff'] },
+      { at: 0.3, name: '塔心暴露', text: '塔心暴露，但残响开始自毁。攻击 +2。', attack: 2, intents: ['attack', 'guard', 'psychic'] },
+    ],
+  },
+]
+
 export const NODE_TYPES = {
   start: { name: '起点', glyph: '◉' },
   gather: { name: '采集', glyph: '◆' },

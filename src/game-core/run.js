@@ -147,6 +147,7 @@ export function createRun(draft, seedInput) {
     createdAt: Date.now(),
     player,
     deck: [...BASE_DECK],
+    bossKills: {},
     day: 1,
     ap: 8,
     apMax: 8,
