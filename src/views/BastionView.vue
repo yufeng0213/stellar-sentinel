@@ -5,6 +5,7 @@ import {
   BASTION_FACILITIES,
   bastionStatus,
   canInviteNpc,
+  residentMood,
 } from '../game-core/bastion.js'
 import { npcList } from '../game-core/npc.js'
 import { useGameStore } from '../stores/game.js'
@@ -19,6 +20,8 @@ const facilities = computed(() => BASTION_FACILITIES.map((facility) => ({
   ...facility,
   npc: run.value?.npcs?.[bastion.value?.assignments?.[facility.id]] || null,
 })))
+const event = computed(() => bastion.value?.pendingEvent || null)
+const residentsWithMood = computed(() => residents.value.map((npc) => ({ npc, mood: residentMood(npc) })))
 const candidates = computed(() => {
   if (!run.value) return []
   return npcList(run.value)
@@ -45,7 +48,12 @@ function remove(npc) {
 
 function rest() {
   const result = game.restAtBastion()
-  if (result.ok) game.notify('据点休整完成', 'good')
+  if (result.ok && !result.event) game.notify('据点休整完成', 'good')
+}
+
+function resolveEvent(choice) {
+  const result = game.resolveBastionEvent(event.value.id, choice.id)
+  if (result.ok) game.notify('据点事件已处理', 'good')
 }
 
 </script>
@@ -76,17 +84,43 @@ function rest() {
         <span class="hint">从 NPC 资料页或下方候选邀请</span>
       </div>
       <div v-if="residents.length" class="resident-list">
-        <article v-for="npc in residents" :key="npc.id" class="resident-row">
-          <div>
-            <b>{{ npc.name }}</b>
-            <span>{{ npc.archetype?.name || '未分类' }} · 信任 {{ npc.relation?.trust || 0 }} · 亲近 {{ npc.relation?.closeness || 0 }}</span>
-            <em v-if="npc.lover">恋人</em>
-            <em v-else-if="npc.quarrel?.active">冷战中</em>
+        <article v-for="entry in residentsWithMood" :key="entry.npc.id" class="resident-row">
+          <div class="resident-info">
+            <b>{{ entry.npc.name }}</b>
+            <span>{{ entry.npc.archetype?.name || '未分类' }} · 信任 {{ entry.npc.relation?.trust || 0 }} · 亲近 {{ entry.npc.relation?.closeness || 0 }}</span>
+            <div class="needs-line">
+              <span>安全 {{ entry.npc.bastionNeeds?.safety ?? 70 }}</span>
+              <span>归属 {{ entry.npc.bastionNeeds?.belonging ?? 60 }}</span>
+              <span>意义 {{ entry.npc.bastionNeeds?.purpose ?? 60 }}</span>
+              <em :class="`is-${entry.mood.color}`">{{ entry.mood.label }} {{ entry.mood.score }}</em>
+            </div>
           </div>
-          <button type="button" class="btn btn-sm btn-ghost" @click="remove(npc)">离开</button>
+          <div class="resident-actions">
+            <em v-if="entry.npc.lover">恋人</em>
+            <em v-else-if="entry.npc.quarrel?.active">冷战中</em>
+            <button type="button" class="btn btn-sm btn-ghost" @click="remove(entry.npc)">离开</button>
+          </div>
         </article>
       </div>
       <p v-else class="empty-hint">据点还没有人。邀请一个你信任的人，这里才会开始像一个家。</p>
+    </section>
+
+    <section v-if="event" class="panel bastion-event">
+      <div class="event-head">
+        <div>
+          <p class="kicker">BASTION EVENT · {{ event.type.toUpperCase() }}</p>
+          <h2>{{ event.title }}</h2>
+        </div>
+        <span class="tag" :class="bastion.tension >= 55 ? 'red' : bastion.tension >= 35 ? 'amber' : 'jade'">
+          气氛 {{ bastion.tension }}
+        </span>
+      </div>
+      <p class="event-text">{{ event.text }}</p>
+      <div class="event-choices">
+        <button v-for="choice in event.choices" :key="choice.id" type="button" class="btn btn-sm" @click="resolveEvent(choice)">
+          {{ choice.label }}
+        </button>
+      </div>
     </section>
 
     <section v-if="candidates.length" class="panel candidate-box">
@@ -162,7 +196,20 @@ function rest() {
 .resident-box, .candidate-box, .facility-box { padding: 14px; }
 .resident-list, .candidate-list { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
 .resident-row, .candidate-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .36); }
+.resident-info { min-width: 0; }
 .resident-row b, .candidate-row b { font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.resident-actions { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.needs-line { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 5px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.needs-line em { font-style: normal; }
+.needs-line .is-jade { color: var(--jade); }
+.needs-line .is-cyan { color: var(--cyan); }
+.needs-line .is-amber { color: var(--amber); }
+.needs-line .is-red { color: var(--red); }
+.bastion-event { padding: 14px 16px; border-color: rgba(255, 196, 107, .35); background: rgba(255, 196, 107, .035); }
+.event-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.event-head h2 { margin-top: 3px; font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 400; }
+.event-text { margin-top: 8px; white-space: pre-line; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.75; }
+.event-choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
 .resident-row span, .candidate-row span { display: block; margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
 .resident-row em { color: var(--violet); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-style: normal; }
 .empty-hint { margin-top: 10px; color: var(--dim); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.7; }

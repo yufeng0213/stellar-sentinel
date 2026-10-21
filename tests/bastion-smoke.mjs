@@ -12,6 +12,8 @@ import {
   ensureBastion,
   inviteNpcToBastion,
   removeNpcFromBastion,
+  resolveBastionEvent,
+  residentMood,
   restBastion,
 } from '../src/game-core/bastion.js'
 
@@ -44,6 +46,16 @@ check(rested.report.length === 1, '休整报告数量错误')
 check(run.player.credits > beforeCredits, '工坊没有产出信用点')
 check((run.inv.scrap || 0) > beforeScrap, '工坊没有产出废料')
 check(run.bastion.lastRestDay === run.day, '休整日期没有记录')
+check(!!rested.event, '休整没有触发据点事件')
+check(!!run.bastion.pendingEvent, '据点事件没有保存')
+check(!restBastion(run).ok, '未处理事件时可以重复休整')
+
+const event = rested.event
+const beforeMood = residentMood(first).score
+const resolved = resolveBastionEvent(run, event.id, event.choices[0].id)
+check(resolved.ok, '据点事件处理失败')
+check(run.bastion.pendingEvent === null, '据点事件没有清除')
+check(residentMood(first).score !== beforeMood || resolved.needs, '据点事件没有改变需求')
 check(!restBastion(run).ok, '同一天可以重复休整')
 
 const solo = list.find((npc) => npc.tags?.includes('solo'))

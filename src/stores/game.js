@@ -36,6 +36,7 @@ import {
   ensureBastion,
   inviteNpcToBastion,
   removeNpcFromBastion,
+  resolveBastionEvent as resolveBastionEventCore,
   restBastion,
 } from '../game-core/bastion.js'
 import { factionInterveneWanted } from '../game-core/wanted-faction.js'
@@ -432,7 +433,20 @@ export const useGameStore = defineStore('game', {
       const result = restBastion(this.run)
       if (result.ok) {
         result.report.forEach((line) => addLog(this.run, line, 'info'))
-        this.notify('据点火炉亮了一夜', 'good')
+        if (result.event) this.notify(`据点事件 · ${result.event.title}`, 'info')
+        else this.notify('据点火炉亮了一夜', 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    resolveBastionEvent(eventId, choiceId) {
+      if (!this.run) return { ok: false }
+      const result = resolveBastionEventCore(this.run, eventId, choiceId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
         this.save()
       } else {
         this.notify(result.message, 'bad')
