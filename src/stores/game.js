@@ -41,6 +41,7 @@ import {
 import { bailPlayer, ensureArrest } from '../game-core/arrest.js'
 import { factionBail as factionBailCore } from '../game-core/faction-bail.js'
 import { ensureFactionDebts, resolveFactionDebt as resolveFactionDebtCore } from '../game-core/faction-debt.js'
+import { ensureFactionFavorMissions, resolveFactionFavorStep } from '../game-core/faction-favor-chain.js'
 import {
   chooseWarCamp,
   chooseWarPrep,
@@ -260,6 +261,7 @@ export const useGameStore = defineStore('game', {
       ensurePatrolCheck(stored)
       ensureArrest(stored)
       ensureFactionDebts(stored)
+      ensureFactionFavorMissions(stored)
       ensureWanted(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
@@ -530,6 +532,19 @@ export const useGameStore = defineStore('game', {
       const result = resolveBastionEventCore(this.run, eventId, choiceId)
       if (result.ok) {
         addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    resolveFactionFavor(factionId, choiceId) {
+      if (!this.run) return { ok: false }
+      const result = resolveFactionFavorStep(this.run, factionId, choiceId)
+      if (result.ok) {
+        addLog(this.run, result.text, result.done ? 'good' : 'story')
+        this.notify(result.done ? '派系差事完成' : '派系差事推进', 'good')
         this.save()
       } else {
         this.notify(result.message, 'bad')

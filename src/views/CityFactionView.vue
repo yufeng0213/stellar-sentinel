@@ -1,15 +1,24 @@
 <script setup>
 import { computed } from 'vue'
+import { factionFavorMissionStatuses } from '../game-core/faction-favor-chain.js'
 import { factionStatuses } from '../game-core/faction.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
 const run = computed(() => game.run)
 const statuses = computed(() => (run.value ? factionStatuses(run.value) : []))
+const favorMissions = computed(() => (
+  run.value ? factionFavorMissionStatuses(run.value).filter((mission) => mission.status === 'active') : []
+))
 
 function claim(status) {
   const result = game.claimFactionFavor(status.id)
   if (result.ok) game.notify(`领到${status.name}补给 · ${result.credits} 信用点`, 'good')
+}
+
+function doFavor(mission, choice) {
+  const result = game.resolveFactionFavor(mission.factionId, choice.id)
+  if (result.ok) game.notify(result.done ? '派系差事完成' : '差事推进', 'good')
 }
 </script>
 
@@ -23,6 +32,36 @@ function claim(status) {
         <p class="hint">你和四个派系的关系会改变空港愿意给你什么。友善以上可以领取每日补给。</p>
       </div>
       <span class="tag cyan">信用点 {{ run.player.credits }}</span>
+    </section>
+
+    <section v-if="favorMissions.length" class="panel favor-chain">
+      <div class="favor-chain-head">
+        <p class="kicker">FACTION FAVOR · ACTIVE</p>
+        <h2>派系差事</h2>
+        <p>人情已经变成了具体的事。做完之前，名单上的名字不会消失。</p>
+      </div>
+      <article v-for="mission in favorMissions" :key="mission.factionId" class="favor-mission">
+        <div class="favor-mission-top">
+          <div>
+            <p class="kicker">{{ mission.factionName }} · STAGE {{ mission.stage + 1 }} / {{ mission.total }}</p>
+            <h3>{{ mission.step.title }}</h3>
+          </div>
+          <span class="tag violet">{{ mission.name }}</span>
+        </div>
+        <p class="favor-text">{{ mission.step.text }}</p>
+        <div class="favor-choices">
+          <button
+            v-for="choice in mission.step.choices"
+            :key="choice.id"
+            type="button"
+            class="favor-choice"
+            @click="doFavor(mission, choice)"
+          >
+            <b>{{ choice.label }}</b>
+            <span>{{ choice.desc }}</span>
+          </button>
+        </div>
+      </article>
     </section>
 
     <section class="faction-grid">
@@ -58,6 +97,18 @@ function claim(status) {
 .faction-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px; }
 .back-link { display: inline-flex; margin-bottom: 9px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .faction-head h2 { margin-top: 3px; font-size: max(var(--ui-min), calc(30px * var(--ui-scale))); font-weight: 300; letter-spacing: .08em; }
+.favor-chain { padding: 15px 16px; border-color: rgba(185, 164, 255, .3); background: rgba(185, 164, 255, .035); }
+.favor-chain-head h2 { margin-top: 3px; color: var(--violet); font-size: max(var(--ui-min), calc(22px * var(--ui-scale))); font-weight: 300; }
+.favor-chain-head p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
+.favor-mission { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.favor-mission-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.favor-mission h3 { margin-top: 3px; font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 500; }
+.favor-text { margin-top: 5px; white-space: pre-line; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.65; }
+.favor-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 9px; }
+.favor-choice { display: flex; flex-direction: column; gap: 4px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .4); color: var(--ink); text-align: left; cursor: pointer; }
+.favor-choice:hover { border-color: rgba(185, 164, 255, .45); background: rgba(185, 164, 255, .05); }
+.favor-choice b { font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; }
+.favor-choice span { color: var(--muted); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); line-height: 1.5; }
 .faction-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .faction-card { padding: 16px; border: 1px solid var(--line); border-radius: 13px; background: linear-gradient(155deg, rgba(16, 28, 40, .82), rgba(5, 10, 16, .68)); }
 .faction-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
@@ -78,6 +129,6 @@ function claim(status) {
 .text-link { color: var(--cyan); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); white-space: nowrap; }
 @media (max-width: 750px) {
   .faction-head { flex-direction: column; padding: 14px; }
-  .faction-grid { grid-template-columns: 1fr; }
+  .faction-grid, .favor-choices { grid-template-columns: 1fr; }
 }
 </style>

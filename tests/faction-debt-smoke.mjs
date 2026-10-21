@@ -10,6 +10,10 @@ import {
   registerFactionDebt,
   resolveFactionDebt,
 } from '../src/game-core/faction-debt.js'
+import {
+  factionFavorMissionStatuses,
+  resolveFactionFavorStep,
+} from '../src/game-core/faction-favor-chain.js'
 
 const errors = []
 const check = (condition, label) => { if (!condition) errors.push(label) }
@@ -35,7 +39,16 @@ favorRun.reputation.market = 40
 registerFactionDebt(favorRun, 'market', { wantedLevel: 1 })
 const favor = resolveFactionDebt(favorRun, 'market', 'favor')
 check(favor.ok && favorRun.inv.scrap === 3, '帮派系做事没有消耗废料')
-check(factionDebtStatuses(favorRun).length === 0, '帮忙后人情没有清除')
+check(factionDebtStatuses(favorRun).length === 0, '帮忙后人情没有转为差事')
+const mission = factionFavorMissionStatuses(favorRun).find((item) => item.factionId === 'market')
+check(mission?.status === 'active', '帮派系做事没有生成任务链')
+const step1 = resolveFactionFavorStep(favorRun, 'market', 'guard')
+check(step1.ok && step1.mission.stage === 1, '任务链第一段没有推进')
+const step2 = resolveFactionFavorStep(favorRun, 'market', 'collect')
+check(step2.ok && step2.mission.stage === 2, '任务链第二段没有推进')
+const step3 = resolveFactionFavorStep(favorRun, 'market', 'share')
+check(step3.ok && step3.done, '任务链没有完成')
+check(step3.mission.status === 'done', '任务链完成后没有标记')
 
 const refuseRun = createRun(randomDraft(), 'FACTION-DEBT-REFUSE-TEST')
 refuseRun.reputation.whisper = 50

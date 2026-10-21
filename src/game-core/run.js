@@ -14,6 +14,7 @@ import { createStats } from './achievements.js'
 import { createArrestState, ensureArrest } from './arrest.js'
 import { createBastionState } from './bastion.js'
 import { createFactionDebts } from './faction-debt.js'
+import { ensureFactionFavorMissions } from './faction-favor-chain.js'
 import { createWarState } from './border-war.js'
 import { createPatrolCheckState } from './patrol.js'
 import { createBlueprintState, recipeKnown } from './blueprint.js'
@@ -176,6 +177,7 @@ export function createRun(draft, seedInput) {
     patrolCheck: createPatrolCheckState(),
     arrest: createArrestState(),
     factionDebts: createFactionDebts(),
+    factionFavorMissions: {},
     wanted: createWantedState(),
     door: createDoorState(),
     escorts: createEscortState(),

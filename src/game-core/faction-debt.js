@@ -2,6 +2,7 @@
  * 派系人情债务：保释后欠下的人情，会在几天后回来。
  */
 
+import { startFactionFavorMission } from './faction-favor-chain.js'
 import { adjustReputation, factionStatuses } from './faction.js'
 import { createRng } from './rng.js'
 
@@ -84,10 +85,16 @@ export function resolveFactionDebt(run, factionId, choiceId = 'repay') {
     const cost = 2
     if ((run.inv.scrap || 0) < cost) return { ok: false, message: `需要 ${cost} 废料作为人手` }
     run.inv.scrap -= cost
-    adjustReputation(run, factionId, 8, '替派系做事')
     run.factionFavors = run.factionFavors || {}
     run.factionFavors[factionId] = run.day
-    return finish(run, debt, 'favor', `你替${status.name}跑了一趟腿。他们没有说谢谢，但把这件事记在了账上。`)
+    startFactionFavorMission(run, factionId)
+    return finish(
+      run,
+      debt,
+      'favor',
+      `你接下${status.name}的差事。对方给了你一个地址，让你先过去看看。`,
+      { status: 'favor' }
+    )
   }
 
   if (choiceId === 'extend') {
