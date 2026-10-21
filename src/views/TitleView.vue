@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.77.0 · EXPEDITION CHAINS</dd>
+            <dd class="mono">0.78.0 · CITY CONTROL</dd>
           </div>
         </dl>
       </section>

@@ -7,6 +7,7 @@ import { ITEMS } from './data.js'
 import { adjustReputation, FACTION_IDS } from './faction.js'
 import { ensureStats } from './achievements.js'
 import { cityDevelopmentEffects, ensureCityDevelopment } from './city-development.js'
+import { cityControlInfo } from './city-control.js'
 import { expeditionEffects } from './expedition.js'
 import { spawnCityNpc } from './npc.js'
 import { wantedPriceMarkup } from './wanted.js'
@@ -107,8 +108,14 @@ function makeQuests(run) {
     !run.cleared.includes(node.id)
   ))
   const target = targets.length ? rng.pick(targets) : null
-  return rng.shuffle(QUEST_POOL)
-    .slice(0, 3)
+  const controlId = run.city?.controlledBy || null
+  const control = cityControlInfo(controlId)
+  const preferred = control?.preferredQuest
+    ? QUEST_POOL.find((template) => template.type === control.preferredQuest && (template.type !== 'clear' || target))
+    : null
+  const rest = rng.shuffle(QUEST_POOL.filter((template) => template !== preferred)).slice(0, preferred ? 2 : 3)
+  const templates = preferred ? [preferred, ...rest] : rest
+  return templates
     .map((template, index) => {
       if (template.type === 'clear' && !target) return null
       return {
@@ -116,8 +123,11 @@ function makeQuests(run) {
         type: template.type,
         title: template.title,
         desc: template.desc,
-        reward: template.reward,
-        faction: rng.pick(FACTION_IDS),
+        reward: Math.round(template.reward * (1 + (control?.questBonus || 0))),
+        faction: controlId && controlId !== 'council' && controlId !== 'crew' && template.type === preferred?.type
+          ? controlId
+          : rng.pick(FACTION_IDS),
+        control: controlId,
         key: template.key || null,
         need: template.need || 0,
         nodeId: template.type === 'clear' ? target.id : null,

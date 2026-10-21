@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { cityPopulation } from '../game-core/city.js'
+import { cityControlInfo } from '../game-core/city-control.js'
 import { cityDevelopmentEffects } from '../game-core/city-development.js'
 import { RECONSTRUCTION_POLICIES, reconstructionStatus } from '../game-core/city-reconstruction.js'
 import { activeEscorts } from '../game-core/escort.js'
@@ -42,6 +43,8 @@ const controlLabel = computed(() => {
   }[control] || control
 })
 const factionExpeditionResult = computed(() => run.value?.city?.factionExpedition || null)
+const controlInfo = computed(() => cityControlInfo(run.value?.city?.controlledBy))
+const controlAttitudes = computed(() => run.value?.city?.controlAttitudes || null)
 const reconstruction = computed(() => (run.value ? reconstructionStatus(run.value) : null))
 const reconstructionPolicies = Object.values(RECONSTRUCTION_POLICIES)
 const patrol = computed(() => (run.value ? cityDevelopmentEffects(run.value).patrol || 0 : 0))
@@ -308,6 +311,11 @@ function payWanted() {
         <p class="kicker">CITY CONTROL · D{{ factionExpeditionResult?.day || warAftermath?.day || run.day }}</p>
         <h3>{{ controlLabel }}控制空港</h3>
         <p>{{ factionExpeditionResult?.text || '城市的控制方已经改变。街上的旗子换了一面，但生活还要继续。' }}</p>
+        <p v-if="controlInfo" class="control-effect">{{ controlInfo.effectText }}</p>
+        <p v-if="controlAttitudes" class="control-attitude">
+          支持 {{ controlAttitudes.supporters?.length || 0 }} 人 · 不满 {{ controlAttitudes.opponents?.length || 0 }} 人 ·
+          {{ controlAttitudes.text }}
+        </p>
       </div>
       <span class="tag violet">当前控制方</span>
     </section>
@@ -510,6 +518,8 @@ function payWanted() {
 .city-control { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 15px; border-color: rgba(185, 164, 255, .3); background: rgba(185, 164, 255, .035); }
 .city-control h3 { margin-top: 3px; color: var(--violet); font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 500; }
 .city-control p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
+.city-control .control-effect { color: var(--amber) !important; font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))) !important; }
+.city-control .control-attitude { color: var(--dim) !important; font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))) !important; }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;

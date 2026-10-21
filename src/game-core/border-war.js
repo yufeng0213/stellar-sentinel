@@ -3,6 +3,7 @@
  * 集结 → 营地 → 敌方据点 → 回城结算。
  */
 
+import { applyControlAttitudes } from './city-control.js'
 import { createReconstructionState } from './city-reconstruction.js'
 import { ITEMS } from './data.js'
 import { adjustReputation } from './faction.js'
@@ -249,6 +250,7 @@ function applyWarAftermath(run, war, choiceId) {
     if (choiceId === 'faction') city.controlledBy = war.faction
     else if (choiceId === 'city') city.controlledBy = 'council'
     else city.controlledBy = 'crew'
+    applyControlAttitudes(run, cityId, city.controlledBy)
   }
   war.aftermath = result
   return result

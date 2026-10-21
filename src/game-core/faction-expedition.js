@@ -3,6 +3,7 @@
  * 接触点 → 敌方据点 → 善后，最后改变城市控制方与派系声望。
  */
 
+import { applyControlAttitudes } from './city-control.js'
 import { adjustReputation } from './faction.js'
 import { FACTION_FAVOR_CHAINS, FACTION_FAVOR_ENEMIES } from './faction-favor-chain.js'
 
@@ -179,6 +180,9 @@ export function resolveFactionExpeditionOutcome(run, nodeId, choiceId) {
     text = '你把能搬走的东西都带回了方舟。这里暂时归你，但派系不会忘记这件事。'
   } else {
     return { ok: false, message: '没有这个选择' }
+  }
+  if (run.city?.controlledBy) {
+    applyControlAttitudes(run, run.activeCityId || 'dock', run.city.controlledBy)
   }
   node.cleared = true
   if (!run.cleared.includes(nodeId)) run.cleared.push(nodeId)

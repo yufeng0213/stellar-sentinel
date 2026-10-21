@@ -3,6 +3,7 @@
  * 状态挂在当前城市状态上，跟随 run.cityStates 分城市保存。
  */
 
+import { cityControlEffects } from './city-control.js'
 import { ITEMS } from './data.js'
 import { adjustReputation, factionStatus } from './faction.js'
 
@@ -172,6 +173,7 @@ export function cityDevelopmentEffects(run, cityId = null) {
     add(CITY_PROJECTS[id]?.effects)
   })
   if (city.pact) add(CITY_PACTS[city.pact]?.effects)
+  add(cityControlEffects(city.controlledBy))
   if (city.reconstruction?.completed) {
     const policy = city.reconstruction.policy
     const policyEffects = {
