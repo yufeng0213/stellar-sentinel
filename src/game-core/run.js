@@ -13,6 +13,7 @@ import { generateRunMap, makeSeed } from './procgen.js'
 import { createStats } from './achievements.js'
 import { createBastionState } from './bastion.js'
 import { createWarState } from './border-war.js'
+import { createPatrolCheckState } from './patrol.js'
 import { createBlueprintState, recipeKnown } from './blueprint.js'
 import { calibrationEffects, createCalibrationState } from './calibration.js'
 import { createCityState } from './city.js'
@@ -170,6 +171,7 @@ export function createRun(draft, seedInput) {
     city: createCityState(),
     bastion: createBastionState(),
     borderWar: createWarState(),
+    patrolCheck: createPatrolCheckState(),
     wanted: createWantedState(),
     door: createDoorState(),
     escorts: createEscortState(),

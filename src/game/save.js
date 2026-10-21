@@ -17,6 +17,7 @@ import { ensureDateState } from '../game-core/date-story.js'
 import { ensureExpedition } from '../game-core/expedition.js'
 import { ensureBastion } from '../game-core/bastion.js'
 import { ensureWar } from '../game-core/border-war.js'
+import { ensurePatrolCheck } from '../game-core/patrol.js'
 import { ensureWanted } from '../game-core/wanted.js'
 import { ensureReputation } from '../game-core/faction.js'
 import { createStoryState } from '../game-core/story.js'
@@ -100,6 +101,7 @@ export function validateRun(input) {
   ensureExpedition(data)
   ensureBastion(data)
   ensureWar(data)
+  ensurePatrolCheck(data)
   ensureWanted(data)
   if (!data.story.flags || typeof data.story.flags !== 'object') data.story.flags = {}
 

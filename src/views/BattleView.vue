@@ -171,9 +171,9 @@ function confirmFlee() {
   router.push({ name: 'map', params: { runId: run.value?.id } })
 }
 
-function battleExit(toWar = false) {
+function battleExit(destination = 'map') {
   router.push({
-    name: toWar ? 'war' : 'map',
+    name: destination,
     params: { runId: run.value?.id },
   })
 }
@@ -185,23 +185,24 @@ function choose(choice) {
     cardReward.value = result.reward.cardChoices
     return
   }
-  battleExit(game.run?.borderWar?.stage === 4)
+  const patrolDone = game.run?.patrolCheck?.resolvedDay === game.run?.day
+  battleExit(game.run?.borderWar?.stage === 4 ? 'war' : patrolDone ? 'city' : 'map')
 }
 
 function pickReward(card) {
-  const toWar = game.run?.pendingCardReward?.returnTo === 'war'
+  const destination = game.run?.pendingCardReward?.returnTo || 'map'
   const result = game.addDeckCard(card.key)
   if (!result.ok) return
   cardReward.value = null
   game.clearCardReward()
-  battleExit(toWar)
+  battleExit(destination)
 }
 
 function skipReward() {
-  const toWar = game.run?.pendingCardReward?.returnTo === 'war'
+  const destination = game.run?.pendingCardReward?.returnTo || 'map'
   cardReward.value = null
   game.clearCardReward()
-  battleExit(toWar)
+  battleExit(destination)
 }
 
 function leaveBattle() {

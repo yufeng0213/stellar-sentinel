@@ -33,6 +33,12 @@ import { checkExpedition, chooseExpeditionContract, ensureExpedition } from '../
 import { ensureWanted, payWanted as payWantedCore } from '../game-core/wanted.js'
 import { completeReconstruction, startReconstruction } from '../game-core/city-reconstruction.js'
 import {
+  completePatrolBattle,
+  ensurePatrolCheck,
+  maybeTriggerPatrol,
+  resolvePatrolCheck,
+} from '../game-core/patrol.js'
+import {
   chooseWarCamp,
   chooseWarPrep,
   completeWarBattle,
@@ -248,6 +254,7 @@ export const useGameStore = defineStore('game', {
       ensureExpedition(stored)
       ensureBastion(stored)
       ensureWar(stored)
+      ensurePatrolCheck(stored)
       ensureWanted(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
@@ -523,6 +530,57 @@ export const useGameStore = defineStore('game', {
         this.notify(result.message, 'bad')
       }
       return result
+    },
+
+    maybePatrolCheck() {
+      if (!this.run) return false
+      const triggered = maybeTriggerPatrol(this.run)
+      if (triggered) this.save()
+      return triggered
+    },
+
+    resolvePatrol(choiceId) {
+      if (!this.run) return { ok: false }
+      const result = resolvePatrolCheck(this.run, choiceId)
+      if (!result.ok) {
+        this.notify(result.message, 'bad')
+        return result
+      }
+      if (result.battle) {
+        result.battleNodeId = this.startPatrolBattle()
+        this.save()
+        return result
+      }
+      this.notify(result.text, 'info')
+      this.save()
+      return result
+    },
+
+    startPatrolBattle() {
+      if (!this.run?.patrolCheck?.pending) return null
+      const current = this.run.map.nodes[this.run.location]
+      let nodeId = `patrol-${this.run.day}-${this.run.wanted.level}`
+      while (this.run.map.nodes[nodeId]) nodeId = `${nodeId}-a`
+      const node = {
+        id: nodeId,
+        type: 'elite',
+        region: current?.region || 'dock',
+        accent: current?.accent,
+        title: '巡逻队盘查',
+        subtitle: '设防城市 · 犯罪压制',
+        enemy: {
+          name: '巡逻队长',
+          hp: 26 + (this.run.wanted.level || 1) * 6,
+          morale: 22,
+          attack: 5 + (this.run.wanted.level || 1),
+          traits: ['armored', 'guarded'],
+        },
+      }
+      this.run.map.nodes[nodeId] = node
+      this.run.battle = createBattle(this.run, node)
+      this.run.battle.patrol = true
+      this.save()
+      return nodeId
     },
 
     startCityReconstruction(policyId) {
@@ -1083,15 +1141,17 @@ export const useGameStore = defineStore('game', {
         const choices = result.reward?.cardChoices || []
         const siteId = this.run.battle?.siteId
         const borderWar = this.run.battle?.borderWar
+        const patrolBattle = this.run.battle?.patrol
         this.run.pendingCardReward = choices.length
           ? {
               nodeId: result.reward.nodeId || this.run.battle?.nodeId || null,
               choices,
-              returnTo: borderWar ? 'war' : null,
+              returnTo: borderWar ? 'war' : patrolBattle ? 'city' : null,
             }
           : null
         if (siteId) completeSiteGuardian(this.run, siteId)
         if (borderWar) completeWarBattle(this.run)
+        if (patrolBattle) completePatrolBattle(this.run)
         this.run.battle = null
         this.grantAchievements()
         this.settleExpedition()

@@ -30,8 +30,12 @@ const warControl = computed(() => {
 const reconstruction = computed(() => (run.value ? reconstructionStatus(run.value) : null))
 const reconstructionPolicies = Object.values(RECONSTRUCTION_POLICIES)
 const patrol = computed(() => (run.value ? cityDevelopmentEffects(run.value).patrol || 0 : 0))
+const patrolCheck = computed(() => run.value?.patrolCheck || null)
 
-onMounted(() => game.enterCity())
+onMounted(() => {
+  game.enterCity()
+  game.maybePatrolCheck()
+})
 
 function startRebuild(policy) {
   const result = game.startCityReconstruction(policy.id)
@@ -41,6 +45,13 @@ function startRebuild(policy) {
 function finishRebuild(choice) {
   const result = game.completeCityReconstruction(choice)
   if (result.ok) game.notify('城市重建完成', 'good')
+}
+
+function patrolAction(choice) {
+  const result = game.resolvePatrol(choice)
+  if (result.battleNodeId && run.value) {
+    router.push({ name: 'battle', params: { runId: run.value.id, nodeId: result.battleNodeId } })
+  }
 }
 
 function open(name) {
@@ -269,11 +280,60 @@ function payWanted() {
       <span class="kicker">MAIN OBJECTIVE · CH{{ run.story.chapter }}</span>
       <p>{{ run.story.objective }}</p>
     </section>
+
+    <Teleport to="body">
+      <div v-if="patrolCheck?.pending" class="patrol-backdrop">
+        <div class="patrol-panel">
+          <p class="kicker">PATROL CHECKPOINT · WANTED {{ wanted.level }}</p>
+          <h2>巡逻队盘查</h2>
+          <p class="patrol-text">
+            两名巡逻队员在街口拦住了你。他们没有立刻动手，但手一直按在武器上。
+          </p>
+          <p v-if="patrolCheck.text" class="patrol-note">{{ patrolCheck.text }}</p>
+          <div class="patrol-actions">
+            <button
+              type="button"
+              class="patrol-choice"
+              :disabled="run.player.credits < 20 + wanted.level * 10"
+              @click="patrolAction('papers')"
+            >
+              <b>出示证件</b>
+              <span>支付 {{ 20 + wanted.level * 10 }} 信用点，通缉降低一级。</span>
+            </button>
+            <button type="button" class="patrol-choice" @click="patrolAction('bluff')">
+              <b>编个故事</b>
+              <span>交涉判定。成功降低通缉，失败会被加一级。</span>
+            </button>
+            <button type="button" class="patrol-choice" @click="patrolAction('run')">
+              <b>转身就跑</b>
+              <span>敏捷判定。成功脱身，失败会进入战斗。</span>
+            </button>
+            <button type="button" class="patrol-choice" @click="patrolAction('fight')">
+              <b>先动手</b>
+              <span>进入巡逻队战斗。胜利后仍然会被通缉。</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
 .city-page { gap: 12px; max-width: 1450px; }
+.patrol-backdrop { position: fixed; inset: 0; z-index: 240; display: grid; place-items: center; padding: 18px; background: rgba(0, 0, 0, .72); }
+.patrol-panel { width: min(620px, 94vw); padding: 18px; border: 1px solid rgba(255, 138, 138, .38); border-radius: 12px; background: var(--panel); box-shadow: 0 30px 80px rgba(0, 0, 0, .6); }
+.patrol-panel h2 { margin-top: 4px; color: var(--red); font-size: max(var(--ui-min), calc(26px * var(--ui-scale))); font-weight: 300; }
+.patrol-text { margin-top: 6px; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.7; }
+.patrol-note { margin-top: 7px; color: var(--amber); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.6; }
+.patrol-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
+.patrol-choice { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .42); color: var(--ink); text-align: left; cursor: pointer; }
+.patrol-choice:hover { border-color: rgba(255, 138, 138, .45); background: rgba(255, 138, 138, .05); }
+.patrol-choice b { font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.patrol-choice span { color: var(--muted); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); line-height: 1.5; }
+@media (max-width: 600px) {
+  .patrol-actions { grid-template-columns: 1fr; }
+}
 .city-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 20px; }
 .city-hero h1 { margin-top: 3px; font-size: max(var(--ui-min), calc(36px * var(--ui-scale))); font-weight: 300; letter-spacing: .1em; }
 .city-hero .hint { margin-top: 5px; max-width: 58em; }
