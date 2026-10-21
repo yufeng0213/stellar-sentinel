@@ -10,6 +10,7 @@ import { activeEscorts, startEscort } from './escort.js'
 import { expeditionEffects } from './expedition.js'
 import { PERSONA_EVENTS, personaEventFor } from './npc-persona-events.js'
 import { QUARREL_LINES, RECONCILE_LINES, RIVALRY_LINES } from './npc-conflict-events.js'
+import { processJealousyConfrontation, resolveJealousyReport } from './npc-jealousy.js'
 import { createPromise, expirePromises, giftForNpc, openPromises } from './npc-promises.js'
 import { STAGE_EVENTS, stageEventFor } from './npc-stage-events.js'
 import { clearQuarrel, markAmbiguous, noteNpcInteraction, relationStageOf } from './npc-stages.js'
@@ -25,6 +26,7 @@ export const EVENT_TYPES = {
   romance: { label: '靠近', color: 'red', base: 8, major: true },
   confession: { label: '表白', color: 'red', base: 10, major: true },
   jealousy: { label: '吃醋', color: 'red', base: 8, major: true },
+  jealousy_report: { label: '告状', color: 'red', base: 8, major: true },
   escort: { label: '护送', color: 'amber', base: 9, major: true },
   bond: { label: '好感', color: 'violet', base: 10, major: true },
   promise: { label: '约定', color: 'jade', base: 8, major: true },
@@ -591,8 +593,10 @@ export function generateNpcEvents(run, options = {}) {
     })
   }
 
+  const jealousy = processJealousyConfrontation(run)
+  if (jealousy?.event) run.inbox.unshift(jealousy.event)
   const rng = createRng(`${run.seed}:npc-events:${run.day}`)
-  const created = []
+  const created = jealousy?.event ? [jealousy.event] : []
   const dueWeekly = run.day % 7 === 0
   const pendingCount = run.inbox.filter((event) => event.status === 'pending').length
   const usedNpc = new Set()
@@ -1014,6 +1018,7 @@ export function resolveInboxEvent(run, eventId, choiceId) {
   else if (event.type === 'conflict') result = resolveConflict(run, npc, event, choiceId)
   else if (event.type === 'gossip') result = resolveGossip(run, npc, event, choiceId)
   else if (event.type === 'survivor') result = resolveSurvivor(run, npc, event, choiceId)
+  else if (event.type === 'jealousy_report') result = resolveJealousyReport(run, event, choiceId)
 
   if (result && typeof result === 'object' && result.error) return { ok: false, message: result.error }
 

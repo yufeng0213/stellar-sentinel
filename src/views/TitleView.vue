@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.81.0 · MAP CYCLE</dd>
+            <dd class="mono">0.82.0 · JEALOUSY CHAIN</dd>
           </div>
         </dl>
       </section>

@@ -178,6 +178,7 @@ export function createRun(draft, seedInput) {
     arrest: createArrestState(),
     factionDebts: createFactionDebts(),
     factionFavorMissions: {},
+    jealousyChains: [],
     controlReactionEvents: [],
     wanted: createWantedState(),
     door: createDoorState(),
