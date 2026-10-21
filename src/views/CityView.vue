@@ -151,6 +151,12 @@ function payWanted() {
         <p>升级诊所、市场、锻造和通讯；用派系项目改变这座城市。</p>
         <em>查看长期项目 →</em>
       </button>
+      <button type="button" class="city-card" @click="open('bastion')">
+        <span class="city-glyph">⌂</span>
+        <b>方舟据点</b>
+        <p>邀请信任的人住进来，安排设施值班，在远征之间休整。</p>
+        <em>{{ game.run?.bastion?.residents?.length || 0 }} 位居民 →</em>
+      </button>
       <button type="button" class="city-card" @click="open('city-factions')">
         <span class="city-glyph">⌘</span>
         <b>派系</b>

@@ -25,6 +25,7 @@ import ForgeView from '../views/ForgeView.vue'
 import CommsView from '../views/CommsView.vue'
 import CharacterView from '../views/CharacterView.vue'
 import CalibrationView from '../views/CalibrationView.vue'
+import BastionView from '../views/BastionView.vue'
 import BattleView from '../views/BattleView.vue'
 import DateView from '../views/DateView.vue'
 import DeckView from '../views/DeckView.vue'
@@ -59,6 +60,7 @@ const router = createRouter({
         { path: 'story/door', name: 'story-door', component: DoorView },
         { path: 'story/epilogue', name: 'story-epilogue', component: EpilogueView },
         { path: 'city', name: 'city', component: CityView },
+        { path: 'bastion', name: 'bastion', component: BastionView },
         { path: 'city/market', name: 'city-market', component: CityMarketView },
         { path: 'city/tavern', name: 'city-tavern', component: CityTavernView },
         { path: 'city/clinic', name: 'city-clinic', component: CityClinicView },

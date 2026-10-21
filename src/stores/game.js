@@ -31,6 +31,13 @@ import {
 } from '../game-core/city-development.js'
 import { checkExpedition, chooseExpeditionContract, ensureExpedition } from '../game-core/expedition.js'
 import { ensureWanted, payWanted as payWantedCore } from '../game-core/wanted.js'
+import {
+  assignBastionFacility,
+  ensureBastion,
+  inviteNpcToBastion,
+  removeNpcFromBastion,
+  restBastion,
+} from '../game-core/bastion.js'
 import { factionInterveneWanted } from '../game-core/wanted-faction.js'
 import {
   adjustReputation,
@@ -225,6 +232,7 @@ export const useGameStore = defineStore('game', {
       ensurePromises(stored)
       ensureDateState(stored)
       ensureExpedition(stored)
+      ensureBastion(stored)
       ensureWanted(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
@@ -387,6 +395,48 @@ export const useGameStore = defineStore('game', {
       const result = stealFromShop(this.run, nodeId, index)
       if (result.ok) this.save()
       else this.notify(result.message, 'bad')
+      return result
+    },
+
+    inviteToBastion(npcId) {
+      if (!this.run) return { ok: false }
+      const result = inviteNpcToBastion(this.run, npcId)
+      if (result.ok) {
+        addLog(this.run, `${result.npc.name} 接受了据点邀请。`, 'good')
+        this.notify(`${result.npc.name} 加入了渡鸦号`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    removeFromBastion(npcId) {
+      if (!this.run) return { ok: false }
+      const result = removeNpcFromBastion(this.run, npcId)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    assignBastion(facilityId, npcId) {
+      if (!this.run) return { ok: false }
+      const result = assignBastionFacility(this.run, facilityId, npcId)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    restAtBastion() {
+      if (!this.run) return { ok: false }
+      const result = restBastion(this.run)
+      if (result.ok) {
+        result.report.forEach((line) => addLog(this.run, line, 'info'))
+        this.notify('据点火炉亮了一夜', 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
       return result
     },
 

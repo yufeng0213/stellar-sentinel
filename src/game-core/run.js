@@ -10,6 +10,7 @@ import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
 import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
 import { createStats } from './achievements.js'
+import { createBastionState } from './bastion.js'
 import { createBlueprintState, recipeKnown } from './blueprint.js'
 import { calibrationEffects, createCalibrationState } from './calibration.js'
 import { createCityState } from './city.js'
@@ -165,6 +166,7 @@ export function createRun(draft, seedInput) {
     story: createStoryState(),
     expedition: createExpeditionState(seed),
     city: createCityState(),
+    bastion: createBastionState(),
     wanted: createWantedState(),
     door: createDoorState(),
     escorts: createEscortState(),

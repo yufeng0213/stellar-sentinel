@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ITEMS, REGIONS } from '../game-core/data.js'
 import { AXES, PERSONALITY_LABELS, canInviteToParty, factionName, romanceStatus } from '../game-core/npc.js'
+import { canInviteNpc } from '../game-core/bastion.js'
 import { openPromises } from '../game-core/npc-promises.js'
 import { RELATION_STAGES, relationStageInfo } from '../game-core/npc-stages.js'
 import { TAG_CATEGORIES } from '../game-core/npc-tags.js'
@@ -23,6 +24,9 @@ const promises = computed(() => (run.value && npc.value ? openPromises(run.value
 const inviteCheck = computed(() => (
   npc.value ? canInviteToParty(run.value, npc.value.id) : { ok: false, reason: '' }
 ))
+const bastionCheck = computed(() => (
+  npc.value && run.value ? canInviteNpc(run.value, npc.value) : { ok: false, reason: '' }
+))
 const romance = computed(() => (run.value && npc.value ? romanceStatus(run.value, npc.value.id) : null))
 const stageInfo = computed(() => (npc.value ? relationStageInfo(npc.value) : null))
 
@@ -35,6 +39,14 @@ function doTalk(topic) {
   if (!npc.value) return
   const result = game.talkNpc(npc.value.id, topic)
   reply.value = result.reply || result.message || ''
+}
+
+function doInviteBastion() {
+  if (!npc.value) return
+  const result = game.inviteToBastion(npc.value.id)
+  reply.value = result.ok
+    ? `${npc.value.name} 接受了邀请。以后可以在方舟据点里见到他。`
+    : result.message || ''
 }
 
 function doSteal() {
@@ -213,6 +225,17 @@ function promiseLabel(promise) {
         <button type="button" class="btn btn-sm" :disabled="!npc.alive || npc.hostile" @click="doTalk('probe')">试探</button>
         <button v-if="!npc.party" type="button" class="btn btn-sm" :disabled="!inviteCheck.ok" :title="inviteCheck.reason" @click="doInvite">组队</button>
         <button v-else type="button" class="btn btn-sm" @click="doLeave">离队</button>
+        <span v-if="npc.bastionResident" class="tag jade">据点成员</span>
+        <button
+          v-else
+          type="button"
+          class="btn btn-sm"
+          :disabled="!bastionCheck.ok"
+          :title="bastionCheck.reason"
+          @click="doInviteBastion"
+        >
+          邀请进据点
+        </button>
         <button type="button" class="btn btn-sm" :disabled="!npc.alive || npc.hostile" title="敏捷判定；有扒窃能力时 +2" @click="doSteal">扒窃</button>
         <button type="button" class="btn btn-sm" :disabled="!npc.alive || npc.hostile" @click="doThreat">威胁</button>
         <button type="button" class="btn btn-sm" :disabled="!npc.alive" @click="doApologize">道歉 · 40</button>
@@ -221,6 +244,7 @@ function promiseLabel(promise) {
       </div>
       <p v-if="reply" class="reply">{{ reply }}</p>
       <p v-if="!npc.party" class="hint">组队需要信任 50、亲近 30，队伍上限 2 人。</p>
+      <p v-if="!npc.bastionResident" class="hint">据点邀请：{{ bastionCheck.reason || '可以邀请他住进渡鸦号。' }}</p>
     </section>
 
     <section v-if="promises.length" class="panel npc-block promise-block">
