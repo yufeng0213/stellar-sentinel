@@ -171,6 +171,13 @@ function confirmFlee() {
   router.push({ name: 'map', params: { runId: run.value?.id } })
 }
 
+function battleExit(toWar = false) {
+  router.push({
+    name: toWar ? 'war' : 'map',
+    params: { runId: run.value?.id },
+  })
+}
+
 function choose(choice) {
   const result = game.resolveBattleChoice(choice)
   if (!result.ok) return
@@ -178,21 +185,23 @@ function choose(choice) {
     cardReward.value = result.reward.cardChoices
     return
   }
-  router.push({ name: 'map', params: { runId: run.value?.id } })
+  battleExit(game.run?.borderWar?.stage === 4)
 }
 
 function pickReward(card) {
+  const toWar = game.run?.pendingCardReward?.returnTo === 'war'
   const result = game.addDeckCard(card.key)
   if (!result.ok) return
   cardReward.value = null
   game.clearCardReward()
-  router.push({ name: 'map', params: { runId: run.value?.id } })
+  battleExit(toWar)
 }
 
 function skipReward() {
+  const toWar = game.run?.pendingCardReward?.returnTo === 'war'
   cardReward.value = null
   game.clearCardReward()
-  router.push({ name: 'map', params: { runId: run.value?.id } })
+  battleExit(toWar)
 }
 
 function leaveBattle() {

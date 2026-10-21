@@ -32,6 +32,15 @@ import {
 import { checkExpedition, chooseExpeditionContract, ensureExpedition } from '../game-core/expedition.js'
 import { ensureWanted, payWanted as payWantedCore } from '../game-core/wanted.js'
 import {
+  chooseWarCamp,
+  chooseWarPrep,
+  completeWarBattle,
+  ensureWar,
+  settleBorderWar,
+  startBorderWar,
+  warBattleEnemy,
+} from '../game-core/border-war.js'
+import {
   assignBastionFacility,
   ensureBastion,
   inviteNpcToBastion,
@@ -237,6 +246,7 @@ export const useGameStore = defineStore('game', {
       ensureDateState(stored)
       ensureExpedition(stored)
       ensureBastion(stored)
+      ensureWar(stored)
       ensureWanted(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
@@ -507,6 +517,84 @@ export const useGameStore = defineStore('game', {
       const result = resolveBastionEventCore(this.run, eventId, choiceId)
       if (result.ok) {
         addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    beginBorderWar() {
+      if (!this.run) return { ok: false }
+      const result = startBorderWar(this.run)
+      if (result.ok) {
+        addLog(this.run, '边境战争开始：盟约传令官送来一份边境地图。', 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    chooseWarPrep(choiceId) {
+      if (!this.run) return { ok: false }
+      const result = chooseWarPrep(this.run, choiceId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    chooseWarCamp(choiceId) {
+      if (!this.run) return { ok: false }
+      const result = chooseWarCamp(this.run, choiceId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    startWarBattle() {
+      if (!this.run?.borderWar?.active || this.run.borderWar.stage !== 3) return null
+      let nodeId = `war-${this.run.day}-${this.run.borderWar.enemy}`
+      while (this.run.map.nodes[nodeId]) nodeId = `${nodeId}-a`
+      const enemy = warBattleEnemy(this.run)
+      const current = this.run.map.nodes[this.run.location]
+      const node = {
+        id: nodeId,
+        type: 'elite',
+        region: current?.region || 'ruins',
+        accent: current?.accent,
+        title: enemy.name,
+        subtitle: '边境战争 · 敌方据点',
+        enemy: {
+          name: enemy.name,
+          hp: enemy.hp,
+          morale: enemy.morale,
+          attack: enemy.attack,
+          traits: [...enemy.traits],
+        },
+        borderWar: true,
+      }
+      this.run.map.nodes[node.id] = node
+      this.run.battle = createBattle(this.run, node)
+      this.run.battle.borderWar = true
+      this.save()
+      return node.id
+    },
+
+    settleWar(choiceId) {
+      if (!this.run) return { ok: false }
+      const result = settleBorderWar(this.run, choiceId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.notify(`边境战争结束 · ${result.reward}`, 'good')
         this.save()
       } else {
         this.notify(result.message, 'bad')
@@ -967,10 +1055,16 @@ export const useGameStore = defineStore('game', {
         }
         const choices = result.reward?.cardChoices || []
         const siteId = this.run.battle?.siteId
+        const borderWar = this.run.battle?.borderWar
         this.run.pendingCardReward = choices.length
-          ? { nodeId: result.reward.nodeId || this.run.battle?.nodeId || null, choices }
+          ? {
+              nodeId: result.reward.nodeId || this.run.battle?.nodeId || null,
+              choices,
+              returnTo: borderWar ? 'war' : null,
+            }
           : null
         if (siteId) completeSiteGuardian(this.run, siteId)
+        if (borderWar) completeWarBattle(this.run)
         this.run.battle = null
         this.grantAchievements()
         this.settleExpedition()

@@ -12,6 +12,7 @@ import { createRng } from './rng.js'
 import { generateRunMap, makeSeed } from './procgen.js'
 import { createStats } from './achievements.js'
 import { createBastionState } from './bastion.js'
+import { createWarState } from './border-war.js'
 import { createBlueprintState, recipeKnown } from './blueprint.js'
 import { calibrationEffects, createCalibrationState } from './calibration.js'
 import { createCityState } from './city.js'
@@ -168,6 +169,7 @@ export function createRun(draft, seedInput) {
     expedition: createExpeditionState(seed),
     city: createCityState(),
     bastion: createBastionState(),
+    borderWar: createWarState(),
     wanted: createWantedState(),
     door: createDoorState(),
     escorts: createEscortState(),

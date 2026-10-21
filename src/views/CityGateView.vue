@@ -115,6 +115,19 @@ function askFaction(helper) {
       </div>
     </section>
 
+    <section v-if="run.city?.pact || run.borderWar?.active || run.borderWar?.completedDay" class="panel gate-war">
+      <div>
+        <p class="kicker">BORDER WAR</p>
+        <h3>边境战争</h3>
+        <p v-if="run.borderWar?.active">第 {{ run.borderWar.stage }} / 4 阶段 · {{ run.borderWar.lastText || '盟约正在等你。' }}</p>
+        <p v-else-if="run.borderWar?.completedDay">这场边境战争已经结束。城市仍然记得你站在哪一边。</p>
+        <p v-else>盟约的边境出了事。你可以去看看，也可以让传令官继续等。</p>
+      </div>
+      <RouterLink :to="{ name: 'war', params: { runId: run.id } }" class="btn btn-sm">
+        {{ run.borderWar?.active ? '继续边境战争 →' : run.borderWar?.completedDay ? '查看战争结果 →' : '查看边境战争 →' }}
+      </RouterLink>
+    </section>
+
     <section class="panel gate-actions">
       <button type="button" class="btn btn-primary" @click="enter">进入星区 →</button>
       <RouterLink :to="{ name: 'city-market', params: { runId: run.id } }" class="btn btn-ghost">再去市场</RouterLink>
@@ -151,6 +164,9 @@ function askFaction(helper) {
 .gate-helper.is-available { opacity: 1; border-color: rgba(185, 164, 255, .25); background: rgba(185, 164, 255, .035); }
 .gate-helper b { display: block; font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; }
 .gate-helper span { display: block; margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.gate-war { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 16px; border-color: rgba(255, 138, 138, .25); background: rgba(255, 138, 138, .025); }
+.gate-war h3 { margin-top: 3px; color: var(--red); font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 500; }
+.gate-war p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
 .gate-actions { display: flex; flex-wrap: wrap; gap: 7px; padding: 14px; }
 @media (max-width: 600px) {
   .gate-hero { padding: 15px; }
@@ -158,5 +174,6 @@ function askFaction(helper) {
   .gate-dungeon { align-items: flex-start; flex-direction: column; }
   .gate-wanted-head { flex-direction: column; }
   .gate-helpers { grid-template-columns: 1fr; }
+  .gate-war { align-items: flex-start; flex-direction: column; }
 }
 </style>
