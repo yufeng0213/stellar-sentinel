@@ -3,6 +3,7 @@
  * 集结 → 营地 → 敌方据点 → 回城结算。
  */
 
+import { createReconstructionState } from './city-reconstruction.js'
 import { ITEMS } from './data.js'
 import { adjustReputation } from './faction.js'
 import { createRng } from './rng.js'
@@ -189,7 +190,9 @@ function applyWarAftermath(run, war, choiceId) {
     control: choiceId === 'faction' ? war.faction : choiceId === 'city' ? 'council' : 'crew',
     text: '',
     migrantsOut: [],
+    migrantIds: [],
     injured: [],
+    injuredIds: [],
     stanceChanges: [],
   }
 
@@ -205,6 +208,7 @@ function applyWarAftermath(run, war, choiceId) {
     rivals.forEach((npc) => {
       removeFromCity(run, cityId, npc)
       result.migrantsOut.push(npc.name)
+      result.migrantIds.push(npc.id)
     })
     residents.filter((npc) => npc.faction === war.faction).forEach((npc) => {
       npc.relation.trust = clamp(npc.relation.trust + 6)
@@ -232,6 +236,7 @@ function applyWarAftermath(run, war, choiceId) {
   if (injured) {
     injured.injured = true
     result.injured.push(injured.name)
+    result.injuredIds.push(injured.id)
     result.text += ` ${injured.name} 在回程时受了伤。`
   } else {
     run.player.hp = Math.max(1, run.player.hp - 12)
@@ -240,6 +245,7 @@ function applyWarAftermath(run, war, choiceId) {
 
   if (city) {
     city.warAftermath = result
+    city.reconstruction = createReconstructionState()
     if (choiceId === 'faction') city.controlledBy = war.faction
     else if (choiceId === 'city') city.controlledBy = 'council'
     else city.controlledBy = 'crew'

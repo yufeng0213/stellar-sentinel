@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.66.0 · AFTERMATH</dd>
+            <dd class="mono">0.67.0 · REBUILD</dd>
           </div>
         </dl>
       </section>

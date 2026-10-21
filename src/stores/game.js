@@ -31,6 +31,7 @@ import {
 } from '../game-core/city-development.js'
 import { checkExpedition, chooseExpeditionContract, ensureExpedition } from '../game-core/expedition.js'
 import { ensureWanted, payWanted as payWantedCore } from '../game-core/wanted.js'
+import { completeReconstruction, startReconstruction } from '../game-core/city-reconstruction.js'
 import {
   chooseWarCamp,
   chooseWarPrep,
@@ -517,6 +518,32 @@ export const useGameStore = defineStore('game', {
       const result = resolveBastionEventCore(this.run, eventId, choiceId)
       if (result.ok) {
         addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    startCityReconstruction(policyId) {
+      if (!this.run) return { ok: false }
+      const result = startReconstruction(this.run, policyId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.notify(`重建开始 · ${result.policy.name}`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    completeCityReconstruction(choiceId) {
+      if (!this.run) return { ok: false }
+      const result = completeReconstruction(this.run, choiceId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.notify('城市重建完成', 'good')
         this.save()
       } else {
         this.notify(result.message, 'bad')

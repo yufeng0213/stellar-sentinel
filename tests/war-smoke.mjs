@@ -14,6 +14,11 @@ import {
   warAvailable,
   warBattleEnemy,
 } from '../src/game-core/border-war.js'
+import {
+  completeReconstruction,
+  reconstructionStatus,
+  startReconstruction,
+} from '../src/game-core/city-reconstruction.js'
 
 const errors = []
 const check = (condition, label) => { if (!condition) errors.push(label) }
@@ -53,6 +58,16 @@ check(run.city.controlledBy === 'tower', '城市控制权没有改变')
 check(run.borderWar.aftermath?.stanceChanges?.length > 0, 'NPC 没有对战争结果表态')
 check(Array.isArray(run.borderWar.aftermath?.migrantsOut), '迁出名单缺失')
 check(run.borderWar.aftermath?.injured?.length === 1, '战争伤者没有记录')
+check(run.city.reconstruction?.stage === 0, '城市没有进入重建准备')
+
+run.inv.ration = 4
+const rebuild = startReconstruction(run, 'relief')
+check(rebuild.ok && run.city.reconstruction.stage === 1, '重建没有开始')
+check(reconstructionStatus(run).ready === false, '重建过早可完成')
+run.day = run.city.reconstruction.dueDay
+const rebuildDone = completeReconstruction(run, 'relief')
+check(rebuildDone.ok && run.city.reconstruction.completed, '重建没有完成')
+check(run.city.reconstructionResult?.policy === 'relief', '重建结果没有记录')
 
 console.log(JSON.stringify({
   ok: errors.length === 0,

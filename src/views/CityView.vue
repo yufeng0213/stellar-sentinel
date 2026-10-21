@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { cityPopulation } from '../game-core/city.js'
+import { RECONSTRUCTION_POLICIES, reconstructionStatus } from '../game-core/city-reconstruction.js'
 import { activeEscorts } from '../game-core/escort.js'
 import { wantedStatus } from '../game-core/wanted.js'
 import { useGameStore } from '../stores/game.js'
@@ -25,8 +26,20 @@ const warControl = computed(() => {
   if (control) return '盟约派系接管'
   return ''
 })
+const reconstruction = computed(() => (run.value ? reconstructionStatus(run.value) : null))
+const reconstructionPolicies = Object.values(RECONSTRUCTION_POLICIES)
 
 onMounted(() => game.enterCity())
+
+function startRebuild(policy) {
+  const result = game.startCityReconstruction(policy.id)
+  if (result.ok) game.notify(`${policy.name}已开始`, 'good')
+}
+
+function finishRebuild(choice) {
+  const result = game.completeCityReconstruction(choice)
+  if (result.ok) game.notify('城市重建完成', 'good')
+}
 
 function open(name) {
   if (!run.value) return
@@ -125,6 +138,56 @@ function payWanted() {
       <div v-if="warAftermath.stanceChanges?.length" class="war-stance">
         <span v-for="line in warAftermath.stanceChanges" :key="line">{{ line }}</span>
       </div>
+    </section>
+
+    <section v-if="warAftermath && reconstruction && !reconstruction.completed" class="panel rebuild-box">
+      <div class="rebuild-head">
+        <div>
+          <p class="kicker">REBUILD · D{{ reconstruction.startedDay || warAftermath.day }}</p>
+          <h3>战后重建</h3>
+          <p v-if="reconstruction.stage === 0">城市还在冒烟。先决定把有限的资源放在哪里。</p>
+          <p v-else-if="!reconstruction.ready">重建正在进行。还需要 {{ reconstruction.waitingDays }} 天。</p>
+          <p v-else>重建到了验收的时候。你可以继续投入，也可以就此收尾。</p>
+        </div>
+        <span v-if="reconstruction.policyInfo" class="tag violet">{{ reconstruction.policyInfo.name }}</span>
+      </div>
+
+      <div v-if="reconstruction.stage === 0" class="rebuild-choices">
+        <button
+          v-for="policy in reconstructionPolicies"
+          :key="policy.id"
+          type="button"
+          class="rebuild-choice"
+          @click="startRebuild(policy)"
+        >
+          <b>{{ policy.name }}</b>
+          <span>{{ policy.desc }}</span>
+          <em>{{ policy.costText }}</em>
+        </button>
+      </div>
+
+      <div v-else-if="reconstruction.ready" class="rebuild-actions">
+        <button type="button" class="btn btn-sm btn-primary" @click="finishRebuild('hold')">
+          完成重建 · 保持方向
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm"
+          :disabled="run.player.credits < 20"
+          @click="finishRebuild('relief')"
+        >
+          继续投入 · 20 信用点 · 接回迁出者
+        </button>
+      </div>
+
+      <p v-else class="hint">完成后会改变城市控制方、居民态度或迁出人口。</p>
+    </section>
+
+    <section v-if="reconstruction?.completed" class="panel rebuild-result">
+      <p class="kicker">REBUILD COMPLETE · D{{ reconstruction.completedDay }}</p>
+      <h3>城市重新开始运转</h3>
+      <p>{{ reconstruction.log[reconstruction.log.length - 1] || '重建完成了。' }}</p>
+      <span v-if="reconstruction.policyInfo" class="tag violet">{{ reconstruction.policyInfo.name }}</span>
     </section>
 
     <section class="city-grid">
@@ -238,6 +301,20 @@ function payWanted() {
 .war-aftermath p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; white-space: pre-line; }
 .war-aftermath-tags { display: flex; gap: 5px; flex-shrink: 0; }
 .war-stance { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.rebuild-box { padding: 13px 15px; border-color: rgba(124, 231, 255, .22); background: rgba(124, 231, 255, .025); }
+.rebuild-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.rebuild-head h3 { margin-top: 3px; color: var(--cyan); font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 500; }
+.rebuild-head p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
+.rebuild-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
+.rebuild-choice { display: flex; flex-direction: column; gap: 4px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .42); color: var(--ink); text-align: left; cursor: pointer; }
+.rebuild-choice:hover { border-color: rgba(124, 231, 255, .4); }
+.rebuild-choice b { font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.rebuild-choice span { flex: 1; color: var(--muted); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); line-height: 1.5; }
+.rebuild-choice em { color: var(--amber); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-style: normal; }
+.rebuild-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rebuild-result { padding: 13px 15px; border-color: rgba(138, 222, 184, .3); background: rgba(138, 222, 184, .03); }
+.rebuild-result h3 { margin-top: 3px; color: var(--jade); font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 500; }
+.rebuild-result p { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;
@@ -264,6 +341,7 @@ function payWanted() {
   .city-visitors { text-align: left; }
   .visitor-stack { justify-content: flex-start; }
   .city-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rebuild-choices { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
   .city-grid { grid-template-columns: 1fr; }
