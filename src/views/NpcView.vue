@@ -41,7 +41,14 @@ function doSteal() {
   if (!npc.value) return
   const result = game.stealNpc(npc.value.id)
   reply.value = result.text || result.message || ''
-  if (result.ok) game.notify(result.success ? '扒窃成功' : '被发现了', result.success ? 'good' : 'bad')
+  if (result.ok) {
+    if (result.fight) game.notify('被发现了，对方动手了', 'bad')
+    else if (result.reaction === 'gift') game.notify('被发现了，但对方没有追究', 'info')
+    else game.notify(result.success ? '扒窃成功' : '被发现了', result.success ? 'good' : 'bad')
+  }
+  if (result.battleNodeId && run.value) {
+    router.push({ name: 'battle', params: { runId: run.value.id, nodeId: result.battleNodeId } })
+  }
 }
 
 function doThreat() {

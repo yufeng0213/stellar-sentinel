@@ -370,8 +370,12 @@ export const useGameStore = defineStore('game', {
     stealNpc(npcId) {
       if (!this.run) return { ok: false }
       const result = stealFromNpc(this.run, npcId)
-      if (result.ok) this.save()
-      else this.notify(result.message, 'bad')
+      if (result.ok) {
+        if (result.fight) result.battleNodeId = this.startNpcBattle(npcId, '偷窃败露')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
       return result
     },
 
@@ -1225,20 +1229,21 @@ export const useGameStore = defineStore('game', {
       return { ok: true, text: event.narrative, source, error }
     },
 
-    startAmbushBattle() {
-      if (!this.run?.pendingAmbush) return null
-      const npc = this.run.npcs?.[this.run.pendingAmbush]
+    startNpcBattle(npcId, reason = '私人恩怨') {
+      if (!this.run) return null
+      const npc = this.run.npcs?.[npcId]
       const current = this.run.map.nodes[this.run.location]
       if (!npc || !current) return null
       const combat = npcCombatStats(npc)
-
+      let nodeId = `battle-${npc.id}-${this.run.day}-${this.run.rollCount || 0}`
+      while (this.run.map.nodes[nodeId]) nodeId = `${nodeId}-a`
       const node = {
-        id: `ambush-${npc.id}-${this.run.day}`,
+        id: nodeId,
         type: 'battle',
         region: current.region,
         accent: current.accent,
-        title: `伏击 · ${npc.name}`,
-        subtitle: '私人恩怨',
+        title: `${reason} · ${npc.name}`,
+        subtitle: reason,
         enemy: {
           name: npc.name,
           hp: combat.hp,
@@ -1251,9 +1256,19 @@ export const useGameStore = defineStore('game', {
       this.run.map.nodes[node.id] = node
       this.run.battle = createBattle(this.run, node)
       this.run.battle.npcId = npc.id
-      this.run.pendingAmbush = null
       this.save()
       return node.id
+    },
+
+    startAmbushBattle() {
+      if (!this.run?.pendingAmbush) return null
+      const npcId = this.run.pendingAmbush
+      const nodeId = this.startNpcBattle(npcId, '伏击')
+      if (nodeId) {
+        this.run.pendingAmbush = null
+        this.save()
+      }
+      return nodeId
     },
 
     async sendNpcChat(npcId, text, useLlm = true) {

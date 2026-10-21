@@ -23,6 +23,36 @@ function agilityBonus(run) {
   return effectiveAttr(run, 'agi') + skill + perk + luck
 }
 
+export function theftReaction(npc) {
+  const archetype = npc?.archetype?.id || ''
+  const trust = npc?.relation?.trust || 0
+  const closeness = npc?.relation?.closeness || 0
+  const grievance = npc?.relation?.grievance || 0
+  const aggression = npc?.personality?.aggression || 0
+  const forgiving = npc?.lover ||
+    trust >= 60 ||
+    closeness >= 55 ||
+    ['sunshine', 'loyal_dog', 'homemaker', 'tycoon'].includes(archetype) ||
+    (npc?.personality?.loyalty || 0) >= 65
+  const volatile = aggression >= 55 ||
+    grievance >= 50 ||
+    ['rough', 'yandere', 'madman', 'tsundere'].includes(archetype)
+  if (forgiving && !volatile) return 'gift'
+  if (volatile) return 'fight'
+  return 'warn'
+}
+
+function giftForTheft(run, npc, check) {
+  if (check.rng.chance(0.5)) {
+    const credits = 6 + check.rng.int(0, 10)
+    run.player.credits += credits
+    return { text: `他看了你一会儿，从口袋里摸出 ${credits} 信用点递过来：“缺钱就说。”`, reward: `${credits} 信用点` }
+  }
+  const item = check.rng.pick(['ration', 'stim', 'scrap'])
+  addItem(run, item, 1)
+  return { text: `他没有追究，反而把一件${ITEMS[item].name}塞给你：“下次别这样。”`, reward: `${ITEMS[item].name} ×1` }
+}
+
 function rollSteal(run, dc) {
   const rng = nextRng(run, 'steal')
   const die = 1 + Math.floor(rng.next() * 20)
@@ -75,18 +105,49 @@ export function stealFromNpc(run, npcId) {
     }
   }
 
-  const grievance = 15 + (check.fumble ? 10 : 0)
+  const reaction = theftReaction(npc)
+  const grievance = reaction === 'gift' ? 2 : 15 + (check.fumble ? 10 : 0)
   npc.relation.grievance = clamp(npc.relation.grievance + grievance, 0, 100)
-  npc.relation.trust = Math.max(0, npc.relation.trust - 8)
-  npc.relation.closeness = Math.max(0, npc.relation.closeness - 3)
-  if (npc.relation.grievance >= 60 || npc.personality.aggression >= 60) npc.hostile = true
+  npc.relation.trust = Math.max(0, npc.relation.trust - (reaction === 'gift' ? 1 : 8))
+  npc.relation.closeness = Math.max(0, npc.relation.closeness - (reaction === 'gift' ? 1 : 3))
   npc.memory.unshift({ day: run.day, text: '你试图偷他的东西。' })
   if (npc.memory.length > 8) npc.memory.length = 8
+
+  if (reaction === 'gift') {
+    const gift = giftForTheft(run, npc, check)
+    addLog(run, `扒窃 · ${npc.name}｜${rollText} → 被发现，但对方没有追究。${gift.reward}。`, 'info')
+    return {
+      ok: true,
+      success: false,
+      reaction,
+      reward: gift.reward,
+      text: `${gift.text}\n\n${check.fumble ? '你的动作很笨拙，他一眼就看见了。' : '他侧过身，看见了你的手。'}`,
+      check,
+    }
+  }
+
+  if (reaction === 'fight') {
+    npc.hostile = true
+    npc.relation.closeness = Math.max(0, npc.relation.closeness - 4)
+    npc.relation.trust = Math.max(0, npc.relation.trust - 4)
+    addLog(run, `扒窃 · ${npc.name}｜${rollText} → 被发现，对方动手了。`, 'bad')
+    return {
+      ok: true,
+      success: false,
+      reaction,
+      fight: true,
+      text: check.fumble
+        ? '你的手刚伸出去就被他扣住了。他没有给你解释的机会，直接动了手。'
+        : '他侧过身，反手抓住了你的手腕。\n\n“你找错人了。”',
+      check,
+    }
+  }
 
   addLog(run, `扒窃 · ${npc.name}｜${rollText} → 失败。怨念 +${grievance}。`, 'bad')
   return {
     ok: true,
     success: false,
+    reaction,
     text: check.fumble
       ? '你的手刚伸出去就被他扣住了。他记住了你的脸。'
       : '他侧过身，你的手落空了。他什么都没说，但眼神变了。',
