@@ -5,6 +5,7 @@ import { cityPopulation } from '../game-core/city.js'
 import { cityDevelopmentEffects } from '../game-core/city-development.js'
 import { RECONSTRUCTION_POLICIES, reconstructionStatus } from '../game-core/city-reconstruction.js'
 import { activeEscorts } from '../game-core/escort.js'
+import { factionBailOptions } from '../game-core/faction-bail.js'
 import { wantedStatus } from '../game-core/wanted.js'
 import { useGameStore } from '../stores/game.js'
 
@@ -32,6 +33,7 @@ const reconstructionPolicies = Object.values(RECONSTRUCTION_POLICIES)
 const patrol = computed(() => (run.value ? cityDevelopmentEffects(run.value).patrol || 0 : 0))
 const patrolCheck = computed(() => run.value?.patrolCheck || null)
 const arrest = computed(() => run.value?.arrest || null)
+const bailOptions = computed(() => (run.value ? factionBailOptions(run.value) : []))
 
 onMounted(() => {
   game.enterCity()
@@ -58,6 +60,11 @@ function patrolAction(choice) {
 function payBail(method) {
   const result = game.payBail(method)
   if (result.ok) game.notify('保释完成', 'good')
+}
+
+function bailWithFaction(option) {
+  const result = game.factionBail(option.id)
+  if (result.ok) game.notify(`${option.name}替你保释了`, 'good')
 }
 
 function open(name) {
@@ -225,6 +232,20 @@ function payWanted() {
         </button>
         <button type="button" class="btn btn-sm" :disabled="(run.inv.relic || 0) < 1" @click="payBail('relic')">
           用遗物抵押
+        </button>
+      </div>
+      <div v-if="bailOptions.length" class="arrest-factions">
+        <span class="kicker">FACTION BAIL</span>
+        <button
+          v-for="option in bailOptions"
+          :key="option.id"
+          type="button"
+          class="arrest-faction"
+          :disabled="!option.canBail"
+          @click="bailWithFaction(option)"
+        >
+          <b>{{ option.name }}</b>
+          <span>声望 {{ option.score }} · 消耗 {{ option.repCost }} 声望</span>
         </button>
       </div>
     </section>
@@ -407,10 +428,15 @@ function payWanted() {
 .rebuild-result { padding: 13px 15px; border-color: rgba(138, 222, 184, .3); background: rgba(138, 222, 184, .03); }
 .rebuild-result h3 { margin-top: 3px; color: var(--jade); font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 500; }
 .rebuild-result p { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
-.arrest-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border-color: rgba(255, 138, 138, .45); background: rgba(255, 138, 138, .06); }
+.arrest-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border-color: rgba(255, 138, 138, .45); background: rgba(255, 138, 138, .06); }
 .arrest-banner h3 { margin-top: 3px; color: var(--red); font-size: max(var(--ui-min), calc(18px * var(--ui-scale))); font-weight: 500; }
 .arrest-banner p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
 .arrest-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+.arrest-factions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; width: 100%; padding-top: 9px; border-top: 1px solid rgba(255, 138, 138, .18); }
+.arrest-faction { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: rgba(5, 10, 16, .4); color: var(--ink); text-align: left; cursor: pointer; }
+.arrest-faction:disabled { opacity: .4; cursor: not-allowed; }
+.arrest-faction b { font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); font-weight: 500; }
+.arrest-faction span { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(7.5px * var(--ui-scale))); }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;

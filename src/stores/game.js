@@ -39,6 +39,7 @@ import {
   resolvePatrolCheck,
 } from '../game-core/patrol.js'
 import { bailPlayer, ensureArrest } from '../game-core/arrest.js'
+import { factionBail as factionBailCore } from '../game-core/faction-bail.js'
 import {
   chooseWarCamp,
   chooseWarPrep,
@@ -527,6 +528,19 @@ export const useGameStore = defineStore('game', {
       const result = resolveBastionEventCore(this.run, eventId, choiceId)
       if (result.ok) {
         addLog(this.run, result.text, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    factionBail(factionId) {
+      if (!this.run) return { ok: false }
+      const result = factionBailCore(this.run, factionId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.notify(`${result.faction.name}替你保释了`, 'good')
         this.save()
       } else {
         this.notify(result.message, 'bad')

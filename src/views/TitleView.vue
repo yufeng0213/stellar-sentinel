@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.71.0 · ARREST &amp; BAIL</dd>
+            <dd class="mono">0.72.0 · FACTION BAIL</dd>
           </div>
         </dl>
       </section>
