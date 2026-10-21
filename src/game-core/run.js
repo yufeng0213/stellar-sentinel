@@ -15,6 +15,7 @@ import { createCityState } from './city.js'
 import { createDoorState } from './door.js'
 import { createEscortState } from './escort.js'
 import { createPromiseState } from './npc-promises.js'
+import { ensureDateState } from './date-story.js'
 import { generateDungeonName, resetDungeon } from './dungeon.js'
 import { createReputationState } from './faction.js'
 import { gearTierFor, rollGearAffixes } from './gear.js'
@@ -158,6 +159,7 @@ export function createRun(draft, seedInput) {
     door: createDoorState(),
     escorts: createEscortState(),
     ...createPromiseState(),
+    dates: ensureDateState({}),
     ...createBlueprintState(),
     calibration: createCalibrationState(),
     ...createReputationState(),

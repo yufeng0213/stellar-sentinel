@@ -248,6 +248,11 @@ function doSkip() {
   game.skipAt(selected.value.id)
 }
 
+function goDate() {
+  if (!selected.value || !run.value) return
+  router.push({ name: 'date', params: { runId: run.value.id, nodeId: selected.value.id } })
+}
+
 function goBattle() {
   if (!selected.value || !run.value) return
   const nodeId = selected.value.id
@@ -473,6 +478,21 @@ function nextNodes(node) {
                 >
                   {{ remaining <= 0 ? '已采空' : '采集 · AP 1' }}
                 </button>
+              </template>
+
+              <!-- 约会 -->
+              <template v-else-if="selected.type === 'date'">
+                <p class="event-title">{{ selected.date?.npcId ? run.npcs[selected.date.npcId]?.name : '某人' }} 在等你</p>
+                <p class="story">这是一次私人约定。赴约后进入独立剧情，不会消耗行动点。</p>
+                <button
+                  v-if="selectedState === 'current' && !selectedCleared"
+                  type="button"
+                  class="btn btn-primary btn-block"
+                  @click="goDate"
+                >
+                  赴约
+                </button>
+                <p v-else-if="selectedCleared" class="hint">这次约会已经结束了。</p>
               </template>
 
               <!-- 事件 -->

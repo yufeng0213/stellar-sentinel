@@ -663,8 +663,11 @@ function resolvePromise(run, npc, event, choice) {
   }
   const result = createPromise(run, npc, event.payload.promiseType || 'visit')
   if (!result.ok) return { error: result.message }
-  return result.promise.type === 'gift'
-    ? `你答应带${result.item?.name || '东西'}给他。约定期限是 D${result.promise.deadline}。`
+  if (result.promise.type === 'gift') {
+    return `你答应带${result.item?.name || '东西'}给他。约定期限是 D${result.promise.deadline}。`
+  }
+  return result.dateNode
+    ? `你答应在 D${result.promise.deadline} 前赴约。星图上出现了「${result.dateNode.title}」。`
     : `你答应在 D${result.promise.deadline} 前去看他。`
 }
 

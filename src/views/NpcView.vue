@@ -85,6 +85,11 @@ function doBreakUp() {
 }
 
 function fulfill(promise) {
+  if (promise.nodeId) {
+    router.push({ name: 'map', params: { runId: run.value.id } })
+    game.notify('约会节点已经在星图上标出来了', 'good')
+    return
+  }
   const result = game.fulfillPromise(promise.id)
   reply.value = result.text || result.message || ''
   if (result.ok) game.notify('约定已履行', 'good')
@@ -92,7 +97,7 @@ function fulfill(promise) {
 
 function promiseLabel(promise) {
   if (promise.type === 'gift') return `带一件${ITEMS[promise.itemId]?.name || '东西'}过去`
-  return '在约定期限内去看他'
+  return promise.nodeId ? '去星图的约会节点' : '在约定期限内去看他'
 }
 </script>
 
@@ -221,7 +226,7 @@ function promiseLabel(promise) {
             <span>D{{ promise.deadline }} 前 · {{ promise.type === 'gift' ? '需要交付物品' : '去见一面' }}</span>
           </div>
           <button type="button" class="btn btn-sm" :disabled="promise.type === 'gift' && (run.inv[promise.itemId] || 0) < 1" @click="fulfill(promise)">
-            履行约定
+            {{ promise.nodeId ? '去赴约' : '履行约定' }}
           </button>
         </article>
       </div>

@@ -24,6 +24,7 @@ import CommsView from '../views/CommsView.vue'
 import CharacterView from '../views/CharacterView.vue'
 import CalibrationView from '../views/CalibrationView.vue'
 import BattleView from '../views/BattleView.vue'
+import DateView from '../views/DateView.vue'
 import NpcView from '../views/NpcView.vue'
 import NpcLoreView from '../views/NpcLoreView.vue'
 import NpcMemoryView from '../views/NpcMemoryView.vue'
@@ -64,6 +65,7 @@ const router = createRouter({
         { path: 'city/gate', name: 'city-gate', component: CityGateView },
         { path: 'map', name: 'map', component: MapView },
         { path: 'battle/:nodeId', name: 'battle', component: BattleView },
+        { path: 'date/:nodeId', name: 'date', component: DateView },
         { path: 'inventory', name: 'inventory', component: InventoryView },
         { path: 'forge', name: 'forge', component: ForgeView },
         {

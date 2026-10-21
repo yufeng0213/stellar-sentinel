@@ -11,6 +11,7 @@ import {
   fulfillPromise,
   giftForNpc,
   openPromises,
+  releaseDateNode,
 } from '../src/game-core/npc-promises.js'
 import { validateRun } from '../src/game/save.js'
 
@@ -26,6 +27,8 @@ npc.strain = 10
 const visit = createPromise(run, npc, 'visit')
 check(visit.ok, '见面约定创建失败')
 check(openPromises(run, npc.id).length === 1, '约定列表没有记录')
+check(!!visit.dateNode && visit.dateNode.type === 'date', '见面约定没有生成约会节点')
+releaseDateNode(run, visit.promise)
 const fulfilledVisit = fulfillPromise(run, visit.promise.id)
 check(fulfilledVisit.ok, '见面约定履行失败')
 check(visit.promise.status === 'done', '见面约定状态错误')

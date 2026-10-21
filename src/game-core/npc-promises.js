@@ -50,6 +50,57 @@ export function openPromises(run, npcId = null) {
   ))
 }
 
+function findDateNode(run) {
+  const current = run?.map?.nodes?.[run.location]
+  const currentLayer = current?.layer ?? 0
+  const nodes = Object.values(run?.map?.nodes || {})
+    .filter((node) => (
+      node.type === 'event' &&
+      node.id !== run.location &&
+      !run.cleared?.includes(node.id) &&
+      !node.date
+    ))
+    .sort((left, right) => (
+      Math.abs((left.layer || 0) - currentLayer) - Math.abs((right.layer || 0) - currentLayer)
+    ))
+  return nodes.find((node) => (node.layer || 0) >= currentLayer) || nodes[0] || null
+}
+
+export function scheduleDateNode(run, npc, promise) {
+  if (!run?.map?.nodes || !npc || promise?.type !== 'visit') return null
+  const node = findDateNode(run)
+  if (!node) return null
+  node.dateBase = {
+    type: node.type,
+    title: node.title,
+    subtitle: node.subtitle,
+    event: node.event,
+  }
+  node.type = 'date'
+  node.title = `与${npc.name}的约会`
+  node.subtitle = '私人约定'
+  node.date = {
+    npcId: npc.id,
+    promiseId: promise.id,
+    day: run.day,
+  }
+  promise.nodeId = node.id
+  return node
+}
+
+export function releaseDateNode(run, promise) {
+  const node = run?.map?.nodes?.[promise?.nodeId]
+  if (!node?.dateBase) return
+  node.type = node.dateBase.type
+  node.title = node.dateBase.title
+  node.subtitle = node.dateBase.subtitle
+  node.event = node.dateBase.event
+  delete node.dateBase
+  delete node.date
+  if (run.dates) delete run.dates[node.id]
+  promise.nodeId = null
+}
+
 export function createPromise(run, npc, type = 'visit') {
   if (!run || !npc?.alive) return { ok: false, message: '找不到这个人' }
   const open = openPromises(run, npc.id)
@@ -67,7 +118,8 @@ export function createPromise(run, npc, type = 'visit') {
   }
   run.promises.push(promise)
   npc.lastPromiseDay = run.day
-  return { ok: true, promise, meta, item: itemId ? ITEMS[itemId] : null }
+  const dateNode = type === 'visit' ? scheduleDateNode(run, npc, promise) : null
+  return { ok: true, promise, meta, item: itemId ? ITEMS[itemId] : null, dateNode }
 }
 
 export function fulfillPromise(run, promiseId) {
@@ -76,6 +128,7 @@ export function fulfillPromise(run, promiseId) {
   if (!promise) return { ok: false, message: '找不到这个约定' }
   if (promise.status !== 'open') return { ok: false, message: '这个约定已经结束了' }
   if (promise.deadline < run.day) return { ok: false, message: '这个约定已经过期了' }
+  if (promise.nodeId) return { ok: false, message: '这个约定需要在星图的约会节点完成' }
   const npc = run.npcs?.[promise.npcId]
   if (!npc?.alive) return { ok: false, message: '对方已经不在了' }
 
@@ -111,6 +164,7 @@ export function expirePromises(run) {
     const npc = run.npcs?.[promise.npcId]
     promise.status = 'broken'
     promise.brokenDay = run.day
+    releaseDateNode(run, promise)
     if (npc?.alive) {
       npc.relation.trust = clamp(npc.relation.trust - 6, 0, 100)
       npc.relation.closeness = clamp(npc.relation.closeness - 7, 0, 100)

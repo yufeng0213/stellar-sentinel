@@ -20,6 +20,7 @@ import { ensureDungeon, rerollDungeon, setDungeonName } from '../game-core/dunge
 import { ensureGear, upgradeGear as upgradeGearCore } from '../game-core/gear.js'
 import { completeEscort, ensureEscorts } from '../game-core/escort.js'
 import { ensurePromises, fulfillPromise } from '../game-core/npc-promises.js'
+import { chooseDateOption, ensureDateState, finishDate as finishDateCore } from '../game-core/date-story.js'
 import {
   adjustReputation,
   buyFactionShopItem,
@@ -204,6 +205,7 @@ export const useGameStore = defineStore('game', {
       ensureReputation(stored)
       ensureEscorts(stored)
       ensurePromises(stored)
+      ensureDateState(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
           if (!message.streaming) return
@@ -861,6 +863,26 @@ export const useGameStore = defineStore('game', {
     fulfillPromise(promiseId) {
       if (!this.run) return { ok: false }
       const result = fulfillPromise(this.run, promiseId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    chooseDate(nodeId, choiceId) {
+      if (!this.run) return { ok: false }
+      const result = chooseDateOption(this.run, nodeId, choiceId)
+      if (result.ok) this.save()
+      else this.notify(result.message, 'bad')
+      return result
+    },
+
+    finishDate(nodeId) {
+      if (!this.run) return { ok: false }
+      const result = finishDateCore(this.run, nodeId)
       if (result.ok) {
         addLog(this.run, result.text, 'good')
         this.save()

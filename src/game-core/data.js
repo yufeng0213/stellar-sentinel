@@ -249,6 +249,7 @@ export const NODE_TYPES = {
   battle: { name: '遭遇', glyph: '⚔' },
   elite: { name: '精英', glyph: '✶' },
   event: { name: '事件', glyph: '◇' },
+  date: { name: '约会', glyph: '♡' },
   shop: { name: '交易', glyph: '◈' },
   rest: { name: '休整', glyph: '☾' },
   boss: { name: '首领', glyph: '✷' },
