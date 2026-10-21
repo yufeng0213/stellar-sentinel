@@ -296,6 +296,36 @@ export const BOSS_PROFILES = [
   },
 ]
 
+export const SITE_APPROACHES = [
+  {
+    id: 'force',
+    name: '破拆',
+    attr: 'vit',
+    dcMod: 0,
+    desc: '直接拆开结构。稳定，但失败会受伤。',
+    reward: '材料 / 信用点',
+    risk: '失败：生命 -6',
+  },
+  {
+    id: 'scan',
+    name: '扫描',
+    attr: 'tec',
+    dcMod: 2,
+    desc: '先读懂结构再动手。成功多拿芯片，失败伤精神。',
+    reward: '旧世芯片 / 情报',
+    risk: '失败：精神 -4',
+  },
+  {
+    id: 'sneak',
+    name: '潜行',
+    attr: 'agi',
+    dcMod: 1,
+    desc: '避开还在运转的东西。奖励少，失败代价也小。',
+    reward: '信用点 / 小物资',
+    risk: '失败：生命 -3',
+  },
+]
+
 export const NODE_RISKS = {
   patrol: {
     id: 'patrol',

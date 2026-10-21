@@ -3,7 +3,7 @@
  * 所有判定都由 seed + rollCount 决定，可复现。
  */
 
-import { ABOS, ATTR_NAME, BASE_DECK, GEAR, GIFT_KEYS, ITEMS, ORIGINS, RECIPES, REGIONS, ROLES } from './data.js'
+import { ABOS, ATTR_NAME, BASE_DECK, GEAR, GIFT_KEYS, ITEMS, ORIGINS, RECIPES, REGIONS, ROLES, SITE_APPROACHES } from './data.js'
 import { buildCharacter } from './character.js'
 import { createNpcWorld, tickWorld } from './npc.js'
 import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
@@ -343,12 +343,13 @@ export function gather(run, nodeId) {
   return { ok: true, gains, check, remaining: nodeRemaining(run, node) }
 }
 
-export function exploreSite(run, nodeId) {
+export function exploreSite(run, nodeId, approachId = 'force') {
   const node = getNode(run, nodeId)
   if (!node || node.type !== 'site') return { ok: false, message: '这里没有可深入的地方' }
   if (run.location !== nodeId) return { ok: false, message: '先抵达节点' }
   if (run.ap < 1) return { ok: false, message: '行动点不足' }
   const site = node.site || { maxDepth: 3, attr: 'per', dc: 11, loot: 'scrap', coreLoot: 'relic' }
+  const approach = SITE_APPROACHES.find((item) => item.id === approachId) || SITE_APPROACHES[0]
   const state = run.nodeState[nodeId] || {}
   const depth = Math.min(site.maxDepth, (state.depth || 0) + 1)
   if ((state.depth || 0) >= site.maxDepth) return { ok: false, message: '这里已经被探索到底了' }
@@ -356,13 +357,22 @@ export function exploreSite(run, nodeId) {
   run.ap -= 1
   state.depth = depth
   run.nodeState[nodeId] = state
-  const check = rollCheck(run, `深入 · ${node.title}`, site.attr, site.dc + depth * 2, traitBonus(run, 'gather'))
+  const attr = approach.id === 'force' ? site.attr : approach.attr
+  const dc = site.dc + depth * 2 + (approach.dcMod || 0)
+  const check = rollCheck(run, `深入 · ${node.title}`, attr, dc, traitBonus(run, 'gather'))
   const rng = actionRng(run)
   const gains = {}
   let credits = 0
 
   if (check.success) {
-    if (depth === 1) {
+    if (approach.id === 'scan') {
+      gains.chip = 1 + (depth >= 2 ? 1 : 0)
+      credits = 3 + depth * 4 + rng.int(0, 4)
+      if (depth === site.maxDepth && site.coreLoot) gains[site.coreLoot] = 1
+    } else if (approach.id === 'sneak') {
+      credits = 7 + depth * 5 + rng.int(0, 5)
+      if (depth === site.maxDepth && site.coreLoot) gains[site.coreLoot] = 1
+    } else if (depth === 1) {
       gains[site.loot] = 1
       credits = 6 + rng.int(0, 5)
     } else if (depth === 2) {
@@ -374,12 +384,17 @@ export function exploreSite(run, nodeId) {
     }
     Object.keys(gains).forEach((itemId) => addItem(run, itemId, gains[itemId]))
     run.player.credits += credits
-    addLog(run, `深入 ${node.title}：${Object.keys(gains).map((itemId) => `${ITEMS[itemId].name} ×${gains[itemId]}`).join('、')}，信用点 +${credits}。`, 'good')
+    addLog(run, `${approach.name} ${node.title}：${Object.keys(gains).map((itemId) => `${ITEMS[itemId].name} ×${gains[itemId]}`).join('、') || '无物品'}，信用点 +${credits}。`, 'good')
   } else {
-    const damage = 4 + depth * 2
+    const damage = approach.id === 'sneak'
+      ? 2 + Math.floor(depth / 2)
+      : approach.id === 'scan'
+        ? Math.max(1, 2 + Math.floor(depth / 2))
+        : 5 + depth * 2
+    const mental = approach.id === 'scan' ? 3 + depth : 2
     run.player.hp = Math.max(1, run.player.hp - damage)
-    run.player.mental = clamp(run.player.mental - 2, 0, run.player.mentalMax)
-    addLog(run, `深入 ${node.title} 失败：生命 -${damage}，精神 -2。`, 'bad')
+    run.player.mental = clamp(run.player.mental - mental, 0, run.player.mentalMax)
+    addLog(run, `${approach.name} ${node.title} 失败：生命 -${damage}，精神 -${mental}。`, 'bad')
   }
 
   const cleared = depth >= site.maxDepth
@@ -394,6 +409,7 @@ export function exploreSite(run, nodeId) {
     success: check.success,
     depth,
     maxDepth: site.maxDepth,
+    approach,
     cleared,
     gains,
     credits,
@@ -401,10 +417,10 @@ export function exploreSite(run, nodeId) {
     text: check.success
       ? depth === site.maxDepth
         ? '你走到了最深处。这里的东西已经被翻空，但你也看见了别人没看见的部分。'
-        : `你又往里走了一层。${Object.keys(gains).map((itemId) => `${ITEMS[itemId].name} ×${gains[itemId]}`).join('、')}。`
+        : `你用${approach.name}往里走了一层。${Object.keys(gains).map((itemId) => `${ITEMS[itemId].name} ×${gains[itemId]}`).join('、') || '只带回一点灰尘'}。`
       : depth === site.maxDepth
         ? '你在最深处踩空了。勉强退出来时，这里已经没有继续向下的路。'
-        : '你退回了上一层。里面还有路，但今天的代价已经够多了。',
+        : `你退回了上一层。${approach.name}没有奏效，但至少人还在。`,
   }
 }
 

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ATTR_NAME, GEAR, ITEMS, NODE_TYPES, REGIONS, SKILLS } from '../game-core/data.js'
+import { ATTR_NAME, GEAR, ITEMS, NODE_TYPES, REGIONS, SITE_APPROACHES, SKILLS } from '../game-core/data.js'
 import { EXPEDITION_CONTRACTS, EXPEDITION_MODIFIERS, expeditionProgress } from '../game-core/expedition.js'
 import { localSettlementReport } from '../game/settlement.js'
 import { useGameStore } from '../stores/game.js'
@@ -205,11 +205,22 @@ function doGather() {
   }
 }
 
-function doSite() {
+function doSite(approach) {
   if (!selected.value) return
-  const result = game.exploreSiteAt(selected.value.id)
+  const result = game.exploreSiteAt(selected.value.id, approach.id)
   if (!result.ok) return
   if (result.cleared) game.notify('探索点已到底', 'good')
+}
+
+function siteDc(approach) {
+  if (!selected.value) return 0
+  const depth = run.value?.nodeState?.[selected.value.id]?.depth || 0
+  return (selected.value.site?.dc || 11) + depth * 2 + (approach.dcMod || 0)
+}
+
+function siteAttr(approach) {
+  if (approach.id === 'force') return selected.value?.site?.attr || 'per'
+  return approach.attr
 }
 
 function doEvent() {
@@ -573,15 +584,21 @@ function nextNodes(node) {
                 <p v-if="selected.site?.coreLoot" class="site-loot">
                   最深处可能留下：{{ ITEMS[selected.site.coreLoot]?.name || selected.site.coreLoot }}
                 </p>
-                <button
-                  v-if="selectedState === 'current' && !selectedCleared"
-                  type="button"
-                  class="btn btn-primary btn-block"
-                  :disabled="run.ap < 1"
-                  @click="doSite"
-                >
-                  深入一层 · AP 1
-                </button>
+                <div v-if="selectedState === 'current' && !selectedCleared" class="site-approaches">
+                  <button
+                    v-for="approach in SITE_APPROACHES"
+                    :key="approach.id"
+                    type="button"
+                    class="site-approach"
+                    :disabled="run.ap < 1"
+                    @click="doSite(approach)"
+                  >
+                    <b>{{ approach.name }}</b>
+                    <span>{{ ATTR_NAME[siteAttr(approach)] || '未知' }} · DC {{ siteDc(approach) }}</span>
+                    <em>{{ approach.reward }}</em>
+                    <small>{{ approach.risk }}</small>
+                  </button>
+                </div>
                 <p v-else-if="selectedCleared" class="hint">这里已经被探索到底了。</p>
               </template>
 
@@ -907,6 +924,16 @@ function nextNodes(node) {
 }
 .dungeon-tile.is-risk { border-color: rgba(255, 138, 138, .52); }
 .site-loot { margin-top: 8px; color: var(--violet); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
+.site-approaches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.site-approach { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .42); color: var(--ink); text-align: left; cursor: pointer; }
+.site-approach:hover { border-color: rgba(124, 231, 255, .4); background: rgba(124, 231, 255, .05); }
+.site-approach b { font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.site-approach span { color: var(--cyan); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.site-approach em { color: var(--jade); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-style: normal; }
+.site-approach small { color: var(--dim); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); line-height: 1.4; }
+@media (max-width: 600px) {
+  .site-approaches { grid-template-columns: 1fr; }
+}
 .risk-box { margin-top: 8px; padding: 8px 10px; border: 1px solid rgba(255, 138, 138, .28); border-radius: 8px; background: rgba(255, 138, 138, .045); }
 .risk-box b { color: var(--red); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); font-weight: 500; }
 .risk-box p { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.55; }

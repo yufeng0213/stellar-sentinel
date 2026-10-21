@@ -392,9 +392,9 @@ export const useGameStore = defineStore('game', {
       return result
     },
 
-    exploreSiteAt(nodeId) {
+    exploreSiteAt(nodeId, approachId = 'force') {
       if (!this.run) return { ok: false }
-      const result = exploreSite(this.run, nodeId)
+      const result = exploreSite(this.run, nodeId, approachId)
       if (result.ok) {
         this.notify(result.success ? `深入 ${result.depth} 层` : '探索失败，被迫退回', result.success ? 'good' : 'bad')
         this.save()
