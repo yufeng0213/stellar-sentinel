@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { CARDS, CARD_TYPES, INTENTS } from '../game-core/combat.js'
+import { CARD_TYPES, INTENTS, cardDef } from '../game-core/combat.js'
 import { REGIONS } from '../game-core/data.js'
 import { play as playSound, cardSound } from '../audio.js'
 import SoundToggle from '../components/SoundToggle.vue'
@@ -14,6 +14,7 @@ const nodeId = String(route.params.nodeId)
 
 const targetIndex = ref(0)
 const fleeOpen = ref(false)
+const cardReward = ref(null)
 const fx = ref(null)
 let fxTimer = null
 
@@ -110,7 +111,7 @@ function selectEnemy(index) {
 
 function play(index) {
   if (!battle.value || !canAct.value) return
-  const card = CARDS[battle.value.hand[index]]
+  const card = cardDef(battle.value.hand[index])
   const beforeHp = run.value.player.hp
   const result = game.playBattleCard(index, targetIdx.value)
   if (!result?.ok) return
@@ -168,6 +169,22 @@ function confirmFlee() {
 function choose(choice) {
   const result = game.resolveBattleChoice(choice)
   if (!result.ok) return
+  if (result.reward?.cardChoices?.length) {
+    cardReward.value = result.reward.cardChoices
+    return
+  }
+  router.push({ name: 'map', params: { runId: run.value?.id } })
+}
+
+function pickReward(card) {
+  const result = game.addDeckCard(card.key)
+  if (!result.ok) return
+  cardReward.value = null
+  router.push({ name: 'map', params: { runId: run.value?.id } })
+}
+
+function skipReward() {
+  cardReward.value = null
   router.push({ name: 'map', params: { runId: run.value?.id } })
 }
 
@@ -271,15 +288,15 @@ function leaveBattle() {
         :key="`${key}-${index}`"
         type="button"
         class="card"
-        :class="{ 'is-disabled': canAct && battle.ap < CARDS[key].cost }"
-        :disabled="!canAct || battle.ap < CARDS[key].cost"
+        :class="{ 'is-disabled': canAct && battle.ap < cardDef(key).cost }"
+        :disabled="!canAct || battle.ap < cardDef(key).cost"
         data-sound="none"
         @click="play(index)"
       >
-        <span class="c-cost">{{ CARDS[key].cost }}</span>
-        <b>{{ CARDS[key].name }}</b>
-        <p>{{ CARDS[key].desc }}</p>
-        <span class="c-type">{{ CARD_TYPES[CARDS[key].type] }}</span>
+        <span class="c-cost">{{ cardDef(key).cost }}</span>
+        <b>{{ cardDef(key).name }}</b>
+        <p>{{ cardDef(key).desc }}</p>
+        <span class="c-type">{{ CARD_TYPES[cardDef(key).type] }}</span>
       </button>
       <p v-if="!battle.hand.length" class="empty-hand">手牌用尽，结束回合。</p>
     </div>
@@ -331,6 +348,32 @@ function leaveBattle() {
         </div>
 
         <p class="result-note dim">处置会写进这一局的记录，并影响后续 NPC 与派系态度。</p>
+      </div>
+    </div>
+
+    <!-- 牌组奖励 -->
+    <div v-if="cardReward" class="result-backdrop">
+      <div class="result-panel card-reward-panel">
+        <p class="kicker">DECK REWARD · 战利品</p>
+        <h2>选择一张牌</h2>
+        <p class="result-note">加入牌组，或者跳过。牌组会在之后的战斗中使用。</p>
+        <div class="card-reward-grid">
+          <button
+            v-for="card in cardReward"
+            :key="card.key"
+            type="button"
+            class="card-reward"
+            @click="pickReward(card)"
+          >
+            <span class="c-cost">{{ card.cost }}</span>
+            <b>{{ card.name }}</b>
+            <p>{{ card.desc }}</p>
+            <span class="c-type">{{ CARD_TYPES[card.type] }}</span>
+          </button>
+        </div>
+        <div class="result-actions">
+          <button type="button" class="btn btn-ghost" @click="skipReward">跳过</button>
+        </div>
       </div>
     </div>
 
@@ -718,6 +761,28 @@ function leaveBattle() {
 .result-note { margin-top: 6px; color: var(--muted); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); line-height: 1.8; }
 .result-note.dim { margin-top: 12px; color: var(--dim); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); }
 
+.card-reward-panel { width: min(720px, 100%); }
+.card-reward-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 14px; }
+.card-reward {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 128px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 10, 16, .56);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.card-reward .c-cost { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid rgba(124, 231, 255, .3); border-radius: 50%; color: var(--cyan); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.card-reward b { font-size: max(var(--ui-min), calc(12px * var(--ui-scale))); font-weight: 500; }
+.card-reward p { flex: 1; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.55; }
+.card-reward .c-type { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.card-reward:hover { border-color: rgba(124, 231, 255, .45); background: rgba(124, 231, 255, .06); }
+@media (max-width: 700px) { .card-reward-grid { grid-template-columns: 1fr; } .card-reward { min-height: 0; } }
 .choices { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
 .choice {
   display: flex;

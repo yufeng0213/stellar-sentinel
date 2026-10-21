@@ -54,11 +54,15 @@ import {
   travel,
 } from '../game-core/run.js'
 import {
+  addDeckCard as addDeckCardCore,
   createBattle,
   endTurn as endBattleTurnCore,
+  ensureDeck,
   fleeBattle as fleeBattleCore,
   playCard as playCardCore,
+  removeDeckCard as removeDeckCardCore,
   resolveBattle as resolveBattleCore,
+  upgradeDeckCard as upgradeDeckCardCore,
 } from '../game-core/combat.js'
 import {
   applyNpcBattleOutcome,
@@ -200,6 +204,7 @@ export const useGameStore = defineStore('game', {
       ensureBlueprints(stored)
       ensureCalibration(stored)
       ensureGear(stored)
+      ensureDeck(stored)
       ensureDoor(stored)
       ensureDungeon(stored)
       ensureReputation(stored)
@@ -897,6 +902,42 @@ export const useGameStore = defineStore('game', {
       const result = giveNpcGear(this.run, npcId, uid)
       if (result.ok) {
         addLog(this.run, `把${result.gear.name}交给了${this.run.npcs[npcId]?.name || 'NPC'}。`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    addDeckCard(key) {
+      if (!this.run) return { ok: false }
+      const result = addDeckCardCore(this.run, key)
+      if (result.ok) {
+        addLog(this.run, `牌组加入 ${result.name}。`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    upgradeDeckCard(index) {
+      if (!this.run) return { ok: false }
+      const result = upgradeDeckCardCore(this.run, index)
+      if (result.ok) {
+        addLog(this.run, `卡牌升级：${result.name}。`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    removeDeckCard(index) {
+      if (!this.run) return { ok: false }
+      const result = removeDeckCardCore(this.run, index)
+      if (result.ok) {
+        addLog(this.run, `从牌组移除 ${result.name}。`, 'info')
         this.save()
       } else {
         this.notify(result.message, 'bad')

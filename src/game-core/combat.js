@@ -5,7 +5,7 @@
  */
 
 import { unlockBossBlueprint } from './blueprint.js'
-import { GIFT_KEYS, ITEMS, REGIONS } from './data.js'
+import { BASE_DECK, GIFT_KEYS, ITEMS, REGIONS } from './data.js'
 import { calibrationEffects, grantCalibrationPoints } from './calibration.js'
 import { gearEffects } from './gear.js'
 import { addLog, effectiveAttr } from './run.js'
@@ -134,13 +134,7 @@ export const CARDS = {
   },
 }
 
-export const BASE_DECK = [
-  'strike', 'strike', 'strike',
-  'quick', 'heavy', 'bleed', 'sunder', 'bash', 'execute',
-  'aim', 'guard', 'guard', 'barrier', 'counter', 'smoke', 'adrenaline',
-  'psi', 'psi', 'overload', 'resonance', 'lullaby',
-  'soothe', 'meditate', 'parley', 'patch',
-]
+export { BASE_DECK } from './data.js'
 
 export const CARD_TYPES = {
   attack: '攻击',
@@ -150,6 +144,143 @@ export const CARD_TYPES = {
   heal: '恢复',
   social: '交涉',
   utility: '战术',
+}
+
+const CARD_UPGRADES = {
+  strike: { name: '贯穿突刺', power: 9, desc: '伤害 9。刃口找到了缝隙。' },
+  quick: { name: '疾风连斩', power: 4, desc: '两段伤害 4，更快地剥开护盾。' },
+  heavy: { name: '碎骨重击', power: 16, accuracy: -1, desc: '高伤害，命中略低。' },
+  bleed: { name: '深割', power: 6, status: { bleed: { damage: 4, turns: 3 } }, desc: '造成更强的流血，持续 3 回合。' },
+  sunder: { name: '彻底破甲', power: 7, defenseDown: 3, desc: '命中后永久降低目标 3 点防御。' },
+  bash: { name: '震颅', power: 6, stun: 2, desc: '击晕目标更久。' },
+  execute: { name: '终结', power: 11, execute: true, desc: '低生命目标伤害翻倍。' },
+  aim: { name: '锁定', focus: 3, draw: 1, desc: '获得 3 专注，抽 1 张牌。' },
+  guard: { name: '铁壁', block: 9, desc: '获得 9 点护盾。' },
+  barrier: { name: '静默屏障', block: 14, mental: 6, desc: '护盾 14，并稳定 6 点精神。' },
+  counter: { name: '反击大师', block: 3, counter: 8, desc: '下一次被攻击时反击 8 点。' },
+  smoke: { name: '浓烟', evasion: 6, desc: '本回合受到的攻击伤害 -6。' },
+  adrenaline: { name: '过量', hp: -4, ap: 2, desc: '损失 4 生命，获得 2 AP。' },
+  psi: { name: '深层压制', morale: 11, mental: 2, desc: '削减士气；自身精神 -2。' },
+  overload: { name: '过载扩散', morale: 7, mental: 4, desc: '对所有敌人造成 7 点士气伤害；精神 -4。' },
+  resonance: { name: '共振坍缩', morale: 16, mental: 3, desc: '高额士气伤害，需要灵能判定。' },
+  lullaby: { name: '沉睡', morale: 6, lullaby: true, desc: '目标士气低于 40% 时投降，否则士气 -6。' },
+  soothe: { name: '安抚·深', mental: 12, desc: '稳定自己的精神图景。' },
+  meditate: { name: '深冥想', mental: 14, draw: 1, desc: '恢复 14 点精神，抽 1 张牌。' },
+  parley: { name: '强压谈判', morale: 10, desc: '交际判定，削减更多士气。' },
+  patch: { name: '战地缝合', hp: 12, desc: '处理伤口，恢复更多生命。' },
+  assist: { name: '同伴协同', power: 9, desc: '队伍成员补上更强的一击。' },
+}
+
+function fallbackUpgrade(base) {
+  const upgrade = { name: `${base.name}·改`, desc: base.desc }
+  if (base.power) upgrade.power = base.power + 2
+  if (base.block) upgrade.block = base.block + 3
+  if (base.mental && base.type !== 'psi') upgrade.mental = base.mental + 3
+  if (base.hp) upgrade.hp = base.hp + 3
+  if (base.morale) upgrade.morale = base.morale + 2
+  return upgrade
+}
+
+export function cardDef(key) {
+  if (!key) return null
+  const upgraded = String(key).endsWith('+')
+  const baseKey = upgraded ? String(key).slice(0, -1) : String(key)
+  const base = CARDS[baseKey]
+  if (!base) return null
+  const update = upgraded ? (CARD_UPGRADES[baseKey] || fallbackUpgrade(base)) : {}
+  return {
+    ...base,
+    ...update,
+    key: baseKey,
+    upgradedKey: key,
+    baseKey,
+    upgraded,
+  }
+}
+
+export function ensureDeck(run) {
+  if (!run) return []
+  if (!Array.isArray(run.deck) || !run.deck.length) run.deck = [...BASE_DECK]
+  return run.deck
+}
+
+export function deckEntries(run) {
+  const grouped = new Map()
+  ensureDeck(run).forEach((key, index) => {
+    const baseKey = String(key).endsWith('+') ? String(key).slice(0, -1) : String(key)
+    if (!CARDS[baseKey]) return
+    if (!grouped.has(baseKey)) {
+      grouped.set(baseKey, { baseKey, key, card: cardDef(baseKey), count: 0, indices: [] })
+    }
+    const entry = grouped.get(baseKey)
+    entry.count += 1
+    entry.indices.push(index)
+    if (!String(key).endsWith('+') && entry.upgradableIndex === undefined) entry.upgradableIndex = index
+  })
+  return [...grouped.values()].map((entry) => ({
+    ...entry,
+    removeIndex: entry.indices[entry.indices.length - 1],
+    upgradedCount: entry.indices.filter((index) => String(run.deck[index]).endsWith('+')).length,
+  }))
+}
+
+export const DECK_UPGRADE_COST = { credits: 30, scrap: 1 }
+export const DECK_REMOVE_COST = { credits: 15 }
+
+export function upgradeDeckCard(run, index) {
+  ensureDeck(run)
+  const key = run.deck[index]
+  if (!key) return { ok: false, message: '没有这张牌' }
+  if (String(key).endsWith('+')) return { ok: false, message: '这张牌已经升级过了' }
+  if (run.player.credits < DECK_UPGRADE_COST.credits) return { ok: false, message: '信用点不足' }
+  if ((run.inv.scrap || 0) < DECK_UPGRADE_COST.scrap) return { ok: false, message: '废料不足' }
+  run.player.credits -= DECK_UPGRADE_COST.credits
+  run.inv.scrap -= DECK_UPGRADE_COST.scrap
+  if (run.inv.scrap <= 0) delete run.inv.scrap
+  run.deck[index] = `${key}+`
+  return { ok: true, key, name: cardDef(`${key}+`).name }
+}
+
+export function removeDeckCard(run, index) {
+  ensureDeck(run)
+  if (run.deck.length <= 5) return { ok: false, message: '牌组不能再删了' }
+  if (run.player.credits < DECK_REMOVE_COST.credits) return { ok: false, message: '信用点不足' }
+  const key = run.deck[index]
+  if (!key) return { ok: false, message: '没有这张牌' }
+  run.player.credits -= DECK_REMOVE_COST.credits
+  run.deck.splice(index, 1)
+  return { ok: true, key, name: cardDef(key).name }
+}
+
+export function addDeckCard(run, key) {
+  ensureDeck(run)
+  if (!CARDS[key]) return { ok: false, message: '没有这张牌' }
+  if (run.deck.length >= 40) return { ok: false, message: '牌组已经满了' }
+  run.deck.push(key)
+  return { ok: true, key, name: cardDef(key).name }
+}
+
+export function cardRewardChoices(run, battle) {
+  const rng = createRng(`${run.seed}:card-reward:${battle.nodeId}:${battle.round}`)
+  const keys = Object.keys(CARDS).filter((key) => key !== 'assist')
+  const role = run.player?.role
+  const roleBias = role === 'sentinel'
+    ? ['strike', 'quick', 'heavy', 'sunder', 'bash', 'execute', 'counter']
+    : role === 'guide'
+      ? ['psi', 'overload', 'resonance', 'lullaby', 'soothe', 'meditate', 'barrier']
+      : ['aim', 'guard', 'smoke', 'parley', 'patch', 'adrenaline']
+  const elite = battle.nodeType === 'elite' || battle.nodeType === 'boss'
+  const pool = elite
+    ? [...new Set([...roleBias, 'resonance', 'execute', 'barrier', 'overload'])]
+    : [...new Set([...roleBias, ...keys])]
+  const chosen = []
+  const available = rng.shuffle(pool)
+  while (chosen.length < 3 && available.length) {
+    const key = available.pop()
+    if (chosen.includes(key)) continue
+    chosen.push(key)
+  }
+  return chosen.map((key) => cardDef(key)).filter(Boolean)
 }
 
 export const INTENTS = {
@@ -271,7 +402,7 @@ function drawCards(battle, count) {
 
 function ensureAttack(battle) {
   if (!battle.hand.length) return
-  const hasAttack = battle.hand.some((key) => CARDS[key]?.type === 'attack')
+  const hasAttack = battle.hand.some((key) => cardDef(key)?.type === 'attack')
   if (!hasAttack) battle.hand[0] = 'strike'
 }
 
@@ -344,7 +475,7 @@ function damageEnemy(battle, enemy, damage, moraleDamage = 0) {
 export function createBattle(run, node) {
   const seed = `${run.seed}:battle:${node.id}`
   const rng = createRng(`${seed}:setup`)
-  const deck = [...BASE_DECK]
+  const deck = [...ensureDeck(run)]
   const party = Array.isArray(run.party) ? run.party.slice(0, 2) : []
   party.forEach(() => deck.push('assist'))
   const effects = battleEffects(run)
@@ -415,7 +546,7 @@ function attackDamage(card, check, target, weapon, bonus = 0) {
 export function playCard(battle, run, handIndex, targetIndex = 0) {
   if (!battle || battle.status !== 'active') return { ok: false, message: '战斗已经结束' }
   const cardKey = battle.hand[handIndex]
-  const card = CARDS[cardKey]
+  const card = cardDef(cardKey)
   if (!card) return { ok: false, message: '这张牌不存在' }
   if (battle.ap < card.cost) return { ok: false, message: '行动点不足' }
 
@@ -790,7 +921,8 @@ export function resolveBattle(run, battle, choice) {
   if (calibration?.ok) text += ` 校准点 +${calibration.amount}。`
   markNodeResolved(run, battle, { resolved: true, outcome: choice })
 
-  battle.reward = { choice, credits, mental, text, blueprint, calibration }
+  const cardChoices = cardRewardChoices(run, battle)
+  battle.reward = { choice, credits, mental, text, blueprint, calibration, cardChoices }
   addLog(run, `${text}${credits ? ` 信用点 +${credits}。` : ''}`, 'story')
   return { ok: true, reward: battle.reward }
 }

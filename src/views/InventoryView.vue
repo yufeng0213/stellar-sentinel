@@ -72,7 +72,10 @@ function isEquipped(gear) {
           <h2>背包</h2>
           <p class="hint">材料 · 消耗品 · 小礼物 · 装备。精神就是图景稳定度，低于 30 时判定 -2；消耗品只能在战斗外使用。</p>
         </div>
-        <span class="tag cyan">{{ materials.length + consumables.length + gifts.length }} 种物资</span>
+        <div class="bag-actions">
+          <RouterLink class="tag violet" :to="{ name: 'deck', params: { runId: run.id } }">牌组 {{ run.deck?.length || 0 }} 张 →</RouterLink>
+          <span class="tag cyan">{{ materials.length + consumables.length + gifts.length }} 种物资</span>
+        </div>
       </header>
 
       <h3 class="sec-label">材料</h3>
@@ -157,6 +160,8 @@ function isEquipped(gear) {
 .bag-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .bag-head h2 { margin-top: 3px; font-size: max(var(--ui-min), calc(19px * var(--ui-scale))); font-weight: 400; letter-spacing: 0.1em; }
 .bag-head .hint { margin-top: 3px; }
+.bag-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.bag-actions a { text-decoration: none; }
 
 .sec-label {
   display: flex;

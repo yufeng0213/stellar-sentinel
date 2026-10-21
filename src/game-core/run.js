@@ -3,7 +3,7 @@
  * 所有判定都由 seed + rollCount 决定，可复现。
  */
 
-import { ABOS, ATTR_NAME, GEAR, GIFT_KEYS, ITEMS, ORIGINS, RECIPES, REGIONS, ROLES } from './data.js'
+import { ABOS, ATTR_NAME, BASE_DECK, GEAR, GIFT_KEYS, ITEMS, ORIGINS, RECIPES, REGIONS, ROLES } from './data.js'
 import { buildCharacter } from './character.js'
 import { createNpcWorld, tickWorld } from './npc.js'
 import { completeQuestsAt, generateNpcEvents } from './npc-events.js'
@@ -146,6 +146,7 @@ export function createRun(draft, seedInput) {
     seed,
     createdAt: Date.now(),
     player,
+    deck: [...BASE_DECK],
     day: 1,
     ap: 8,
     apMax: 8,

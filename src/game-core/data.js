@@ -243,6 +243,14 @@ export const REGIONS = {
   },
 }
 
+export const BASE_DECK = [
+  'strike', 'strike', 'strike',
+  'quick', 'heavy', 'bleed', 'sunder', 'bash', 'execute',
+  'aim', 'guard', 'guard', 'barrier', 'counter', 'smoke', 'adrenaline',
+  'psi', 'psi', 'overload', 'resonance', 'lullaby',
+  'soothe', 'meditate', 'parley', 'patch',
+]
+
 export const NODE_TYPES = {
   start: { name: '起点', glyph: '◉' },
   gather: { name: '采集', glyph: '◆' },
