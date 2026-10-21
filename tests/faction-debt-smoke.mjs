@@ -15,7 +15,11 @@ import {
   factionFavorMissionStatuses,
   resolveFactionFavorStep,
 } from '../src/game-core/faction-favor-chain.js'
-import { completeFactionExpedition, createFactionExpedition } from '../src/game-core/faction-expedition.js'
+import {
+  completeFactionExpedition,
+  createFactionExpedition,
+  resolveFactionExpeditionOutcome,
+} from '../src/game-core/faction-expedition.js'
 
 const errors = []
 const check = (condition, label) => { if (!condition) errors.push(label) }
@@ -53,10 +57,18 @@ const battleDone = completeFactionFavorBattle(favorRun, 'market', 'collect')
 check(battleDone.ok && battleDone.mission.stage === 2, '战斗胜利后任务链没有推进')
 const expedition = createFactionExpedition(favorRun, 'market', 'collect')
 check(expedition.ok && expedition.node.type === 'faction', '没有生成派系远征地图节点')
+check(expedition.nodes.length === 3, '派系远征不是三个连续节点')
+check(expedition.nodes.map((node) => node.factionExpedition.step).join(',') === 'approach,battle,aftermath', '派系远征阶段顺序错误')
 check(favorRun.map.layers.some((layer) => layer.includes(expedition.node.id)), '派系节点没有进入星图层')
 check(favorRun.map.nodes[favorRun.location].next.includes(expedition.node.id), '派系节点不可抵达')
-const expeditionDone = completeFactionExpedition(favorRun, expedition.node.id)
+const expeditionDone = completeFactionExpedition(favorRun, expedition.nodes[1].id)
 check(expeditionDone.ok && expeditionDone.node.cleared, '派系远征没有标记完成')
+favorRun.location = expedition.nodes[2].id
+const repBeforeOutcome = favorRun.reputation.market
+const outcome = resolveFactionExpeditionOutcome(favorRun, expedition.nodes[2].id, 'faction')
+check(outcome.ok, '派系远征善后失败')
+check(favorRun.city.controlledBy === 'market', '派系远征没有改变城市控制方')
+check(favorRun.reputation.market > repBeforeOutcome, '派系远征没有提升派系声望')
 const step3 = resolveFactionFavorStep(favorRun, 'market', 'share')
 check(step3.ok && step3.done, '任务链没有完成')
 check(step3.mission.status === 'done', '任务链完成后没有标记')

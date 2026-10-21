@@ -29,6 +29,19 @@ const warControl = computed(() => {
   if (control) return '盟约派系接管'
   return ''
 })
+const controlLabel = computed(() => {
+  const control = run.value?.city?.controlledBy
+  if (!control) return ''
+  if (control === 'council') return '城市议会'
+  if (control === 'crew') return '方舟'
+  return {
+    tower: '白塔残余',
+    market: '黑市网络',
+    drifters: '漂流者',
+    whisper: '低语者',
+  }[control] || control
+})
+const factionExpeditionResult = computed(() => run.value?.city?.factionExpedition || null)
 const reconstruction = computed(() => (run.value ? reconstructionStatus(run.value) : null))
 const reconstructionPolicies = Object.values(RECONSTRUCTION_POLICIES)
 const patrol = computed(() => (run.value ? cityDevelopmentEffects(run.value).patrol || 0 : 0))
@@ -290,6 +303,15 @@ function payWanted() {
       </article>
     </section>
 
+    <section v-if="controlLabel" class="panel city-control">
+      <div>
+        <p class="kicker">CITY CONTROL · D{{ factionExpeditionResult?.day || warAftermath?.day || run.day }}</p>
+        <h3>{{ controlLabel }}控制空港</h3>
+        <p>{{ factionExpeditionResult?.text || '城市的控制方已经改变。街上的旗子换了一面，但生活还要继续。' }}</p>
+      </div>
+      <span class="tag violet">当前控制方</span>
+    </section>
+
     <section class="city-grid">
       <button type="button" class="city-card" @click="open('city-market')">
         <span class="city-glyph">▤</span>
@@ -485,6 +507,9 @@ function payWanted() {
 .debt-info b { display: block; font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
 .debt-info span { display: block; margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .debt-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.city-control { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 15px; border-color: rgba(185, 164, 255, .3); background: rgba(185, 164, 255, .035); }
+.city-control h3 { margin-top: 3px; color: var(--violet); font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 500; }
+.city-control p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;

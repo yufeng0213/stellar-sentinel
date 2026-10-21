@@ -226,6 +226,16 @@ function startFactionExpedition() {
   router.push({ name: 'battle', params: { runId: run.value.id, nodeId } })
 }
 
+function factionApproach(choice) {
+  if (!selected.value) return
+  game.resolveFactionExpeditionApproach(selected.value.id, choice)
+}
+
+function factionOutcome(choice) {
+  if (!selected.value) return
+  game.resolveFactionExpeditionOutcome(selected.value.id, choice)
+}
+
 function siteDc(approach) {
   if (!selected.value) return 0
   const depth = run.value?.nodeState?.[selected.value.id]?.depth || 0
@@ -654,19 +664,48 @@ function nextNodes(node) {
               <!-- 派系远征 -->
               <template v-else-if="selected.type === 'faction'">
                 <p class="event-title">{{ selected.title }}</p>
-                <p class="story">派系的人把地点标在了星图上。这里没有谈判的余地，只能进去把事办完。</p>
+                <p class="story">{{ selected.text || '派系的人把地点标在了星图上。这里没有谈判的余地，只能进去把事办完。' }}</p>
                 <div class="kv">
-                  <div><span>敌方</span><b>{{ selected.enemy?.name || '未知' }}</b></div>
+                  <div v-if="selected.enemy"><span>敌方</span><b>{{ selected.enemy.name }}</b></div>
+                  <div><span>阶段</span><b>{{ selected.factionExpedition?.step === 'approach' ? '接触点' : selected.factionExpedition?.step === 'battle' ? '敌方据点' : '善后' }}</b></div>
                   <div><span>状态</span><b>{{ selectedCleared ? '已解决' : '未解决' }}</b></div>
                 </div>
+
+                <div v-if="selectedState === 'current' && !selectedCleared && selected.factionExpedition?.step === 'approach'" class="site-approaches">
+                  <button type="button" class="site-approach" @click="factionApproach('scout')">
+                    <b>先摸清外围</b>
+                    <span>精神 -2 · 更安全</span>
+                  </button>
+                  <button type="button" class="site-approach" @click="factionApproach('press')">
+                    <b>直接从正门进去</b>
+                    <span>生命 -4 · 更快</span>
+                  </button>
+                </div>
+
                 <button
-                  v-if="selectedState === 'current' && !selectedCleared"
+                  v-else-if="selectedState === 'current' && !selectedCleared && selected.factionExpedition?.step === 'battle'"
                   type="button"
                   class="btn btn-primary btn-block"
                   @click="startFactionExpedition"
                 >
-                  进入派系远征
+                  进入敌方据点
                 </button>
+
+                <div v-else-if="selectedState === 'current' && !selectedCleared && selected.factionExpedition?.step === 'aftermath'" class="site-approaches">
+                  <button type="button" class="site-approach" @click="factionOutcome('faction')">
+                    <b>交给派系</b>
+                    <span>派系声望 +12 · 城市控制权转移</span>
+                  </button>
+                  <button type="button" class="site-approach" @click="factionOutcome('city')">
+                    <b>让城市议会接管</b>
+                    <span>信用点 +25 · 控制权归城市</span>
+                  </button>
+                  <button type="button" class="site-approach" @click="factionOutcome('crew')">
+                    <b>把物资带回方舟</b>
+                    <span>信用点 +40 · 废料 +3 · 派系声望 -5</span>
+                  </button>
+                </div>
+
                 <p v-else-if="selectedCleared" class="hint">这里的差事已经解决。</p>
                 <p v-else class="hint">先抵达这个节点。</p>
               </template>

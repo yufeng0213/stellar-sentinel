@@ -47,7 +47,12 @@ import {
   FACTION_FAVOR_ENEMIES,
   resolveFactionFavorStep,
 } from '../game-core/faction-favor-chain.js'
-import { completeFactionExpedition, createFactionExpedition } from '../game-core/faction-expedition.js'
+import {
+  completeFactionExpedition,
+  createFactionExpedition,
+  resolveFactionExpeditionApproach as resolveFactionExpeditionApproachCore,
+  resolveFactionExpeditionOutcome as resolveFactionExpeditionOutcomeCore,
+} from '../game-core/faction-expedition.js'
 import {
   chooseWarCamp,
   chooseWarPrep,
@@ -563,10 +568,37 @@ export const useGameStore = defineStore('game', {
       return result
     },
 
+    resolveFactionExpeditionApproach(nodeId, choiceId) {
+      if (!this.run) return { ok: false }
+      const result = resolveFactionExpeditionApproachCore(this.run, nodeId, choiceId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.notify('接触点已处理', 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    resolveFactionExpeditionOutcome(nodeId, choiceId) {
+      if (!this.run) return { ok: false }
+      const result = resolveFactionExpeditionOutcomeCore(this.run, nodeId, choiceId)
+      if (result.ok) {
+        addLog(this.run, result.text, 'story')
+        this.notify(`派系远征结束 · ${result.credits ? `信用点 +${result.credits}` : '城市控制权已改变'}`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
     startFactionExpeditionBattle(nodeId) {
       if (!this.run) return null
       const node = this.run.map.nodes?.[nodeId]
       if (!node?.factionExpedition || node.cleared) return null
+      if (node.factionExpedition.step !== 'battle') return null
       this.run.battle = createBattle(this.run, node)
       this.run.battle.factionFavor = { ...node.factionExpedition }
       this.run.battle.factionNodeId = node.id
