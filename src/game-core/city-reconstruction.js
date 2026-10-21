@@ -12,6 +12,7 @@ export const RECONSTRUCTION_POLICIES = {
     desc: '先修墙、设岗，让城市能挡住下一次战争。',
     costText: '20 废料',
     result: '城市会变得更安全，但街上的人会觉得自己住在军营里。',
+    effects: { healPct: 0.05, mentalHeal: 2, marketStock: -1 },
   },
   relief: {
     id: 'relief',
@@ -19,6 +20,7 @@ export const RECONSTRUCTION_POLICIES = {
     desc: '先修诊所和住房，把伤者接回来。',
     costText: '30 信用点 · 2 营养膏',
     result: '城市会恢复得更慢，但居民会记得是谁把他们接回来的。',
+    effects: { healPct: 0.1, mentalHeal: 6 },
   },
   open: {
     id: 'open',
@@ -26,6 +28,7 @@ export const RECONSTRUCTION_POLICIES = {
     desc: '不设防，也不独占，让市场自己恢复。',
     costText: '无',
     result: '城市会更快恢复交易，但控制方对这里的掌握会更弱。',
+    effects: { marketStock: 2, marketDiscount: 0.05 },
   },
 }
 

@@ -172,6 +172,15 @@ export function cityDevelopmentEffects(run, cityId = null) {
     add(CITY_PROJECTS[id]?.effects)
   })
   if (city.pact) add(CITY_PACTS[city.pact]?.effects)
+  if (city.reconstruction?.completed) {
+    const policy = city.reconstruction.policy
+    const policyEffects = {
+      fortify: { healPct: 0.05, mentalHeal: 2, marketStock: -1 },
+      relief: { healPct: 0.1, mentalHeal: 6 },
+      open: { marketStock: 2, marketDiscount: 0.05 },
+    }[policy]
+    add(policyEffects)
+  }
   return effects
 }
 

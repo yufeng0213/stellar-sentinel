@@ -19,6 +19,7 @@ import {
   reconstructionStatus,
   startReconstruction,
 } from '../src/game-core/city-reconstruction.js'
+import { cityDevelopmentEffects } from '../src/game-core/city-development.js'
 
 const errors = []
 const check = (condition, label) => { if (!condition) errors.push(label) }
@@ -68,6 +69,9 @@ run.day = run.city.reconstruction.dueDay
 const rebuildDone = completeReconstruction(run, 'relief')
 check(rebuildDone.ok && run.city.reconstruction.completed, '重建没有完成')
 check(run.city.reconstructionResult?.policy === 'relief', '重建结果没有记录')
+const rebuildEffects = cityDevelopmentEffects(run)
+check(rebuildEffects.healPct >= 0.1, '民生重建没有提高治疗')
+check(rebuildEffects.mentalHeal >= 6, '民生重建没有提高精神恢复')
 
 console.log(JSON.stringify({
   ok: errors.length === 0,
