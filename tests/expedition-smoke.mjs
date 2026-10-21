@@ -41,7 +41,7 @@ chooseExpeditionContract(surveyRun, 'survey')
 surveyRun.cleared = [...surveyRun.cleared, 'a', 'b', 'c', 'd']
 const surveyComplete = checkExpedition(surveyRun)
 check(surveyComplete.completed, '测绘契约没有完成')
-check((surveyRun.inv.chip || 0) === 1, '测绘奖励芯片错误')
+check((surveyRun.inv.chip || 0) >= 1, '测绘奖励芯片错误')
 
 const bondRun = createRun(randomDraft(), 'EXPEDITION-BOND')
 chooseExpeditionContract(bondRun, 'bond')

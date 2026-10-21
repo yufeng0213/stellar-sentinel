@@ -4,8 +4,8 @@ import { computed } from 'vue'
 import {
   CARD_TYPES,
   DECK_REMOVE_COST,
-  DECK_UPGRADE_COST,
   deckEntries,
+  deckUpgradeCost,
 } from '../game-core/combat.js'
 import { useGameStore } from '../stores/game.js'
 
@@ -26,9 +26,11 @@ function remove(entry) {
   if (result.ok) game.notify(`${result.name} 已从牌组移除`, 'good')
 }
 
+const upgradeCost = computed(() => (run.value ? deckUpgradeCost(run.value) : { credits: 30, scrap: 1 }))
+
 function upgradeText(entry) {
   if (entry.upgradableIndex === undefined) return '全部已升级'
-  return `${DECK_UPGRADE_COST.credits} 信用点 / ${DECK_UPGRADE_COST.scrap} 废料`
+  return `${upgradeCost.value.credits} 信用点 / ${upgradeCost.value.scrap} 废料`
 }
 
 </script>
@@ -62,7 +64,7 @@ function upgradeText(entry) {
           <p>{{ entry.card.desc }}</p>
         </div>
         <div class="deck-actions">
-          <button type="button" class="btn btn-sm" :disabled="entry.upgradableIndex === undefined || run.player.credits < DECK_UPGRADE_COST.credits || (run.inv.scrap || 0) < DECK_UPGRADE_COST.scrap" @click="upgrade(entry)">
+          <button type="button" class="btn btn-sm" :disabled="entry.upgradableIndex === undefined || run.player.credits < upgradeCost.credits || (run.inv.scrap || 0) < upgradeCost.scrap" @click="upgrade(entry)">
             升级 · {{ upgradeText(entry) }}
           </button>
           <button type="button" class="btn btn-sm" :disabled="deckSize <= 5 || run.player.credits < DECK_REMOVE_COST.credits" @click="remove(entry)">

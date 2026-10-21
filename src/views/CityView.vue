@@ -127,6 +127,12 @@ function finishEscort(escort) {
         <p>不问来路的货，以及一份关于白塔的情报。</p>
         <em>进入黑市 →</em>
       </button>
+      <button type="button" class="city-card" @click="open('city-development')">
+        <span class="city-glyph">▧</span>
+        <b>城市发展</b>
+        <p>升级诊所、市场、锻造和通讯；用派系项目改变这座城市。</p>
+        <em>查看长期项目 →</em>
+      </button>
       <button type="button" class="city-card" @click="open('city-factions')">
         <span class="city-glyph">⌘</span>
         <b>派系</b>

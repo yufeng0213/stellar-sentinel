@@ -17,6 +17,7 @@ import { createDoorState } from './door.js'
 import { createEscortState } from './escort.js'
 import { createPromiseState } from './npc-promises.js'
 import { ensureDateState } from './date-story.js'
+import { cityDevelopmentEffects } from './city-development.js'
 import { createExpeditionState, expeditionEffects } from './expedition.js'
 import { generateDungeonName, resetDungeon } from './dungeon.js'
 import { createReputationState } from './faction.js'
@@ -295,7 +296,7 @@ export function gather(run, nodeId) {
   const rng = actionRng(run)
   const gains = {}
   if (check.success) {
-    const gatherBonus = expeditionEffects(run).gatherBonus || 0
+    const gatherBonus = (expeditionEffects(run).gatherBonus || 0) + (cityDevelopmentEffects(run).gatherBonus || 0)
     node.yields.forEach((yieldItem) => {
       const count = rng.int(yieldItem.qty[0], yieldItem.qty[1]) + gatherBonus
       gains[yieldItem.item] = (gains[yieldItem.item] || 0) + count

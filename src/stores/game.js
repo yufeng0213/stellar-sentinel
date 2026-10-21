@@ -24,6 +24,10 @@ import { ensureGear, upgradeGear as upgradeGearCore } from '../game-core/gear.js
 import { completeEscort, ensureEscorts } from '../game-core/escort.js'
 import { ensurePromises, fulfillPromise } from '../game-core/npc-promises.js'
 import { chooseDateOption, ensureDateState, finishDate as finishDateCore } from '../game-core/date-story.js'
+import {
+  completeCityProject as completeCityProjectCore,
+  upgradeCityFacility as upgradeCityFacilityCore,
+} from '../game-core/city-development.js'
 import { checkExpedition, chooseExpeditionContract, ensureExpedition } from '../game-core/expedition.js'
 import {
   adjustReputation,
@@ -409,6 +413,31 @@ export const useGameStore = defineStore('game', {
       if (!this.run) return { ok: false }
       const result = switchCity(this.run, 'dock', { name: '白塔空港', target: 20 })
       if (result.ok) this.save()
+      return result
+    },
+
+    upgradeCityFacility(facilityId) {
+      if (!this.run) return { ok: false }
+      const result = upgradeCityFacilityCore(this.run, this.run.activeCityId || 'dock', facilityId)
+      if (result.ok) {
+        addLog(this.run, `设施升级：${result.facility.name} Lv.${result.level}。`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    completeCityProject(projectId) {
+      if (!this.run) return { ok: false }
+      const result = completeCityProjectCore(this.run, this.run.activeCityId || 'dock', projectId)
+      if (result.ok) {
+        addLog(this.run, `城市项目完成：${result.project.name}。`, 'good')
+        this.notify(`城市项目完成 · ${result.project.name}`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
       return result
     },
 

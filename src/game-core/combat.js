@@ -7,6 +7,7 @@
 import { ensureStats } from './achievements.js'
 import { unlockBossBlueprint } from './blueprint.js'
 import { BASE_DECK, GIFT_KEYS, ITEMS, REGIONS } from './data.js'
+import { cityDevelopmentEffects } from './city-development.js'
 import { expeditionEffects } from './expedition.js'
 import { calibrationEffects, grantCalibrationPoints } from './calibration.js'
 import { gearEffects } from './gear.js'
@@ -391,15 +392,25 @@ export function deckEntries(run) {
 export const DECK_UPGRADE_COST = { credits: 30, scrap: 1 }
 export const DECK_REMOVE_COST = { credits: 15 }
 
+export function deckUpgradeCost(run) {
+  const discount = cityDevelopmentEffects(run).forgeDiscount || 0
+  return {
+    credits: Math.max(0, DECK_UPGRADE_COST.credits - discount),
+    scrap: DECK_UPGRADE_COST.scrap,
+  }
+}
+
 export function upgradeDeckCard(run, index) {
   ensureDeck(run)
   const key = run.deck[index]
   if (!key) return { ok: false, message: '没有这张牌' }
   if (String(key).endsWith('+')) return { ok: false, message: '这张牌已经升级过了' }
-  if (run.player.credits < DECK_UPGRADE_COST.credits) return { ok: false, message: '信用点不足' }
-  if ((run.inv.scrap || 0) < DECK_UPGRADE_COST.scrap) return { ok: false, message: '废料不足' }
-  run.player.credits -= DECK_UPGRADE_COST.credits
-  run.inv.scrap -= DECK_UPGRADE_COST.scrap
+  const cost = deckUpgradeCost(run)
+  const creditCost = cost.credits
+  if (run.player.credits < creditCost) return { ok: false, message: '信用点不足' }
+  if ((run.inv.scrap || 0) < cost.scrap) return { ok: false, message: '废料不足' }
+  run.player.credits -= creditCost
+  run.inv.scrap -= cost.scrap
   if (run.inv.scrap <= 0) delete run.inv.scrap
   run.deck[index] = `${key}+`
   return { ok: true, key, name: cardDef(`${key}+`).name }

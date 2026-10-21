@@ -6,6 +6,7 @@
 import { ITEMS } from './data.js'
 import { adjustReputation, FACTION_IDS } from './faction.js'
 import { ensureStats } from './achievements.js'
+import { cityDevelopmentEffects, ensureCityDevelopment } from './city-development.js'
 import { expeditionEffects } from './expedition.js'
 import { spawnCityNpc } from './npc.js'
 import { createRng } from './rng.js'
@@ -279,6 +280,7 @@ export function ensureCity(run) {
   if (!city.lastRumor) city.lastRumor = ''
   if (typeof city.intelBought !== 'boolean') city.intelBought = false
   if (typeof city.doorKeyBought !== 'boolean') city.doorKeyBought = false
+  ensureCityDevelopment(city)
 
   ensureCityStates(run)
   const stats = ensureStats(run)
@@ -293,8 +295,9 @@ export function ensureCity(run) {
 
   const cityKey = run.activeCityId || 'dock'
   const expedition = expeditionEffects(run)
+  const development = cityDevelopmentEffects(run, cityKey)
   if (city.marketDay !== run.day) {
-    const marketCount = Math.max(3, 6 + (expedition.marketStock || 0))
+    const marketCount = Math.max(3, 6 + (expedition.marketStock || 0) + (development.marketStock || 0))
     city.market = makeOffers(createRng(`${run.seed}:${cityKey}:market:${run.day}`), MARKET_POOL, marketCount, 'wine')
     city.marketDay = run.day
   }
@@ -324,7 +327,10 @@ export function cityVisitors(run) {
 }
 
 export function cityPrice(run, offer) {
-  const discount = (run.player.skills?.includes('barter') ? 0.1 : 0) + (run.player.perks?.barter || 0)
+  const development = cityDevelopmentEffects(run)
+  const discount = (run.player.skills?.includes('barter') ? 0.1 : 0) +
+    (run.player.perks?.barter || 0) +
+    (development.marketDiscount || 0)
   const markup = (run.player.perks?.price || 0) + (expeditionEffects(run).shopPrice || 0)
   return Math.max(1, Math.round((offer?.price || 0) * (1 - discount + markup)))
 }
@@ -349,9 +355,11 @@ export function healAtClinic(run) {
   if (city.healDay === run.day) return { ok: false, message: '今天已经在诊所处理过了' }
   const cost = 34
   if (run.player.credits < cost) return { ok: false, message: '需要 34 信用点' }
+  const effects = cityDevelopmentEffects(run)
+  const healScale = 1 + (effects.healPct || 0)
   run.player.credits -= cost
-  run.player.hp = clamp(run.player.hp + Math.ceil(run.player.hpMax * 0.35), 0, run.player.hpMax)
-  run.player.mental = clamp(run.player.mental + Math.ceil(run.player.mentalMax * 0.25), 0, run.player.mentalMax)
+  run.player.hp = clamp(run.player.hp + Math.ceil(run.player.hpMax * 0.35 * healScale), 0, run.player.hpMax)
+  run.player.mental = clamp(run.player.mental + Math.ceil(run.player.mentalMax * 0.25 * healScale) + (effects.mentalHeal || 0), 0, run.player.mentalMax)
   city.healDay = run.day
   return { ok: true, cost }
 }
@@ -396,8 +404,8 @@ export function claimCityQuest(run, questId) {
 export function buyBlackMarketIntel(run) {
   const city = ensureCity(run)
   if (city.intelBought) return { ok: false, message: '你已经买过这份情报了' }
-  const cost = 60
-  if (run.player.credits < cost) return { ok: false, message: '需要 60 信用点' }
+  const cost = Math.max(10, 60 - (cityDevelopmentEffects(run).intelDiscount || 0))
+  if (run.player.credits < cost) return { ok: false, message: `需要 ${cost} 信用点` }
   run.player.credits -= cost
   city.intelBought = true
   run.story = run.story || {}
