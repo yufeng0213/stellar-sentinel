@@ -9,6 +9,7 @@ import { ensureStats } from './achievements.js'
 import { cityDevelopmentEffects, ensureCityDevelopment } from './city-development.js'
 import { expeditionEffects } from './expedition.js'
 import { spawnCityNpc } from './npc.js'
+import { wantedPriceMarkup } from './wanted.js'
 import { createRng } from './rng.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
@@ -331,7 +332,9 @@ export function cityPrice(run, offer) {
   const discount = (run.player.skills?.includes('barter') ? 0.1 : 0) +
     (run.player.perks?.barter || 0) +
     (development.marketDiscount || 0)
-  const markup = (run.player.perks?.price || 0) + (expeditionEffects(run).shopPrice || 0)
+  const markup = (run.player.perks?.price || 0) +
+    (expeditionEffects(run).shopPrice || 0) +
+    wantedPriceMarkup(run)
   return Math.max(1, Math.round((offer?.price || 0) * (1 - discount + markup)))
 }
 

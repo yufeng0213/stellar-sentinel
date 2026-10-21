@@ -14,6 +14,7 @@ import {
 import { applyNpcArchetype, ensureNpcArchetype, pickNpcArchetype } from './npc-archetypes.js'
 import { expeditionEffects } from './expedition.js'
 import { buildNpcNamePool, nextNpcName } from './npc-names.js'
+import { decayWanted } from './wanted.js'
 import { clearAmbiguous, ensureNpcStage, noteNpcInteraction, relationStageInfo, relationStageOf } from './npc-stages.js'
 import { createRng } from './rng.js'
 
@@ -1101,6 +1102,7 @@ export function startAmbush(run, npcId) {
 
 export function tickWorld(run) {
   if (!run.npcs) return []
+  decayWanted(run)
   const rng = createRng(`${run.seed}:world:${run.day}`)
   const events = []
   const push = (text, kind = 'info') => {

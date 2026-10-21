@@ -8,6 +8,7 @@ import {
   addItem, addLog, effectiveAttr, getNode, makeGear,
 } from './run.js'
 import { createRng } from './rng.js'
+import { raiseWanted } from './wanted.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 
@@ -197,14 +198,21 @@ export function stealFromShop(run, nodeId, index) {
   run.player.mental = clamp(run.player.mental - 4, 0, run.player.mentalMax)
   run.nodeState[nodeId] = { resolved: true, alerted: true, text: '摊主看见了你，收起了货。' }
   if (!run.cleared.includes(nodeId)) run.cleared.push(nodeId)
-  addLog(run, `顺手牵羊｜${rollText} → 失败。摊主收摊，损失 ${lost} 信用点。`, 'bad')
+  const wanted = raiseWanted(
+    run,
+    run.activeCityId || 'dock',
+    check.fumble ? '商店货架被撞倒' : '商店扒窃败露',
+    check.fumble ? 2 : 1
+  )
+  addLog(run, `顺手牵羊｜${rollText} → 失败。摊主收摊，损失 ${lost} 信用点。通缉等级 ${wanted.level}。`, 'bad')
 
   return {
     ok: true,
     success: false,
+    wanted,
     text: check.fumble
-      ? '你碰倒了货架。摊主抓起手边的工具，你只能先退开。'
-      : '摊主抬头看了你一眼，把货往柜台里收了收。',
+      ? '你碰倒了货架。摊主抓起手边的工具，你只能先退开。\n\n城市频道里多了一条悬赏记录。'
+      : '摊主抬头看了你一眼，把货往柜台里收了收。\n\n城市频道里多了一条悬赏记录。',
     check,
   }
 }

@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { cityPopulation } from '../game-core/city.js'
 import { activeEscorts } from '../game-core/escort.js'
+import { wantedStatus } from '../game-core/wanted.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
@@ -15,6 +16,7 @@ const visitors = computed(() => (city.value?.visitorIds || [])
   .map((id) => run.value?.npcs?.[id])
   .filter((npc) => npc && npc.active !== false))
 const escorts = computed(() => (run.value ? activeEscorts(run.value) : []))
+const wanted = computed(() => (run.value ? wantedStatus(run.value) : { active: false }))
 
 onMounted(() => game.enterCity())
 
@@ -31,6 +33,11 @@ function returnDock() {
 function finishEscort(escort) {
   const result = game.completeEscort(escort.npcId)
   if (result.ok) game.notify(`护送完成 · ${result.credits} 信用点`, 'good')
+}
+
+function payWanted() {
+  const result = game.payWanted()
+  if (result.ok) game.notify('通缉记录已清除', 'good')
 }
 </script>
 
@@ -82,6 +89,17 @@ function finishEscort(escort) {
           <button type="button" class="btn btn-sm btn-primary" @click="finishEscort(escort)">送到诊所</button>
         </article>
       </div>
+    </section>
+
+    <section v-if="wanted.active" class="panel wanted-banner">
+      <div>
+        <p class="kicker">WANTED · {{ wanted.cityName }}</p>
+        <h3>通缉等级 {{ wanted.level }}</h3>
+        <p>{{ wanted.reason }} · 城市价格 +{{ Math.round(wanted.priceMarkup * 100) }}% · 3 天后自动降低</p>
+      </div>
+      <button type="button" class="btn btn-sm" :disabled="run.player.credits < wanted.fine" @click="payWanted">
+        缴纳罚金 · {{ wanted.fine }}
+      </button>
     </section>
 
     <section class="city-grid">
@@ -180,6 +198,9 @@ function finishEscort(escort) {
 .escort-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 8px; background: rgba(5, 10, 16, .4); }
 .escort-row b { display: block; font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
 .escort-row span { display: block; margin-top: 2px; color: var(--dim); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.wanted-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 15px; border-color: rgba(255, 138, 138, .35); background: rgba(255, 138, 138, .04); }
+.wanted-banner h3 { margin-top: 3px; color: var(--red); font-size: max(var(--ui-min), calc(16px * var(--ui-scale))); font-weight: 500; }
+.wanted-banner p:not(.kicker) { margin-top: 3px; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.6; }
 .city-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
 .city-card {
   min-height: 170px;

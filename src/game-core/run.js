@@ -23,6 +23,7 @@ import { generateDungeonName, resetDungeon } from './dungeon.js'
 import { createReputationState } from './faction.js'
 import { gearTierFor, rollGearAffixes } from './gear.js'
 import { createStoryState } from './story.js'
+import { createWantedState } from './wanted.js'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 
@@ -164,6 +165,7 @@ export function createRun(draft, seedInput) {
     story: createStoryState(),
     expedition: createExpeditionState(seed),
     city: createCityState(),
+    wanted: createWantedState(),
     door: createDoorState(),
     escorts: createEscortState(),
     ...createPromiseState(),

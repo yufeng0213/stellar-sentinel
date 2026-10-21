@@ -15,6 +15,7 @@ import { ensureEscorts } from '../game-core/escort.js'
 import { ensurePromises } from '../game-core/npc-promises.js'
 import { ensureDateState } from '../game-core/date-story.js'
 import { ensureExpedition } from '../game-core/expedition.js'
+import { ensureWanted } from '../game-core/wanted.js'
 import { ensureReputation } from '../game-core/faction.js'
 import { createStoryState } from '../game-core/story.js'
 
@@ -95,6 +96,7 @@ export function validateRun(input) {
   ensurePromises(data)
   ensureDateState(data)
   ensureExpedition(data)
+  ensureWanted(data)
   if (!data.story.flags || typeof data.story.flags !== 'object') data.story.flags = {}
 
   Object.values(data.npcChats).forEach((messages) => {

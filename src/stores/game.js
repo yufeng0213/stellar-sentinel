@@ -30,6 +30,7 @@ import {
   upgradeCityFacility as upgradeCityFacilityCore,
 } from '../game-core/city-development.js'
 import { checkExpedition, chooseExpeditionContract, ensureExpedition } from '../game-core/expedition.js'
+import { ensureWanted, payWanted as payWantedCore } from '../game-core/wanted.js'
 import {
   adjustReputation,
   buyFactionShopItem,
@@ -223,6 +224,7 @@ export const useGameStore = defineStore('game', {
       ensurePromises(stored)
       ensureDateState(stored)
       ensureExpedition(stored)
+      ensureWanted(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
           if (!message.streaming) return
@@ -384,6 +386,19 @@ export const useGameStore = defineStore('game', {
       const result = stealFromShop(this.run, nodeId, index)
       if (result.ok) this.save()
       else this.notify(result.message, 'bad')
+      return result
+    },
+
+    payWanted() {
+      if (!this.run) return { ok: false }
+      const result = payWantedCore(this.run)
+      if (result.ok) {
+        addLog(this.run, `缴纳通缉罚金 ${result.fine} 信用点，城市记录已清除。`, 'good')
+        this.notify(`罚金已缴纳 · ${result.fine} 信用点`, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
       return result
     },
 
