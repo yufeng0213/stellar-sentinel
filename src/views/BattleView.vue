@@ -185,8 +185,9 @@ function choose(choice) {
     cardReward.value = result.reward.cardChoices
     return
   }
-  const patrolDone = game.run?.patrolCheck?.resolvedDay === game.run?.day
-  battleExit(game.run?.borderWar?.stage === 4 ? 'war' : patrolDone ? 'city' : 'map')
+  const destination = game.run?.battleReturn || 'map'
+  game.clearBattleReturn()
+  battleExit(destination)
 }
 
 function pickReward(card) {

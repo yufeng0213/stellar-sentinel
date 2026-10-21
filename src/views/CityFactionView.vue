@@ -1,10 +1,12 @@
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { factionFavorMissionStatuses } from '../game-core/faction-favor-chain.js'
 import { factionStatuses } from '../game-core/faction.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
+const router = useRouter()
 const run = computed(() => game.run)
 const statuses = computed(() => (run.value ? factionStatuses(run.value) : []))
 const favorMissions = computed(() => (
@@ -18,7 +20,12 @@ function claim(status) {
 
 function doFavor(mission, choice) {
   const result = game.resolveFactionFavor(mission.factionId, choice.id)
-  if (result.ok) game.notify(result.done ? '派系差事完成' : '差事推进', 'good')
+  if (!result.ok) return
+  if (result.battleNodeId && run.value) {
+    router.push({ name: 'battle', params: { runId: run.value.id, nodeId: result.battleNodeId } })
+    return
+  }
+  game.notify(result.done ? '派系差事完成' : '差事推进', 'good')
 }
 </script>
 

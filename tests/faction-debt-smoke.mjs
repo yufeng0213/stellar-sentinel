@@ -11,6 +11,7 @@ import {
   resolveFactionDebt,
 } from '../src/game-core/faction-debt.js'
 import {
+  completeFactionFavorBattle,
   factionFavorMissionStatuses,
   resolveFactionFavorStep,
 } from '../src/game-core/faction-favor-chain.js'
@@ -45,7 +46,10 @@ check(mission?.status === 'active', '帮派系做事没有生成任务链')
 const step1 = resolveFactionFavorStep(favorRun, 'market', 'guard')
 check(step1.ok && step1.mission.stage === 1, '任务链第一段没有推进')
 const step2 = resolveFactionFavorStep(favorRun, 'market', 'collect')
-check(step2.ok && step2.mission.stage === 2, '任务链第二段没有推进')
+check(step2.ok && step2.battle === true, '追账没有进入真实战斗')
+check(step2.mission.stage === 1, '战斗前就推进了任务链')
+const battleDone = completeFactionFavorBattle(favorRun, 'market', 'collect')
+check(battleDone.ok && battleDone.mission.stage === 2, '战斗胜利后任务链没有推进')
 const step3 = resolveFactionFavorStep(favorRun, 'market', 'share')
 check(step3.ok && step3.done, '任务链没有完成')
 check(step3.mission.status === 'done', '任务链完成后没有标记')

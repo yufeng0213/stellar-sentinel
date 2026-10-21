@@ -4,6 +4,13 @@
 
 import { adjustReputation, factionStatuses } from './faction.js'
 
+export const FACTION_FAVOR_ENEMIES = {
+  tower: { name: '旧塔清道夫', hp: 30, morale: 20, attack: 6, traits: ['armored', 'guarded'] },
+  market: { name: '欠债人的护卫', hp: 28, morale: 22, attack: 6, traits: ['aggressive', 'armored'] },
+  drifters: { name: '矿道里的东西', hp: 34, morale: 18, attack: 6, traits: ['armored'] },
+  whisper: { name: '静默室守门人', hp: 32, morale: 18, attack: 7, traits: ['guarded', 'armored'] },
+}
+
 export const FACTION_FAVOR_CHAINS = {
   tower: {
     name: '白塔的旧账',
@@ -20,7 +27,7 @@ export const FACTION_FAVOR_CHAINS = {
         title: '护送证人',
         text: '一名旧塔书记愿意开口，但只肯走到北门。\n\n路上有白塔的人，也有不想让他开口的人。',
         choices: [
-          { id: 'escort', label: '亲自护送', desc: '消耗 1 营养膏，声望 +5，精神 -3。', cost: { ration: 1 }, effects: { rep: 5, mental: -3 } },
+          { id: 'escort', label: '亲自护送', desc: '消耗 1 营养膏，进入战斗。胜利后声望 +5，精神 -3。', cost: { ration: 1 }, effects: { rep: 5, mental: -3 }, battle: true },
           { id: 'hide', label: '安排一条暗线', desc: '支付 20 信用点，声望 +2。', cost: { credits: 20 }, effects: { rep: 2 } },
         ],
       },
@@ -49,7 +56,7 @@ export const FACTION_FAVOR_CHAINS = {
         title: '追一笔账',
         text: '有人欠市场一笔钱，躲进了矿脉站。\n\n市场的人把地址给了你，没有给别的。',
         choices: [
-          { id: 'collect', label: '把钱要回来', desc: '信用点 +25，市场声望 +5。', effects: { credits: 25, rep: 5 } },
+          { id: 'collect', label: '把钱要回来', desc: '进入战斗。胜利后信用点 +25，市场声望 +5。', effects: { credits: 25, rep: 5 }, battle: true },
           { id: 'forgive', label: '替他抹掉', desc: '市场声望 +3，精神 +3。', effects: { rep: 3, mental: 3 } },
         ],
       },
@@ -78,7 +85,7 @@ export const FACTION_FAVOR_CHAINS = {
         title: '修一座信标',
         text: '旧信标还能亮，但需要有人爬上去换线路。\n\n下面的人都在看你。',
         choices: [
-          { id: 'repair', label: '爬上去修', desc: '消耗 2 废料，声望 +5。', cost: { scrap: 2 }, effects: { rep: 5 } },
+          { id: 'repair', label: '爬上去修', desc: '消耗 2 废料，进入战斗。胜利后声望 +5。', cost: { scrap: 2 }, effects: { rep: 5 }, battle: true },
           { id: 'salvage', label: '拆了换别的', desc: '旧芯片 +1，声望 +3。', effects: { chip: 1, rep: 3 } },
         ],
       },
@@ -107,7 +114,7 @@ export const FACTION_FAVOR_CHAINS = {
         title: '送一件遗物',
         text: '低语者想要一件还带着回声的旧东西。\n\n“不是收藏。是让它安静下来。”',
         choices: [
-          { id: 'deliver', label: '交出一枚旧芯片', desc: '消耗 1 旧芯片，声望 +5。', cost: { chip: 1 }, effects: { rep: 5 } },
+          { id: 'deliver', label: '交出一枚旧芯片', desc: '消耗 1 旧芯片，进入战斗。胜利后声望 +5。', cost: { chip: 1 }, effects: { rep: 5 }, battle: true },
           { id: 'study', label: '先自己研究', desc: '精神 -3，声望 +3。', effects: { mental: -3, rep: 3 } },
         ],
       },
@@ -191,15 +198,7 @@ function applyEffects(run, factionId, effects = {}) {
   }
 }
 
-export function resolveFactionFavorStep(run, factionId, choiceId) {
-  const mission = ensureFactionFavorMissions(run)[factionId]
-  if (!mission || mission.status !== 'active') return { ok: false, message: '没有进行中的派系差事' }
-  const chain = FACTION_FAVOR_CHAINS[factionId]
-  const step = chain?.steps?.[mission.stage]
-  const choice = step?.choices.find((item) => item.id === choiceId)
-  if (!choice) return { ok: false, message: '没有这个选择' }
-  if (!hasCost(run, choice.cost)) return { ok: false, message: '资源不足' }
-  payCost(run, choice.cost)
+function finishFavorStep(run, factionId, mission, chain, choice) {
   applyEffects(run, factionId, choice.effects)
   mission.log.push({ day: run.day, text: choice.label })
   mission.stage += 1
@@ -220,4 +219,37 @@ export function resolveFactionFavorStep(run, factionId, choiceId) {
     done: false,
     text: choice.desc,
   }
+}
+
+export function resolveFactionFavorStep(run, factionId, choiceId) {
+  const mission = ensureFactionFavorMissions(run)[factionId]
+  if (!mission || mission.status !== 'active') return { ok: false, message: '没有进行中的派系差事' }
+  const chain = FACTION_FAVOR_CHAINS[factionId]
+  const step = chain?.steps?.[mission.stage]
+  const choice = step?.choices.find((item) => item.id === choiceId)
+  if (!choice) return { ok: false, message: '没有这个选择' }
+  if (!hasCost(run, choice.cost)) return { ok: false, message: '资源不足' }
+  payCost(run, choice.cost)
+  if (choice.battle) {
+    return {
+      ok: true,
+      battle: true,
+      factionId,
+      choiceId,
+      choice,
+      mission,
+      text: choice.desc,
+    }
+  }
+  return finishFavorStep(run, factionId, mission, chain, choice)
+}
+
+export function completeFactionFavorBattle(run, factionId, choiceId) {
+  const mission = ensureFactionFavorMissions(run)[factionId]
+  if (!mission || mission.status !== 'active') return { ok: false, message: '没有进行中的派系差事' }
+  const chain = FACTION_FAVOR_CHAINS[factionId]
+  const step = chain?.steps?.[mission.stage]
+  const choice = step?.choices.find((item) => item.id === choiceId)
+  if (!choice?.battle) return { ok: false, message: '这不是战斗差事' }
+  return finishFavorStep(run, factionId, mission, chain, choice)
 }

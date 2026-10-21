@@ -41,7 +41,12 @@ import {
 import { bailPlayer, ensureArrest } from '../game-core/arrest.js'
 import { factionBail as factionBailCore } from '../game-core/faction-bail.js'
 import { ensureFactionDebts, resolveFactionDebt as resolveFactionDebtCore } from '../game-core/faction-debt.js'
-import { ensureFactionFavorMissions, resolveFactionFavorStep } from '../game-core/faction-favor-chain.js'
+import {
+  completeFactionFavorBattle,
+  ensureFactionFavorMissions,
+  FACTION_FAVOR_ENEMIES,
+  resolveFactionFavorStep,
+} from '../game-core/faction-favor-chain.js'
 import {
   chooseWarCamp,
   chooseWarPrep,
@@ -543,13 +548,46 @@ export const useGameStore = defineStore('game', {
       if (!this.run) return { ok: false }
       const result = resolveFactionFavorStep(this.run, factionId, choiceId)
       if (result.ok) {
-        addLog(this.run, result.text, result.done ? 'good' : 'story')
-        this.notify(result.done ? '派系差事完成' : '派系差事推进', 'good')
+        if (result.battle) {
+          result.battleNodeId = this.startFactionFavorBattle(factionId, choiceId)
+        } else {
+          addLog(this.run, result.text, result.done ? 'good' : 'story')
+          this.notify(result.done ? '派系差事完成' : '派系差事推进', 'good')
+        }
         this.save()
       } else {
         this.notify(result.message, 'bad')
       }
       return result
+    },
+
+    startFactionFavorBattle(factionId, choiceId) {
+      if (!this.run) return null
+      const enemy = FACTION_FAVOR_ENEMIES[factionId]
+      if (!enemy) return null
+      const current = this.run.map.nodes[this.run.location]
+      let nodeId = `favor-${factionId}-${choiceId}-${this.run.day}`
+      while (this.run.map.nodes[nodeId]) nodeId = `${nodeId}-a`
+      const node = {
+        id: nodeId,
+        type: 'elite',
+        region: current?.region || 'dock',
+        accent: current?.accent,
+        title: enemy.name,
+        subtitle: '派系差事 · 必须解决',
+        enemy: {
+          name: enemy.name,
+          hp: enemy.hp,
+          morale: enemy.morale,
+          attack: enemy.attack,
+          traits: [...enemy.traits],
+        },
+      }
+      this.run.map.nodes[node.id] = node
+      this.run.battle = createBattle(this.run, node)
+      this.run.battle.factionFavor = { factionId, choiceId }
+      this.save()
+      return node.id
     },
 
     resolveFactionDebt(factionId, choiceId) {
@@ -1201,16 +1239,22 @@ export const useGameStore = defineStore('game', {
         const siteId = this.run.battle?.siteId
         const borderWar = this.run.battle?.borderWar
         const patrolBattle = this.run.battle?.patrol
+        const favorBattle = this.run.battle?.factionFavor
+        this.run.battleReturn = favorBattle ? 'city-factions' : borderWar ? 'war' : patrolBattle ? 'city' : null
         this.run.pendingCardReward = choices.length
           ? {
               nodeId: result.reward.nodeId || this.run.battle?.nodeId || null,
               choices,
-              returnTo: borderWar ? 'war' : patrolBattle ? 'city' : null,
+              returnTo: this.run.battleReturn,
             }
           : null
         if (siteId) completeSiteGuardian(this.run, siteId)
         if (borderWar) completeWarBattle(this.run)
         if (patrolBattle) completePatrolBattle(this.run)
+        if (favorBattle) {
+          const favorResult = completeFactionFavorBattle(this.run, favorBattle.factionId, favorBattle.choiceId)
+          if (favorResult.ok) addLog(this.run, favorResult.text, favorResult.done ? 'good' : 'story')
+        }
         this.run.battle = null
         this.grantAchievements()
         this.settleExpedition()
@@ -1224,7 +1268,13 @@ export const useGameStore = defineStore('game', {
     clearCardReward() {
       if (!this.run) return
       this.run.pendingCardReward = null
+      this.run.battleReturn = null
       this.save()
+    },
+
+    clearBattleReturn() {
+      if (!this.run) return
+      this.run.battleReturn = null
     },
 
     leaveBattle() {
