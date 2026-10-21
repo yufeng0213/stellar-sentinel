@@ -7,6 +7,7 @@ import { ITEMS, REGIONS } from './data.js'
 import { recordWeeklyMemories } from './memory.js'
 import { ensureStats } from './achievements.js'
 import { activeEscorts, startEscort } from './escort.js'
+import { expeditionEffects } from './expedition.js'
 import { PERSONA_EVENTS, personaEventFor } from './npc-persona-events.js'
 import { QUARREL_LINES, RECONCILE_LINES, RIVALRY_LINES } from './npc-conflict-events.js'
 import { createPromise, expirePromises, giftForNpc, openPromises } from './npc-promises.js'
@@ -608,7 +609,8 @@ export function generateNpcEvents(run, options = {}) {
         created.push(quarrelEvent)
       }
     }
-    const count = daily.length && rng.chance(0.35) ? 2 : daily.length ? 1 : 0
+    const eventBonus = expeditionEffects(run).eventBonus || 0
+    const count = (daily.length && rng.chance(0.35) ? 2 : daily.length ? 1 : 0) + eventBonus
     for (let index = 0; index < count; index += 1) {
       const pool = daily.filter((item) => (
         !usedNpc.has(item.npc.id) &&

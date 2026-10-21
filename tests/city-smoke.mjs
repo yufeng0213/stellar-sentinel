@@ -22,7 +22,7 @@ const check = (condition, label) => { if (!condition) errors.push(label) }
 const run = createRun(randomDraft(), 'CITY-TEST')
 run.player.credits = 300
 const city = ensureCity(run)
-check(city.market.length === 6, '市场没有生成 6 件商品')
+check(city.market.length >= 5, '市场没有生成足够的商品')
 check(city.clinic.length === 3, '诊所没有生成 3 件药品')
 check(city.visitorIds.length === 3, '酒馆没有生成 3 位访客')
 check(cityVisitors(run).length === 3, '访客列表不一致')
@@ -62,7 +62,7 @@ check(!healAtClinic(run).ok, '同一天可以重复治疗')
 const imported = validateRun(JSON.parse(JSON.stringify(run)))
 check(imported.ok, '城市存档校验失败')
 check(imported.run.city?.visitorIds.length === 3, '存档没有保留访客')
-check(imported.run.city?.market.length === 6, '存档没有保留市场')
+check(imported.run.city?.market.length >= 5, '存档没有保留市场')
 
 const fresh = createRun(randomDraft(), 'CITY-TEST-2')
 check(fresh.city?.market?.length === 0, '城市应该按需初始化')

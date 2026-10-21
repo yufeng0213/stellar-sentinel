@@ -6,6 +6,7 @@
 import { ITEMS } from './data.js'
 import { adjustReputation, FACTION_IDS } from './faction.js'
 import { ensureStats } from './achievements.js'
+import { expeditionEffects } from './expedition.js'
 import { spawnCityNpc } from './npc.js'
 import { createRng } from './rng.js'
 
@@ -291,8 +292,10 @@ export function ensureCity(run) {
   }
 
   const cityKey = run.activeCityId || 'dock'
+  const expedition = expeditionEffects(run)
   if (city.marketDay !== run.day) {
-    city.market = makeOffers(createRng(`${run.seed}:${cityKey}:market:${run.day}`), MARKET_POOL, 6, 'wine')
+    const marketCount = Math.max(3, 6 + (expedition.marketStock || 0))
+    city.market = makeOffers(createRng(`${run.seed}:${cityKey}:market:${run.day}`), MARKET_POOL, marketCount, 'wine')
     city.marketDay = run.day
   }
   if (city.clinicDay !== run.day) {
@@ -322,7 +325,7 @@ export function cityVisitors(run) {
 
 export function cityPrice(run, offer) {
   const discount = (run.player.skills?.includes('barter') ? 0.1 : 0) + (run.player.perks?.barter || 0)
-  const markup = run.player.perks?.price || 0
+  const markup = (run.player.perks?.price || 0) + (expeditionEffects(run).shopPrice || 0)
   return Math.max(1, Math.round((offer?.price || 0) * (1 - discount + markup)))
 }
 
@@ -383,10 +386,11 @@ export function claimCityQuest(run, questId) {
     return { ok: false, message: '未知委托' }
   }
 
-  run.player.credits += quest.reward
+  const questReward = Math.round(quest.reward * (1 + (expeditionEffects(run).questCredit || 0)))
+  run.player.credits += questReward
   quest.status = 'done'
   if (quest.faction) adjustReputation(run, quest.faction, 5, '城市委托')
-  return { ok: true, quest, reward: quest.reward }
+  return { ok: true, quest, reward: questReward }
 }
 
 export function buyBlackMarketIntel(run) {

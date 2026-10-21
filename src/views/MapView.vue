@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ATTR_NAME, GEAR, ITEMS, NODE_TYPES, REGIONS, SKILLS } from '../game-core/data.js'
+import { EXPEDITION_CONTRACTS, EXPEDITION_MODIFIERS, expeditionProgress } from '../game-core/expedition.js'
 import { localSettlementReport } from '../game/settlement.js'
 import { useGameStore } from '../stores/game.js'
 
@@ -43,6 +44,19 @@ const actTitle = computed(() => ACT_NAMES[run.value?.act] || '星区')
 
 const clearedCount = computed(() => run.value?.cleared.length || 0)
 const reachableIds = computed(() => new Set(current.value?.next || []))
+const expedition = computed(() => run.value?.expedition || null)
+const expeditionContract = computed(() => (
+  expedition.value?.contract ? EXPEDITION_CONTRACTS[expedition.value.contract] : null
+))
+const expeditionModifiers = computed(() => (expedition.value?.modifiers || [])
+  .map((id) => EXPEDITION_MODIFIERS[id])
+  .filter(Boolean))
+const expeditionState = computed(() => (run.value ? expeditionProgress(run.value) : { current: 0, goal: 0 }))
+const expeditionPending = computed(() => expedition.value?.status === 'pending')
+
+function chooseExpedition(id) {
+  game.chooseExpedition(id)
+}
 
 const DUNGEON = {
   padX: 64,
@@ -345,6 +359,23 @@ function nextNodes(node) {
       </div>
     </section>
 
+    <section v-if="expeditionContract" class="panel expedition-bar" :class="{ 'is-complete': expedition?.completed }">
+      <div class="expedition-main">
+        <p class="kicker">EXPEDITION CONTRACT</p>
+        <b>{{ expeditionContract.title }}</b>
+        <span>{{ expeditionContract.desc }}</span>
+      </div>
+      <div class="expedition-progress">
+        <b>{{ Math.min(expeditionState.current, expeditionState.goal) }} / {{ expeditionState.goal }}</b>
+        <span>{{ expedition?.completed ? '已完成' : '进行中' }}</span>
+      </div>
+      <div class="expedition-mods">
+        <span v-for="modifier in expeditionModifiers" :key="modifier.id" class="modifier-chip" :title="modifier.desc">
+          {{ modifier.name }}
+        </span>
+      </div>
+    </section>
+
     <section class="map-board panel">
       <div class="board-head">
         <span class="kicker">DUNGEON · {{ run.map.layers.length }} 个房间层</span>
@@ -410,6 +441,33 @@ function nextNodes(node) {
     </p>
 
     <Teleport to="body">
+      <div v-if="expeditionPending && expedition" class="settle-backdrop expedition-backdrop">
+        <div class="expedition-pick">
+          <p class="kicker">EXPEDITION · CONTRACT</p>
+          <h2>选择这次远征的目标</h2>
+          <p class="hint">目标决定额外奖励。星区词条会同时影响这一局。</p>
+          <div class="contract-grid">
+            <button
+              v-for="id in expedition.offers"
+              :key="id"
+              type="button"
+              class="contract-card"
+              @click="chooseExpedition(id)"
+            >
+              <span class="kicker">{{ id.toUpperCase() }}</span>
+              <b>{{ EXPEDITION_CONTRACTS[id].title }}</b>
+              <p>{{ EXPEDITION_CONTRACTS[id].desc }}</p>
+              <em>{{ EXPEDITION_CONTRACTS[id].rewardText }}</em>
+            </button>
+          </div>
+          <div class="modifier-list">
+            <span class="kicker">星区词条</span>
+            <span v-for="modifier in expeditionModifiers" :key="modifier.id" class="modifier-chip" :title="modifier.desc">
+              {{ modifier.name }} · {{ modifier.desc }}
+            </span>
+          </div>
+        </div>
+      </div>
       <Transition name="sheet">
         <div v-if="settling" class="settle-backdrop">
           <div class="settle-card">
@@ -934,6 +992,32 @@ function nextNodes(node) {
 }
 
 .map-note { padding: 2px 4px 10px; color: var(--dim); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.8; }
+.expedition-bar { display: flex; align-items: center; gap: 12px; padding: 10px 13px; border-color: rgba(185, 164, 255, .2); }
+.expedition-bar.is-complete { border-color: rgba(138, 222, 184, .3); }
+.expedition-main { display: flex; flex-direction: column; gap: 2px; min-width: 160px; }
+.expedition-main b { font-size: max(var(--ui-min), calc(13px * var(--ui-scale))); font-weight: 500; }
+.expedition-main span { color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.expedition-progress { display: flex; flex-direction: column; align-items: center; padding: 0 10px; border-left: 1px solid var(--line); }
+.expedition-progress b { color: var(--cyan); font-family: var(--mono); font-size: max(var(--ui-min), calc(14px * var(--ui-scale))); font-weight: 400; }
+.expedition-progress span { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.expedition-mods { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.modifier-chip { padding: 3px 6px; border: 1px solid rgba(185, 164, 255, .25); border-radius: 5px; color: var(--violet); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.expedition-backdrop { z-index: 170; }
+.expedition-pick { width: min(760px, 92vw); max-height: 88vh; overflow: auto; padding: 18px; border: 1px solid rgba(185, 164, 255, .3); border-radius: 14px; background: var(--panel); box-shadow: 0 30px 80px rgba(0, 0, 0, .6); }
+.expedition-pick h2 { margin-top: 5px; font-size: max(var(--ui-min), calc(24px * var(--ui-scale))); font-weight: 300; letter-spacing: .08em; }
+.contract-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 14px; }
+.contract-card { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: rgba(5, 10, 16, .45); color: var(--ink); text-align: left; cursor: pointer; }
+.contract-card:hover { border-color: rgba(185, 164, 255, .45); background: rgba(185, 164, 255, .07); }
+.contract-card b { font-size: max(var(--ui-min), calc(16px * var(--ui-scale))); font-weight: 500; }
+.contract-card p { flex: 1; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); line-height: 1.6; }
+.contract-card em { color: var(--jade); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); font-style: normal; }
+.modifier-list { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+.modifier-list .modifier-chip { max-width: 100%; }
+@media (max-width: 700px) {
+  .expedition-bar { align-items: flex-start; flex-wrap: wrap; }
+  .expedition-mods { width: 100%; margin-left: 0; }
+  .contract-grid { grid-template-columns: 1fr; }
+}
 
 /* 节点详情 */
 .sheet-backdrop {

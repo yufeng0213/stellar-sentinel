@@ -7,6 +7,7 @@
 import { ensureStats } from './achievements.js'
 import { unlockBossBlueprint } from './blueprint.js'
 import { BASE_DECK, GIFT_KEYS, ITEMS, REGIONS } from './data.js'
+import { expeditionEffects } from './expedition.js'
 import { calibrationEffects, grantCalibrationPoints } from './calibration.js'
 import { gearEffects } from './gear.js'
 import { addLog, effectiveAttr } from './run.js'
@@ -14,7 +15,7 @@ import { createRng } from './rng.js'
 
 function battleEffects(run) {
   const effects = {}
-  ;[gearEffects(run), calibrationEffects(run), companionEffects(run)].forEach((source) => {
+  ;[gearEffects(run), calibrationEffects(run), companionEffects(run), expeditionEffects(run)].forEach((source) => {
     Object.entries(source || {}).forEach(([key, value]) => {
       effects[key] = (effects[key] || 0) + value
     })
@@ -438,7 +439,8 @@ export function cardRewardChoices(run, battle) {
     : [...new Set([...roleBias, ...keys])]
   const chosen = []
   const available = rng.shuffle(pool)
-  while (chosen.length < 3 && available.length) {
+  const rewardCount = 3 + (expeditionEffects(run).cardRewardBonus || 0)
+  while (chosen.length < rewardCount && available.length) {
     const key = available.pop()
     if (chosen.includes(key)) continue
     chosen.push(key)
@@ -687,6 +689,7 @@ export function createBattle(run, node) {
     bossIntel: Boolean(run.story?.flags?.bossIntel),
     bossMechanic: node.enemy?.mechanic || '',
     bossPhases: (node.enemy?.phases || []).map((phase) => ({ ...phase })),
+    accuracyMod: effects.accuracy || 0,
     focus: effects.focus || 0,
     evasion: effects.evasion || 0,
     counter: effects.counter || 0,
@@ -714,6 +717,7 @@ export function createBattle(run, node) {
   }
 
   battle.enemies.forEach((enemy) => {
+    enemy.attack = Math.max(1, enemy.attack + (effects.enemyAttack || 0))
     enemy.intent = chooseIntent(battle, enemy)
   })
 
@@ -777,7 +781,7 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
     const rng = battleRng(battle)
     const die = 1 + Math.floor(rng.next() * 20)
     const attr = effectiveAttr(run, card.attr || 'vit')
-    const accuracy = (card.accuracy || 0) + battle.focus +
+    const accuracy = (card.accuracy || 0) + battle.focus + (battle.accuracyMod || 0) +
       (hasTrait(run, 'nose') ? 1 : 0) +
       (hasTrait(run, 'night') ? 1 : 0)
     const total = die + attr + accuracy
@@ -859,14 +863,14 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
     if (card.ap) battle.ap = Math.min(5, battle.ap + card.ap)
     addBattleLog(battle, `${card.name}：生命 ${card.hp}，AP +${card.ap || 0}。`, 'good')
   } else if (card.type === 'psi') {
-    const moraleBonus = hasTrait(run, 'resonance') ? 2 : 0
+    const moraleBonus = (hasTrait(run, 'resonance') ? 2 : 0) + (effects.psiMorale || 0)
 
     if (card.all) {
       const targets = activeEnemies(battle)
       targets.forEach((enemy) => {
-        damageEnemy(battle, enemy, 0, card.morale + moraleBonus)
+        damageEnemy(battle, enemy, 0, (card.morale || 0) + moraleBonus)
       })
-      addBattleLog(battle, `过载扩散到 ${targets.length} 个目标，士气 -${card.morale + moraleBonus}。`, 'good')
+      addBattleLog(battle, `过载扩散到 ${targets.length} 个目标，士气 -${(card.morale || 0) + moraleBonus}。`, 'good')
     } else {
       const check = rollSkill(battle, run, card.attr, equippedHead ? 1 : 0, target)
       if (check.hit) {
@@ -875,7 +879,7 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
           target.surrendered = true
           addBattleLog(battle, `${target.name} 在安眠曲里放下了武器。`, 'good')
         } else {
-          const moraleDamage = card.morale + moraleBonus
+          const moraleDamage = (card.morale || 0) + moraleBonus
           damageEnemy(battle, target, 0, moraleDamage)
           addBattleLog(battle, `${card.name} 命中：士气 -${moraleDamage}。`, 'good')
         }
@@ -890,13 +894,14 @@ export function playCard(battle, run, handIndex, targetIndex = 0) {
       if (cost) addBattleLog(battle, `精神 -${cost}。`, 'bad')
     }
   } else if (card.type === 'heal') {
+    const healingScale = Math.max(0, 1 + (effects.healingPct || 0))
     if (card.hp) {
-      const heal = card.hp + (equippedBody ? 2 : 0) + (run.player.skills?.includes('medicine') ? 2 : 0)
+      const heal = Math.round((card.hp + (equippedBody ? 2 : 0) + (run.player.skills?.includes('medicine') ? 2 : 0)) * healingScale)
       run.player.hp = clamp(run.player.hp + heal, 0, run.player.hpMax)
       addBattleLog(battle, `生命 +${heal}。`, 'good')
     }
     if (card.mental) {
-      const heal = card.mental + (equippedBody ? 3 : 0) + (hasTrait(run, 'resonance') ? 2 : 0)
+      const heal = Math.round((card.mental + (equippedBody ? 3 : 0) + (hasTrait(run, 'resonance') ? 2 : 0)) * healingScale)
       run.player.mental = clamp(run.player.mental + heal, 0, run.player.mentalMax)
       addBattleLog(battle, `精神 +${heal}。`, 'good')
     }
@@ -1125,7 +1130,10 @@ export function resolveBattle(run, battle, choice) {
   }
 
   const gearCreditBonus = battleEffects(run).credits || 0
-  if (credits && gearCreditBonus) credits = Math.round(credits * (1 + gearCreditBonus))
+  const expeditionCredit = expeditionEffects(run).creditPct || 0
+  if (credits && (gearCreditBonus || expeditionCredit)) {
+    credits = Math.round(credits * (1 + gearCreditBonus + expeditionCredit))
+  }
   let bossRecord = null
   if (boss) {
     run.bossKills = run.bossKills || {}

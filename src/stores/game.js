@@ -24,6 +24,7 @@ import { ensureGear, upgradeGear as upgradeGearCore } from '../game-core/gear.js
 import { completeEscort, ensureEscorts } from '../game-core/escort.js'
 import { ensurePromises, fulfillPromise } from '../game-core/npc-promises.js'
 import { chooseDateOption, ensureDateState, finishDate as finishDateCore } from '../game-core/date-story.js'
+import { checkExpedition, chooseExpeditionContract, ensureExpedition } from '../game-core/expedition.js'
 import {
   adjustReputation,
   buyFactionShopItem,
@@ -216,6 +217,7 @@ export const useGameStore = defineStore('game', {
       ensureEscorts(stored)
       ensurePromises(stored)
       ensureDateState(stored)
+      ensureExpedition(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
           if (!message.streaming) return
@@ -338,8 +340,12 @@ export const useGameStore = defineStore('game', {
     chooseEventChoice(nodeId, choiceId) {
       if (!this.run) return { ok: false }
       const result = resolveEventChoiceCore(this.run, nodeId, choiceId)
-      if (result.ok) this.save()
-      else this.notify(result.message, 'bad')
+      if (result.ok) {
+        this.settleExpedition()
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
       return result
     },
 
@@ -403,6 +409,29 @@ export const useGameStore = defineStore('game', {
       if (!this.run) return { ok: false }
       const result = switchCity(this.run, 'dock', { name: '白塔空港', target: 20 })
       if (result.ok) this.save()
+      return result
+    },
+
+    chooseExpedition(contractId) {
+      if (!this.run) return { ok: false }
+      const result = chooseExpeditionContract(this.run, contractId)
+      if (result.ok) {
+        addLog(this.run, `远征契约：${result.contract.title}。`, 'story')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    settleExpedition() {
+      if (!this.run) return { ok: true, completed: false }
+      const result = checkExpedition(this.run)
+      if (result.completed) {
+        addLog(this.run, `远征契约完成：${result.contract.title}。${result.rewards.join('，')}。`, 'good')
+        this.notify(`远征契约完成 · ${result.contract.title}`, 'good')
+        this.save()
+      }
       return result
     },
 
@@ -742,6 +771,7 @@ export const useGameStore = defineStore('game', {
           : null
         this.run.battle = null
         this.grantAchievements()
+        this.settleExpedition()
         this.save()
       } else {
         this.notify(result.message, 'bad')
@@ -941,6 +971,7 @@ export const useGameStore = defineStore('game', {
       if (result.ok) {
         addLog(this.run, result.text, 'good')
         this.grantAchievements()
+        this.settleExpedition()
         this.save()
       } else {
         this.notify(result.message, 'bad')
@@ -1103,6 +1134,7 @@ export const useGameStore = defineStore('game', {
       const result = resolveInboxEvent(this.run, eventId, choiceId)
       if (result.ok) {
         this.grantAchievements()
+        this.settleExpedition()
         this.save()
       } else {
         this.notify(result.message, 'bad')

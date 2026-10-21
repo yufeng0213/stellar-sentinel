@@ -12,6 +12,7 @@ import {
   tagAffinity,
 } from './npc-tags.js'
 import { applyNpcArchetype, ensureNpcArchetype, pickNpcArchetype } from './npc-archetypes.js'
+import { expeditionEffects } from './expedition.js'
 import { buildNpcNamePool, nextNpcName } from './npc-names.js'
 import { clearAmbiguous, ensureNpcStage, noteNpcInteraction, relationStageInfo, relationStageOf } from './npc-stages.js'
 import { createRng } from './rng.js'
@@ -1117,7 +1118,7 @@ export function tickWorld(run) {
       if (npc.quarrel?.active) {
         npc.strain = clamp(npc.strain + 1, 0, 100)
       } else if (gap >= 2) {
-        npc.strain = clamp(npc.strain + Math.min(6, gap), 0, 100)
+        npc.strain = clamp(npc.strain + Math.min(6, gap) + (expeditionEffects(run).strain || 0), 0, 100)
       } else {
         npc.strain = Math.max(0, npc.strain - 2)
       }

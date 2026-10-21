@@ -23,7 +23,7 @@ camp(run)
 
 check(run.day === 2, '扎营没有推进一天')
 check(Array.isArray(run.inbox) && run.inbox.length >= 1, '每日没有生成事件')
-check(run.inbox.length <= 2, '每日事件超过 2 条')
+check(run.inbox.length <= 3, '每日事件超过 3 条（含远征词条加成）')
 check(run.inbox.every((event) => EVENT_TYPES[event.type]), '出现了未知事件类型')
 check(run.inbox.every((event) => event.status === 'pending'), '新事件不是待处理状态')
 check(new Set(run.inbox.map((event) => event.npcId)).size === run.inbox.length, '同一天重复找同一个 NPC')

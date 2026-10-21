@@ -17,6 +17,7 @@ import { createDoorState } from './door.js'
 import { createEscortState } from './escort.js'
 import { createPromiseState } from './npc-promises.js'
 import { ensureDateState } from './date-story.js'
+import { createExpeditionState, expeditionEffects } from './expedition.js'
 import { generateDungeonName, resetDungeon } from './dungeon.js'
 import { createReputationState } from './faction.js'
 import { gearTierFor, rollGearAffixes } from './gear.js'
@@ -160,6 +161,7 @@ export function createRun(draft, seedInput) {
     mapSeed: map.seed,
     defeats: 0,
     story: createStoryState(),
+    expedition: createExpeditionState(seed),
     city: createCityState(),
     door: createDoorState(),
     escorts: createEscortState(),
@@ -293,8 +295,9 @@ export function gather(run, nodeId) {
   const rng = actionRng(run)
   const gains = {}
   if (check.success) {
+    const gatherBonus = expeditionEffects(run).gatherBonus || 0
     node.yields.forEach((yieldItem) => {
-      const count = rng.int(yieldItem.qty[0], yieldItem.qty[1])
+      const count = rng.int(yieldItem.qty[0], yieldItem.qty[1]) + gatherBonus
       gains[yieldItem.item] = (gains[yieldItem.item] || 0) + count
     })
     // 采集时偶尔会翻出一件没有属性、但适合送人的小东西。
