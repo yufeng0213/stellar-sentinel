@@ -152,6 +152,7 @@ import {
 } from '../game-core/npc-contact.js'
 import {
   addForumComment,
+  addMoment,
   addMomentComment,
   ensureSocial,
   ensureForumSeed,
@@ -165,6 +166,8 @@ import {
 } from '../game-core/social.js'
 import {
   buildBackgroundMessageMessages,
+  buildChatTriggeredForumMessages,
+  buildChatTriggeredMomentMessages,
   buildForumNpcCommentMessages,
   buildForumPostMessages,
   buildMomentCommentMessages,
@@ -172,6 +175,13 @@ import {
   buildMomentMessages,
   parseSocialText,
 } from '../game/social-prompts.js'
+import {
+  detectChatSocialTrigger,
+  localChatForumPost,
+  localChatMomentText,
+  shouldNpcPostAboutChat,
+  shouldNpcPostForumAboutChat,
+} from '../game-core/social-triggers.js'
 import { stealFromNpc, stealFromShop } from '../game-core/steal.js'
 import { streamNpcChat } from '../game/llm.js'
 import { buildLoreMessages, localLore, loreTarget, stripLore } from '../game/lore.js'
@@ -1457,10 +1467,20 @@ export const useGameStore = defineStore('game', {
 
     breakUpNpc(npcId) {
       if (!this.run) return { ok: false }
+      const npc = this.run.npcs?.[npcId]
       const result = breakUpWithNpc(this.run, npcId)
       if (result.ok) {
         addLog(this.run, result.text, 'story')
         this.save()
+        if (npc) {
+          this.createChatSocialPosts(
+            npc,
+            { type: 'breakup', label: '结束关系', tone: 'hurt' },
+            '（你结束了这段关系。）',
+            '（关系结束）',
+            'button'
+          ).catch(() => {})
+        }
       } else {
         this.notify(result.message, 'bad')
       }
@@ -1924,6 +1944,74 @@ export const useGameStore = defineStore('game', {
       return created
     },
 
+    async createChatSocialPosts(npc, trigger, playerText, npcReply, salt = '') {
+      if (!this.run || !npc || !trigger) return { ok: false }
+      ensureSocial(this.run)
+      const social = this.run.social
+      const duplicateMoment = social.moments.some((moment) => (
+        moment.chatDay === this.run.day &&
+        moment.chatNpcId === npc.id &&
+        moment.trigger === trigger.type
+      ))
+      const duplicateForum = social.forumPosts.some((post) => (
+        post.chatDay === this.run.day &&
+        post.chatNpcId === npc.id &&
+        post.trigger === trigger.type
+      ))
+      let createdMoment = null
+      let createdForum = null
+
+      if (!duplicateMoment && shouldNpcPostAboutChat(this.run, npc, trigger, salt)) {
+        const local = localMomentFor(npc, this.run)
+        local.text = localChatMomentText(npc, trigger)
+        local.trigger = trigger.type
+        local.triggerLabel = trigger.label
+        local.chatNpcId = npc.id
+        local.chatDay = this.run.day
+        local.source = 'local'
+        const result = await this.requestLlm(
+          buildChatTriggeredMomentMessages(this.run, npc, trigger, playerText, npcReply).messages,
+          45000
+        )
+        if (result.ok) {
+          const parsed = parseSocialText(result.text, local.text)
+          local.text = parsed.text
+          if (parsed.tags.length) local.tags = parsed.tags
+          local.source = 'llm'
+        }
+        addMoment(this.run, local)
+        await this.generateMomentComments(local, true)
+        createdMoment = local
+      }
+
+      if (!duplicateForum && shouldNpcPostForumAboutChat(this.run, npc, trigger, salt)) {
+        const localPost = localForumPost(this.run)
+        const body = localChatForumPost(npc, trigger)
+        localPost.title = body.title
+        localPost.body = body.body
+        localPost.trigger = trigger.type
+        localPost.triggerLabel = trigger.label
+        localPost.chatNpcId = npc.id
+        localPost.chatDay = this.run.day
+        localPost.tags = ['对话', trigger.label]
+        localPost.source = 'local'
+        const result = await this.requestLlm(
+          buildChatTriggeredForumMessages(this.run, npc, trigger, playerText, npcReply).messages,
+          45000
+        )
+        if (result.ok) {
+          const parsed = parseSocialText(result.text, localPost.body)
+          localPost.body = parsed.text
+          localPost.source = 'llm'
+        }
+        await this.generateForumComments(localPost, true)
+        createdForum = localPost
+      }
+
+      if (createdMoment || createdForum) this.save()
+      return { ok: true, moment: createdMoment, forum: createdForum }
+    },
+
     async generateSocialMoments(useLlm = true) {
       if (!this.run) return { ok: false }
       ensureSocial(this.run)
@@ -2115,6 +2203,12 @@ export const useGameStore = defineStore('game', {
       const npc = this.run.npcs?.[npcId]
       if (!npc || !npc.alive) return { ok: false, message: '他无法回应' }
 
+      const trigger = detectChatSocialTrigger(npc, content)
+      if (trigger?.type === 'breakup' && npc.lover) {
+        const broken = breakUpWithNpc(this.run, npcId)
+        if (broken.ok) addLog(this.run, broken.text, 'story')
+      }
+
       if (!this.run.npcChats) this.run.npcChats = {}
       const chats = this.run.npcChats[npcId] || (this.run.npcChats[npcId] = [])
       const history = [...chats]
@@ -2170,7 +2264,10 @@ export const useGameStore = defineStore('game', {
       if (parsed.action) this.applyDialogueAction(npcId, parsed.action)
       this.applyChatEffect(npc, content)
       this.save()
-      return { ok: true, fallback, error: errorMessage }
+      if (trigger) {
+        this.createChatSocialPosts(npc, trigger, content, placeholder.text).catch(() => {})
+      }
+      return { ok: true, fallback, error: errorMessage, trigger: trigger?.type || null }
     },
 
     applyDialogueAction(npcId, action) {

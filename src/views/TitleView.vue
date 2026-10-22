@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.89.0 · LONG CONTEXT</dd>
+            <dd class="mono">0.90.0 · CHAT ECHOES</dd>
           </div>
         </dl>
       </section>

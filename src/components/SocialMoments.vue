@@ -77,7 +77,7 @@ onMounted(() => {
               <em>D{{ moment.day }} · {{ moment.source === 'llm' ? 'AI' : '本地' }}</em>
             </span>
           </button>
-          <span class="tag">{{ moment.npcId ? '联系人' : '空港' }}</span>
+          <span class="tag">{{ moment.triggerLabel ? `对话 · ${moment.triggerLabel}` : moment.npcId ? '联系人' : '空港' }}</span>
         </header>
         <p class="moment-text">{{ moment.text }}</p>
         <div v-if="moment.tags?.length" class="moment-tags">

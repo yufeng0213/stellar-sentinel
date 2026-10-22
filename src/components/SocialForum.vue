@@ -64,7 +64,7 @@ onMounted(async () => {
             <span class="forum-author">{{ post.authorName || '匿名' }}</span>
             <span class="forum-day">D{{ post.day }} · {{ post.source === 'llm' ? 'AI' : '本地' }}</span>
           </div>
-          <span class="tag">{{ post.tags?.[0] || '世界' }}</span>
+          <span class="tag">{{ post.triggerLabel ? `对话 · ${post.triggerLabel}` : post.tags?.[0] || '世界' }}</span>
         </header>
         <h4>{{ post.title }}</h4>
         <p class="forum-body">{{ post.body }}</p>

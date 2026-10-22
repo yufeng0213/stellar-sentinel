@@ -120,6 +120,57 @@ function edgeLine(run, left, right) {
   return `他们之间的关系：${edge.kind || '熟人'}，信任 ${edge.trust ?? 0}，rivalry ${edge.rivalry ?? 0}。`
 }
 
+export function buildChatTriggeredMomentMessages(run, npc, trigger, playerText, npcReply) {
+  return {
+    messages: [
+      {
+        role: 'system',
+        content: [
+          '你在为一个星际边境 RPG 写 NPC 在私聊之后发到社交圈的一条动态。',
+          '只输出一条中文动态，不要解释，不要加引号。',
+          '必须符合这个人的人设、派系、与玩家的关系和刚刚发生的对话。',
+          `触发情绪：${trigger?.label || '日常'}（${trigger?.tone || 'neutral'}）。`,
+          '不要直接复述玩家原话，也不要写成长篇独白。',
+          '可以含蓄、嘴硬、发泄、试探或装作若无其事。',
+          '最后另起一行给 1–3 个 #标签。',
+          '控制在 80 个汉字以内。',
+          '',
+          npcProfile(npc, run),
+          '',
+          `玩家刚刚说：${String(playerText || '').slice(0, 300)}`,
+          `NPC 刚刚回应：${String(npcReply || '').slice(0, 300)}`,
+        ].join('\n'),
+      },
+      { role: 'user', content: '写一条他/她会在社交圈发出的动态。' },
+    ],
+  }
+}
+
+export function buildChatTriggeredForumMessages(run, npc, trigger, playerText, npcReply) {
+  return {
+    messages: [
+      {
+        role: 'system',
+        content: [
+          '你在为一个星际边境 RPG 写匿名论坛里的一条新帖子。',
+          '只输出中文帖子正文，不要标题，不要解释，不要加引号。',
+          '这条帖子要由刚才和玩家发生对话的 NPC 匿名发出，符合其性格和派系。',
+          `对话情绪：${trigger?.label || '日常'}（${trigger?.tone || 'neutral'}）。`,
+          '不要直接点名玩家，可以写「有人」「那个人」「昨晚在酒馆」。',
+          '可以抱怨、暗示、寻求认同、传播消息或试探其他人怎么看。',
+          '控制在 120 个汉字以内。',
+          '',
+          npcProfile(npc, run),
+          '',
+          `玩家刚刚说：${String(playerText || '').slice(0, 260)}`,
+          `NPC 刚刚回应：${String(npcReply || '').slice(0, 260)}`,
+        ].join('\n'),
+      },
+      { role: 'user', content: '写一条这条对话之后会出现在论坛的新帖子。' },
+    ],
+  }
+}
+
 export function buildMomentNpcCommentMessages(run, moment, commentator, author, tone, existingComments = []) {
   return {
     messages: [
