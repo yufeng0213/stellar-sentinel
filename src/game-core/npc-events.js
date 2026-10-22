@@ -3,8 +3,10 @@
  * 事件选择和数值全部本地确定性；文案先用模板，P3 再交给 LLM。
  */
 
+import { canInviteNpc, inviteNpcToBastion } from './bastion.js'
 import { ITEMS, REGIONS } from './data.js'
 import { recordWeeklyMemories } from './memory.js'
+import { canInviteToParty, inviteToParty } from './npc.js'
 import { ensureStats } from './achievements.js'
 import { activeEscorts, startEscort } from './escort.js'
 import { expeditionEffects } from './expedition.js'
@@ -27,6 +29,8 @@ export const EVENT_TYPES = {
   confession: { label: '表白', color: 'red', base: 10, major: true },
   jealousy: { label: '吃醋', color: 'red', base: 8, major: true },
   jealousy_report: { label: '告状', color: 'red', base: 8, major: true },
+  party_offer: { label: '入队', color: 'cyan', base: 8, major: true },
+  bastion_offer: { label: '入住', color: 'violet', base: 8, major: true },
   escort: { label: '护送', color: 'amber', base: 9, major: true },
   bond: { label: '好感', color: 'violet', base: 10, major: true },
   promise: { label: '约定', color: 'jade', base: 8, major: true },
@@ -243,6 +247,7 @@ function candidates(run, rng, weekly = false) {
     if (npc.active === false || npc.tier === 'background') return
     Object.keys(EVENT_TYPES).forEach((type) => {
       const meta = EVENT_TYPES[type]
+      if (type === 'party_offer' || type === 'bastion_offer') return
       if (weekly && !meta.major) return
       if (cooldownBlocked(run, npc, type)) return
       if (!eventEligible(run, npc, type, rng)) return
@@ -261,6 +266,43 @@ function pickWeighted(rng, list) {
     if (roll <= 0) return item
   }
   return list[list.length - 1]
+}
+
+/**
+ * 每日主动事件：NPC 主动要求入队、申请入住方舟，或送东西。
+ * 不是每个 NPC 每天都会来，只有符合条件且抽中时才出现。
+ */
+export function buildNpcInitiative(run, forcedType = null) {
+  if (!run?.npcs) return null
+  const pending = run.inbox || []
+  if (pending.filter((event) => event.status === 'pending').length >= 5) return null
+  const rng = createRng(`${run.seed}:npc-initiative:${run.day}`)
+  const candidates = []
+
+  Object.values(run.npcs).forEach((npc) => {
+    if (!npc.alive || npc.active === false || npc.life?.leftCity || npc.hostile) return
+    // 正在冷战或关系压力很高的人，优先走争吵/和解事件，不抢主动邀约。
+    if (npc.quarrel?.active || (npc.strain || 0) >= 25) return
+    const duplicate = (type) => pending.some((event) => (
+      event.status === 'pending' && event.npcId === npc.id && event.type === type
+    ))
+
+    if ((!forcedType || forcedType === 'party_offer') && !duplicate('party_offer') && canInviteToParty(run, npc.id).ok) {
+      candidates.push({ npc, type: 'party_offer', weight: 2.6 + (npc.relation.trust || 0) / 100 })
+    }
+    if ((!forcedType || forcedType === 'bastion_offer') && !duplicate('bastion_offer') && canInviteNpc(run, npc).ok) {
+      candidates.push({ npc, type: 'bastion_offer', weight: 2.2 + (npc.relation.trust || 0) / 120 })
+    }
+    if ((!forcedType || forcedType === 'gift') && !duplicate('gift') && (npc.relation.trust || 0) >= 15) {
+      candidates.push({ npc, type: 'gift', weight: 1.4 + (npc.personality?.generosity || 0) / 100 })
+    }
+  })
+
+  if (!candidates.length) return null
+  if (!forcedType && !rng.chance(0.32)) return null
+  const picked = forcedType ? candidates[0] : pickWeighted(rng, candidates)
+  if (!picked) return null
+  return buildEvent(run, rng, picked.npc, picked.type)
 }
 
 function messageText(npc) {
@@ -347,14 +389,23 @@ function buildEvent(run, rng, npc, type, weekly = false) {
       { id: 'reassure', label: '两边都安抚' },
       { id: 'boundary', label: '把边界说清楚' },
     ]
+  } else if (type === 'party_offer') {
+    base.title = `${npc.name} 想跟你一起出城`
+    base.text = npc.lover
+      ? `“下次出城带我一起吧。”他说得很轻，但没有把这句话当成玩笑，“我不想每次都只能在空港等你。”`
+      : `“你最近总一个人走远路。”他把背包往肩上提了提，“下次带上我。我不会拖后腿。”`
+    base.choices = [
+      { id: 'accept', label: '好，一起走' },
+      { id: 'decline', label: '这次还不行' },
+    ]
+  } else if (type === 'bastion_offer') {
+    base.title = `${npc.name} 想搬进方舟`
+    base.text = `“我听说你的方舟还有空位。”他看了一眼别处，“我不是在求你收留。只是……留在空港也没什么意思。”`
+    base.choices = [
+      { id: 'accept', label: '欢迎他住下' },
+      { id: 'decline', label: '现在还不方便' },
+    ]
   } else if (type === 'bond') {
-    const definition = stageEventFor(npc)
-    if (!definition) return null
-    base.title = definition.title
-    base.text = definition.text
-    base.payload = { stageEventId: definition.id }
-    base.choices = definition.choices.map((choice) => ({ id: choice.id, label: choice.label }))
-  } else if (type === 'message') {
     base.title = `${npc.name} 发来一条信息`
     base.text = messageText(npc)
     base.choices = [
@@ -601,6 +652,18 @@ export function generateNpcEvents(run, options = {}) {
   const pendingCount = run.inbox.filter((event) => event.status === 'pending').length
   const usedNpc = new Set()
   const usedTypes = new Set()
+
+  if (pendingCount < 5) {
+    const initiative = buildNpcInitiative(run)
+    if (initiative) {
+      const initiator = run.npcs[initiative.npcId]
+      run.inbox.unshift(initiative)
+      markCooldown(run, initiator, initiative.type)
+      usedNpc.add(initiative.npcId)
+      usedTypes.add(initiative.type)
+      created.push(initiative)
+    }
+  }
 
   if (pendingCount < 6) {
     const daily = candidates(run, rng, false)
@@ -981,6 +1044,28 @@ function resolveSurvivor(run, npc, event, choice) {
   return '你说可以留下来，不用急着回去。他看了你一会儿，最后坐回了空港的台阶上。'
 }
 
+function resolvePartyOffer(run, npc, choice) {
+  if (choice === 'decline') {
+    npc.relation.trust = clamp(npc.relation.trust - 2, 0, 100)
+    return '你说这次还不行。他点点头，把背包放回了柜子里。'
+  }
+  const result = inviteToParty(run, npc.id)
+  if (!result.ok) return { error: result.message }
+  npc.relation.trust = clamp(npc.relation.trust + 4, 0, 100)
+  return `${npc.name} 加入了你的队伍。他把自己的东西挪到方舟门口，像是在等出发。`
+}
+
+function resolveBastionOffer(run, npc, choice) {
+  if (choice === 'decline') {
+    npc.relation.trust = clamp(npc.relation.trust - 2, 0, 100)
+    return '你说现在还不方便。他没有追问，只是把视线移开了。'
+  }
+  const result = inviteNpcToBastion(run, npc.id)
+  if (!result.ok) return { error: result.message }
+  npc.relation.trust = clamp(npc.relation.trust + 5, 0, 100)
+  return `${npc.name} 搬进了方舟。他选了一个靠门的位置，说那里能先听见你回来。`
+}
+
 function resolveGossip(run, npc, event, choice) {
   if (choice === 'ignore') return '你没有接话。他识趣地换了话题。'
   npc.relation.trust = clamp(npc.relation.trust + 1, 0, 100)
@@ -1009,6 +1094,8 @@ export function resolveInboxEvent(run, eventId, choiceId) {
   else if (event.type === 'rivalry') result = resolveRivalry(run, npc, event, choiceId)
   else if (event.type === 'persona') result = resolvePersona(run, npc, event, choiceId)
   else if (event.type === 'gift') result = resolveGift(run, npc, event, choiceId)
+  else if (event.type === 'party_offer') result = resolvePartyOffer(run, npc, choiceId)
+  else if (event.type === 'bastion_offer') result = resolveBastionOffer(run, npc, choiceId)
   else if (event.type === 'favor') result = resolveFavor(run, npc, event, choiceId)
   else if (event.type === 'quest') result = resolveQuest(run, npc, event, choiceId)
   else if (event.type === 'romance') result = resolveRomance(run, npc, event, choiceId)
