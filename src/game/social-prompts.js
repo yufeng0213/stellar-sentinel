@@ -22,6 +22,14 @@ function npcProfile(npc, run) {
   ].filter(Boolean).join('\n')
 }
 
+export function recentActionSummary(run) {
+  const logs = (run.log || []).slice(0, 6).map((entry) => entry.text).filter(Boolean)
+  const worlds = (run.worldEvents || []).slice(0, 6).map((entry) => entry.text).filter(Boolean)
+  const cleared = (run.cleared || []).slice(-5).map((id) => run.map?.nodes?.[id]?.title).filter(Boolean)
+  const activeQuests = (run.quests || []).filter((quest) => quest.status === 'active').map((quest) => quest.nodeTitle)
+  return [...new Set([...logs, ...worlds, ...cleared, ...activeQuests])].slice(0, 8)
+}
+
 export function buildMomentMessages(run, npc) {
   return {
     messages: [
@@ -72,20 +80,50 @@ export function buildBackgroundMessageMessages(run, npc) {
 }
 
 export function buildForumPostMessages(run) {
+  const actions = recentActionSummary(run)
   return {
     messages: [
       {
         role: 'system',
         content: [
           '你在为一个星际边境 RPG 写匿名论坛的新帖子。',
-          '只输出中文帖子正文，不要标题，不要解释。',
+          '只输出中文帖子正文，不要标题，不要解释，不要加引号。',
           '世界观是边境空港、旧白塔、黑市、漂流者、低语者、矿脉站。',
           '内容应该像居民随手发的观察、传闻、警告或提问，有具体细节。',
+          '必须从下面的「最近发生的事」中选一件作为讨论引子。',
+          '不要直接点名玩家，可以写「有人」「那个跑星图的人」「昨晚那支队伍」。',
+          '你可以猜测、质疑、担心或抱怨这件事带来的影响。',
           '控制在 120 个汉字以内。',
           `今天是第 ${run.day} 天。`,
+          '',
+          actions.length ? `最近发生的事：\n- ${actions.join('\n- ')}` : '最近没有特别的事，写一条空港日常观察。',
         ].join('\n'),
       },
-      { role: 'user', content: '写一条今天论坛上会出现的新帖子。' },
+      { role: 'user', content: '写一条今天论坛上会出现的新帖子，让它和最近发生的事有关。' },
+    ],
+  }
+}
+
+export function buildMomentCommentMessages(run, moment, commentText, npc) {
+  return {
+    messages: [
+      {
+        role: 'system',
+        content: [
+          '你在为一个星际边境 RPG 写 NPC 对玩家社交圈评论的回复。',
+          '只输出一条中文回复，不要解释，不要旁白，不要加引号。',
+          '语气必须符合这个人的人设、派系、与玩家的关系，以及这条动态的内容。',
+          '可以简短回应、嘴硬、关心、试探或转移话题。',
+          '不要写系统提示，不要替玩家说话。',
+          '控制在 60 个汉字以内。',
+          '',
+          npcProfile(npc, run),
+          '',
+          `动态：${moment.text}`,
+          `玩家评论：${commentText}`,
+        ].join('\n'),
+      },
+      { role: 'user', content: '写一条对这条评论的回复。' },
     ],
   }
 }

@@ -2,7 +2,7 @@
 /*
  * 社交圈：NPC 的日常动态。发布由 LLM 生成，失败时保留本地骨架。
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game.js'
 
@@ -12,6 +12,8 @@ const run = computed(() => game.run)
 const moments = computed(() => run.value?.social?.moments || [])
 const loading = ref(false)
 const source = ref('')
+const drafts = reactive({})
+const replying = ref('')
 
 async function refresh(useLlm = true) {
   if (loading.value) return
@@ -30,11 +32,25 @@ function openNpc(moment) {
 }
 
 function like(moment) {
-  game.likeSocialMoment?.(moment.id)
+  game.likeSocialMoment(moment.id)
+}
+
+async function comment(moment) {
+  if (replying.value === moment.id) return
+  const text = String(drafts[moment.id] || '').trim()
+  if (!text) return
+  replying.value = moment.id
+  const result = await game.replySocialMoment(moment.id, text, true)
+  replying.value = ''
+  if (result.ok) {
+    drafts[moment.id] = ''
+    source.value = result.source === 'llm' ? 'AI 回复' : '本地回复'
+  }
 }
 
 onMounted(() => {
-  if (!moments.value.some((moment) => moment.day === run.value?.day)) refresh()
+  const social = run.value?.social
+  if (social?.lastMomentLlmDay !== run.value?.day) refresh()
 })
 </script>
 
@@ -67,6 +83,29 @@ onMounted(() => {
         <div v-if="moment.tags?.length" class="moment-tags">
           <span v-for="tag in moment.tags" :key="tag">#{{ tag }}</span>
         </div>
+        <div v-if="moment.comments?.length" class="moment-comments">
+          <div v-for="comment in moment.comments" :key="comment.id" class="moment-comment" :class="comment.authorType">
+            <b>{{ comment.authorName || '某人' }}</b>
+            <span>{{ comment.text }}</span>
+          </div>
+        </div>
+        <div class="moment-input">
+          <input
+            v-model="drafts[moment.id]"
+            maxlength="160"
+            :placeholder="replying === moment.id ? '正在等回复…' : '评论这条动态…'"
+            :disabled="replying === moment.id"
+            @keyup.enter="comment(moment)"
+          />
+          <button
+            type="button"
+            class="btn btn-sm"
+            :disabled="replying === moment.id || !drafts[moment.id]?.trim()"
+            @click="comment(moment)"
+          >
+            {{ replying === moment.id ? '…' : '评论' }}
+          </button>
+        </div>
         <footer class="moment-foot">
           <button type="button" class="moment-like" @click="like(moment)">♡ {{ moment.likes || 0 }}</button>
           <span>{{ moment.comments?.length || 0 }} 条回应</span>
@@ -91,6 +130,13 @@ onMounted(() => {
 .moment-author em { display: block; margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-style: normal; }
 .moment-text { margin-top: 8px; color: var(--muted); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); line-height: 1.7; }
 .moment-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; color: var(--cyan); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
+.moment-comments { display: flex; flex-direction: column; gap: 4px; margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--line); }
+.moment-comment { color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); line-height: 1.5; }
+.moment-comment b { margin-right: 6px; color: var(--dim); font-weight: 500; }
+.moment-comment.player b { color: var(--amber); }
+.moment-input { display: flex; gap: 5px; margin-top: 6px; }
+.moment-input input { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: rgba(4, 8, 13, .7); color: var(--ink); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); outline: none; }
+.moment-input input:focus { border-color: rgba(124, 231, 255, .42); }
 .moment-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .moment-like { border: 0; background: transparent; color: var(--red); font: inherit; cursor: pointer; }
 .empty { padding: 26px; color: var(--dim); text-align: center; }

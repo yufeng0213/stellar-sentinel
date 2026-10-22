@@ -152,16 +152,19 @@ import {
 } from '../game-core/npc-contact.js'
 import {
   addForumComment,
+  addMomentComment,
   ensureSocial,
   ensureForumSeed,
   localForumReply,
   localForumPost,
   localMomentFor,
+  localMomentReply,
 } from '../game-core/social.js'
 import {
   buildBackgroundMessageMessages,
   buildForumPostMessages,
   buildForumReplyMessages,
+  buildMomentCommentMessages,
   buildMomentMessages,
   parseSocialText,
 } from '../game/social-prompts.js'
@@ -1863,9 +1866,10 @@ export const useGameStore = defineStore('game', {
       const chosen = contacts.slice(0, 2)
       const created = []
       for (const npc of chosen) {
-        if (this.run.social.moments.some((moment) => moment.day === this.run.day && moment.npcId === npc.id)) continue
-        const local = localMomentFor(npc, this.run)
-        let source = 'local'
+        const existing = this.run.social.moments.find((moment) => moment.day === this.run.day && moment.npcId === npc.id)
+        if (existing?.source === 'llm') continue
+        const local = existing || localMomentFor(npc, this.run)
+        let source = existing?.source || 'local'
         if (useLlm) {
           const result = await this.requestLlm(buildMomentMessages(this.run, npc).messages, 45000)
           if (result.ok) {
@@ -1876,20 +1880,56 @@ export const useGameStore = defineStore('game', {
           }
         }
         local.source = source
-        this.run.social.moments.unshift(local)
+        if (!existing) this.run.social.moments.unshift(local)
         created.push(local)
       }
       if (this.run.social.moments.length > 40) this.run.social.moments.length = 40
       this.run.social.lastMomentDay = this.run.day
+      this.run.social.lastMomentLlmDay = this.run.day
       this.save()
       return { ok: true, created, source: created.some((moment) => moment.source === 'llm') ? 'llm' : 'local' }
     },
 
-    async refreshForumPost(useLlm = true) {
+    async replySocialMoment(momentId, text, useLlm = true) {
+      if (!this.run) return { ok: false }
+      ensureSocial(this.run)
+      const content = String(text || '').trim()
+      if (!content) return { ok: false, message: '评论不能为空' }
+      const moment = this.run.social.moments.find((item) => item.id === momentId)
+      if (!moment) return { ok: false, message: '动态已经不存在' }
+      const social = ensureSocial(this.run)
+      addMomentComment(this.run, momentId, {
+        id: `moment-comment-${this.run.day}-${++social.commentSeq}`,
+        authorType: 'player',
+        authorName: '你',
+        text: content.slice(0, 160),
+        day: this.run.day,
+      })
+      const npc = moment.npcId ? this.run.npcs?.[moment.npcId] : null
+      let reply = localMomentReply(this.run, moment, content)
+      if (useLlm && npc) {
+        const result = await this.requestLlm(
+          buildMomentCommentMessages(this.run, moment, content, npc).messages,
+          45000
+        )
+        if (result.ok) {
+          const parsed = parseSocialText(result.text, reply.text)
+          reply = { ...reply, text: parsed.text, source: 'llm' }
+        }
+      }
+      addMomentComment(this.run, momentId, reply)
+      this.save()
+      return { ok: true, reply, source: reply.source || 'local' }
+    },
+
+    async refreshForumPost(useLlm = true, forceNew = true) {
       if (!this.run) return { ok: false }
       ensureSocial(this.run)
       ensureForumSeed(this.run)
-      const post = localForumPost(this.run)
+      const existing = !forceNew
+        ? this.run.social.forumPosts.find((item) => item.day === this.run.day)
+        : null
+      const post = existing || localForumPost(this.run)
       let source = 'local'
       if (useLlm) {
         const result = await this.requestLlm(buildForumPostMessages(this.run).messages, 45000)
@@ -1901,8 +1941,16 @@ export const useGameStore = defineStore('game', {
         }
       }
       post.source = source
+      if (source === 'llm') this.run.social.lastForumLlmDay = this.run.day
       this.save()
       return { ok: true, post, source }
+    },
+
+    async autoRefreshForumPost() {
+      if (!this.run) return { ok: false }
+      ensureSocial(this.run)
+      if (this.run.social.lastForumLlmDay === this.run.day) return { ok: true, skipped: true }
+      return this.refreshForumPost(true, false)
     },
 
     async replyForumPost(postId, text, useLlm = true) {

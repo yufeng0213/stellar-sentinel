@@ -357,6 +357,7 @@ function camp() {
   const result = game.makeCamp()
   if (!result?.ok) return
   game.enhanceBackgroundMessages(true)
+  game.autoRefreshForumPost()
   selectedId.value = run.value.location
   const events = (run.value.worldEvents || []).slice(0, Math.max(0, (run.value.worldEvents?.length || 0) - before)).slice(0, 10)
   settling.value = { progress: 0, phase: '扫描空港', done: false, events }

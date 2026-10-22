@@ -78,7 +78,9 @@ export function createSocialState() {
     moments: [],
     forumPosts: [],
     lastMomentDay: 0,
+    lastMomentLlmDay: 0,
     lastForumDay: 0,
+    lastForumLlmDay: 0,
     momentSeq: 0,
     forumSeq: 0,
     commentSeq: 0,
@@ -93,7 +95,7 @@ export function ensureSocial(run) {
   if (!Array.isArray(social.moments)) social.moments = []
   if (!Array.isArray(social.forumPosts)) social.forumPosts = []
   if (!social.likes || typeof social.likes !== 'object') social.likes = {}
-  ;['lastMomentDay', 'lastForumDay', 'momentSeq', 'forumSeq', 'commentSeq'].forEach((key) => {
+  ;['lastMomentDay', 'lastMomentLlmDay', 'lastForumDay', 'lastForumLlmDay', 'momentSeq', 'forumSeq', 'commentSeq'].forEach((key) => {
     if (typeof social[key] !== 'number') social[key] = 0
   })
   return social
@@ -126,6 +128,36 @@ export function addMoment(run, moment) {
   if (social.moments.length > 40) social.moments.length = 40
   social.lastMomentDay = run.day
   return moment
+}
+
+export function addMomentComment(run, momentId, comment) {
+  const social = ensureSocial(run)
+  const moment = social.moments.find((item) => item.id === momentId)
+  if (!moment) return null
+  moment.comments = Array.isArray(moment.comments) ? moment.comments : []
+  moment.comments.push(comment)
+  if (moment.comments.length > 20) moment.comments.shift()
+  return comment
+}
+
+export function localMomentReply(run, moment, commentText, rng = createRng(`${run.seed}:moment-reply:${moment.id}:${run.day}`)) {
+  const replies = [
+    '看到了。你居然会回这条。',
+    '嗯。今天空港的风确实很大。',
+    '你那边也这样吗？',
+    '我只是随手写的。没想到你会看见。',
+    '下次见面再说。',
+    '别担心。我这边还好。',
+  ]
+  return {
+    id: `moment-comment-${run.day}-${++ensureSocial(run).commentSeq}`,
+    authorType: 'npc',
+    authorId: moment.npcId || null,
+    authorName: moment.name || '某人',
+    text: rng.pick(replies),
+    day: run.day,
+    replyTo: commentText || null,
+  }
 }
 
 export function generateLocalMoment(run, rng = createRng(`${run.seed}:social:${run.day}`)) {
