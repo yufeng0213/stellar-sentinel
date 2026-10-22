@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.91.0 · INTENT ENGINE</dd>
+            <dd class="mono">0.92.0 · COMBAT PRESSURE</dd>
           </div>
         </dl>
       </section>

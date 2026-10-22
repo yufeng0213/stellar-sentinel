@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ATTR_NAME, GEAR, ITEMS, NODE_TYPES, REGIONS, SITE_APPROACHES, SITE_ENCOUNTERS, SKILLS } from '../game-core/data.js'
 import { EXPEDITION_CONTRACTS, EXPEDITION_MODIFIERS, expeditionProgress } from '../game-core/expedition.js'
 import { localSettlementReport } from '../game/settlement.js'
+import { combatThreat } from '../game-core/combat-difficulty.js'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
@@ -16,6 +17,10 @@ const settling = ref(null)
 const nightReport = ref('')
 const reportBusy = ref(false)
 let settleTimer = null
+const selectedThreat = computed(() => (
+  run.value && selected.value ? combatThreat(run.value, selected.value) : null
+))
+
 const mapExhausted = computed(() => {
   const value = run.value
   const bossId = value?.map?.bossId
@@ -825,6 +830,10 @@ function nextNodes(node) {
                   <div>
                     <b>{{ selected.enemy?.name }}</b>
                     <p>生命 {{ selected.enemy?.hp }} · 士气 {{ selected.enemy?.morale }} · 攻击 {{ selected.enemy?.attack }}</p>
+                    <p v-if="selectedThreat?.score > 0.02" class="threat-line">
+                      战斗压力 {{ selectedThreat.label }} · 敌方生命 +{{ Math.round(selectedThreat.score * 115) }}% ·
+                      攻击 +{{ selectedThreat.attackBonus }}
+                    </p>
                   </div>
                 </div>
                 <p class="story">
@@ -1388,6 +1397,7 @@ function nextNodes(node) {
 }
 .enemy b { font-size: max(var(--ui-min), calc(12px * var(--ui-scale))); font-weight: 500; }
 .enemy p { margin-top: 2px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
+.enemy .threat-line { color: var(--red); }
 
 .next-list { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }

@@ -7,6 +7,7 @@
 import { ensureStats } from './achievements.js'
 import { unlockBossBlueprint } from './blueprint.js'
 import { BASE_DECK, GIFT_KEYS, ITEMS, REGIONS } from './data.js'
+import { combatThreat, scaleEnemiesForThreat, threatBonus } from './combat-difficulty.js'
 import { cityDevelopmentEffects } from './city-development.js'
 import { expeditionEffects } from './expedition.js'
 import { calibrationEffects, grantCalibrationPoints } from './calibration.js'
@@ -525,7 +526,7 @@ function makeEnemies(run, node) {
   return enemies
 }
 
-function chooseIntent(battle, enemy) {
+function chooseIntent(battle, enemy, run = null) {
   const rng = battleRng(battle)
   let pool
 
@@ -553,6 +554,19 @@ function chooseIntent(battle, enemy) {
 
   const activePhase = enemy.phase > 0 ? enemy.phases?.[enemy.phase - 1] : null
   if (activePhase?.intents?.length) pool = activePhase.intents
+
+  // 玩家生命见底时，敌人会优先收尾，而不是继续随机做杂事。
+  if (run?.player) {
+    const ratio = run.player.hp / Math.max(1, run.player.hpMax)
+    if (ratio <= 0.35) {
+      const finishers = pool.filter((type) => type === 'attack' || type === 'psychic' || type === 'drain')
+      if (finishers.length) pool = finishers
+    }
+  }
+  // 残血敌人更愿意防守，避免战斗变成单方面处决。
+  if (enemy.hp <= enemy.hpMax * 0.3 && pool.includes('guard') && rng.chance(0.35)) {
+    return { type: 'guard', value: 0 }
+  }
 
   const type = rng.pick(pool)
   const value = type === 'attack'
@@ -688,6 +702,8 @@ export function createBattle(run, node) {
   const companions = companionParty(run)
   companions.forEach((companion) => deck.push(companion.cardKey))
   const effects = battleEffects(run)
+  const threat = combatThreat(run, node)
+  const enemies = scaleEnemiesForThreat(makeEnemies(run, node), threat)
 
   const battle = {
     nodeId: node.id,
@@ -722,7 +738,8 @@ export function createBattle(run, node) {
     hand: [],
     drawPile: rng.shuffle(deck),
     discard: [],
-    enemies: makeEnemies(run, node),
+    threat,
+    enemies,
     summonBase: node.enemy || { name: '碎片', hp: 12, morale: 8, attack: 3, traits: [] },
     summonCount: 0,
     log: [],
@@ -734,12 +751,15 @@ export function createBattle(run, node) {
 
   battle.enemies.forEach((enemy) => {
     enemy.attack = Math.max(1, enemy.attack + (effects.enemyAttack || 0))
-    enemy.intent = chooseIntent(battle, enemy)
+    enemy.intent = chooseIntent(battle, enemy, run)
   })
 
   drawCards(battle, 4)
   ensureAttack(battle)
   addBattleLog(battle, `遭遇：${battle.enemies.map((enemy) => enemy.name).join('、')}。`, 'story')
+  if (threat.score > 0.02) {
+    addBattleLog(battle, `战斗压力：${threat.label}（威胁 +${threatBonus(threat.score)}%）。`, 'bad')
+  }
   addLog(run, `你在 ${node.title} 遭遇了 ${battle.enemies.map((enemy) => enemy.name).join('、')}。`, 'story')
   return battle
 }
@@ -970,7 +990,8 @@ export function endTurn(battle, run) {
     const intent = enemy.intent || { type: 'attack', value: enemy.attack }
 
     if (intent.type === 'attack') {
-      let damage = intent.value
+      const pressure = Math.floor(Math.max(0, battle.round - 1) / 3)
+      let damage = intent.value + pressure
       if (battle.evasion > 0) {
         const dodged = Math.min(battle.evasion, damage)
         battle.evasion -= dodged
@@ -985,7 +1006,11 @@ export function endTurn(battle, run) {
       }
       if (damage > 0) {
         run.player.hp = clamp(run.player.hp - damage, 0, run.player.hpMax)
-        addBattleLog(battle, `${enemy.name} 攻击，生命 -${damage}。`, 'bad')
+        addBattleLog(
+          battle,
+          `${enemy.name} 攻击，生命 -${damage}${pressure ? `（战斗压力 +${pressure}）` : ''}。`,
+          'bad'
+        )
       }
       if (battle.counter > 0 && !enemy.downed) {
         addBattleLog(battle, `反击姿态造成 ${battle.counter} 点伤害。`, 'good')
@@ -1016,7 +1041,7 @@ export function endTurn(battle, run) {
         const summonBase = battle.summonBase || { name: '碎片', hp: 12, morale: 8, attack: 3, traits: [] };
         const minion = makeEnemyEntity(summonBase, battle.enemies.length, { minion: true })
         minion.name = `${summonBase.name} · 碎片 ${battle.summonCount}`
-        minion.intent = chooseIntent(battle, minion)
+        minion.intent = chooseIntent(battle, minion, run)
         battle.enemies.push(minion)
         addBattleLog(battle, `${enemy.name} 召唤了 ${minion.name}。`, 'bad')
       } else {
@@ -1061,7 +1086,7 @@ export function endTurn(battle, run) {
   battle.counter = 0
   battle.enemies.forEach((enemy) => {
     if (!enemy.downed && !enemy.surrendered && !enemy.fled) {
-      enemy.intent = chooseIntent(battle, enemy)
+      enemy.intent = chooseIntent(battle, enemy, run)
     }
   })
   drawCards(battle, 4)
@@ -1084,7 +1109,11 @@ export function resolveBattle(run, battle, choice) {
 
   const node = run.map.nodes[battle.nodeId]
   const region = node ? REGIONS[node.region] : null
-  const baseReward = 30 + battle.round * 4 + (battle.nodeType === 'boss' ? 60 : battle.nodeType === 'elite' ? 25 : 0)
+  const threat = battle.threat || combatThreat(run, node)
+  const baseReward = Math.round(
+    (30 + battle.round * 4 + (battle.nodeType === 'boss' ? 60 : battle.nodeType === 'elite' ? 25 : 0)) *
+    (1 + threat.score * 0.6)
+  )
   const surrendered = battle.enemies.some((enemy) => enemy.surrendered)
   const boss = battle.nodeType === 'boss'
   const risk = node?.risk || battle.risk || null
@@ -1146,6 +1175,9 @@ export function resolveBattle(run, battle, choice) {
     return { ok: false, message: '未知处置' }
   }
 
+  if (credits && threat.score > 0.02) {
+    text += ` 战斗压力奖励 +${threatBonus(threat.score)}%。`
+  }
   const gearCreditBonus = battleEffects(run).credits || 0
   const expeditionCredit = expeditionEffects(run).creditPct || 0
   if (credits && (gearCreditBonus || expeditionCredit)) {
