@@ -868,19 +868,36 @@ async function narrateEvent(event) {
 .ambush p { margin-top: 2px; color: var(--muted); font-size: max(var(--ui-min), calc(9.5px * var(--ui-scale))); }
 .ambush-actions { display: flex; gap: 5px; }
 
-.comms-tabs { display: flex; gap: 4px; }
+.comms-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  width: 100%;
+  padding: 1px 1px 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.comms-tabs::-webkit-scrollbar { display: none; }
 .comms-tabs button, .comms-tabs a {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   gap: 4px;
-  height: 30px;
-  padding: 0 14px;
+  height: 34px;
+  padding: 0 13px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: transparent;
   color: var(--dim);
   font-size: max(var(--ui-min), calc(11px * var(--ui-scale)));
+  white-space: nowrap;
   cursor: pointer;
+}
+@media (max-width: 480px) {
+  .comms-tabs { gap: 5px; }
+  .comms-tabs button, .comms-tabs a { height: 32px; padding: 0 11px; }
 }
 .comms-tabs button.is-on, .comms-tabs a.is-on { border-color: rgba(124, 231, 255, .3); background: rgba(124, 231, 255, .08); color: var(--cyan); }
 .tab-count {
