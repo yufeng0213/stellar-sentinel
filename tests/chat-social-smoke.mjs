@@ -8,9 +8,11 @@ import {
   detectChatSocialTrigger,
   localChatForumPost,
   localChatMomentText,
+  parseChatIntentResult,
   socialPostChance,
 } from '../src/game-core/social-triggers.js'
 import {
+  buildChatIntentMessages,
   buildChatTriggeredForumMessages,
   buildChatTriggeredMomentMessages,
 } from '../src/game/social-prompts.js'
@@ -40,6 +42,17 @@ if (npc) {
   const forumPrompt = buildChatTriggeredForumMessages(run, npc, breakup, '我们分手吧。', '好。')
     .messages.map((message) => message.content).join('\n')
   check(forumPrompt.includes('分手') && forumPrompt.includes('匿名'), '论坛 prompt 没有带入对话背景')
+
+  const llmBreakup = parseChatIntentResult('```json\n{"type":"breakup","confidence":0.86,"reason":"明确结束关系"}\n```')
+  check(llmBreakup.valid && llmBreakup.trigger?.type === 'breakup', 'LLM 分手 JSON 没有解析')
+  const llmNone = parseChatIntentResult('{"type":"none","confidence":0.91}')
+  check(llmNone.valid && llmNone.trigger === null, 'LLM none 没有识别')
+  const lowConfidence = parseChatIntentResult('{"type":"breakup","confidence":0.3}')
+  check(lowConfidence.valid && lowConfidence.trigger === null, '低置信度没有回退 none')
+  check(!parseChatIntentResult('不是 JSON').valid, '非法 JSON 没有标记无效')
+  const intentPrompt = buildChatIntentMessages(run, npc, '我们分手吧。').messages
+    .map((message) => message.content).join('\n')
+  check(intentPrompt.includes('只输出一个 JSON') && intentPrompt.includes('不要分手'), '意图识别 prompt 不完整')
 }
 
 console.log(JSON.stringify({ ok: errors.length === 0, errors }, null, 2))

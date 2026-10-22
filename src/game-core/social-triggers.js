@@ -62,25 +62,70 @@ function matches(text, patterns) {
   return patterns.some((pattern) => pattern.test(text))
 }
 
+export const SOCIAL_TRIGGER_META = {
+  breakup: { type: 'breakup', label: '结束关系', tone: 'hurt' },
+  confession: { type: 'confession', label: '表达心意', tone: 'soft' },
+  insult: { type: 'insult', label: '冲突', tone: 'angry' },
+  apology: { type: 'apology', label: '道歉', tone: 'soft' },
+  intimate: { type: 'intimate', label: '靠近', tone: 'soft' },
+}
+
+export function triggerFromType(type) {
+  return SOCIAL_TRIGGER_META[type] || null
+}
+
+export function parseChatIntentResult(raw) {
+  const text = String(raw || '').trim()
+  if (!text) return { valid: false, trigger: null }
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) return { valid: false, trigger: null }
+  let payload
+  try {
+    payload = JSON.parse(match[0])
+  } catch {
+    return { valid: false, trigger: null }
+  }
+  const type = String(payload.type || '').toLowerCase()
+  if (type === 'none') return { valid: true, trigger: null }
+  if (!SOCIAL_TRIGGER_META[type]) return { valid: false, trigger: null }
+  const confidence = Number(payload.confidence)
+  if (Number.isFinite(confidence) && confidence < 0.55) {
+    return { valid: true, trigger: null }
+  }
+  return {
+    valid: true,
+    trigger: {
+      ...SOCIAL_TRIGGER_META[type],
+      confidence: Number.isFinite(confidence) ? confidence : 0.7,
+      reason: String(payload.reason || '').slice(0, 120),
+      source: 'llm',
+    },
+  }
+}
+
+export function parseChatIntent(raw) {
+  return parseChatIntentResult(raw).trigger
+}
+
 export function detectChatSocialTrigger(npc, text) {
   const content = String(text || '').trim()
   if (!content) return null
   if (matches(content, NEGATIVE_BREAKUP)) return null
 
   if (matches(content, BREAKUP_PATTERNS) && (npc?.lover || (npc?.relation?.closeness || 0) >= 40)) {
-    return { type: 'breakup', label: '结束关系', tone: 'hurt' }
+    return { ...SOCIAL_TRIGGER_META.breakup, source: 'keyword' }
   }
   if (matches(content, CONFESSION_PATTERNS) && !npc?.lover) {
-    return { type: 'confession', label: '表达心意', tone: 'soft' }
+    return { ...SOCIAL_TRIGGER_META.confession, source: 'keyword' }
   }
   if (matches(content, INSULT_PATTERNS)) {
-    return { type: 'insult', label: '冲突', tone: 'angry' }
+    return { ...SOCIAL_TRIGGER_META.insult, source: 'keyword' }
   }
   if (matches(content, APOLOGY_PATTERNS) && (npc?.relation?.grievance || 0) > 0) {
-    return { type: 'apology', label: '道歉', tone: 'soft' }
+    return { ...SOCIAL_TRIGGER_META.apology, source: 'keyword' }
   }
   if (matches(content, INTIMATE_PATTERNS) && (npc?.relation?.closeness || 0) >= 35) {
-    return { type: 'intimate', label: '靠近', tone: 'soft' }
+    return { ...SOCIAL_TRIGGER_META.intimate, source: 'keyword' }
   }
   return null
 }

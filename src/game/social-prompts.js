@@ -120,6 +120,44 @@ function edgeLine(run, left, right) {
   return `他们之间的关系：${edge.kind || '熟人'}，信任 ${edge.trust ?? 0}，rivalry ${edge.rivalry ?? 0}。`
 }
 
+export function buildChatIntentMessages(run, npc, playerText, history = []) {
+  const recent = history
+    .filter((message) => message.role === 'user' || message.role === 'npc')
+    .slice(-6)
+    .map((message) => `${message.role === 'user' ? '玩家' : npc.name}：${String(message.text || '').slice(0, 200)}`)
+    .join('\n') || '没有更早的对话。'
+  return {
+    messages: [
+      {
+        role: 'system',
+        content: [
+          '你在判断一句私聊消息的真实情感和意图。',
+          '只输出一个 JSON 对象，不要 markdown，不要解释，不要加代码块。',
+          '格式：{"type":"none|breakup|confession|insult|apology|intimate","confidence":0.0,"reason":"简短原因"}',
+          '判断规则：',
+          '- breakup：明确要结束恋人关系；否定句如“不要分手”“不想分手”必须是 none。',
+          '- confession：明确表达爱意或想建立恋爱关系。',
+          '- insult：辱骂、赶人、强烈敌意。',
+          '- apology：为之前的冲突道歉，且关系里有怨念时才成立。',
+          '- intimate：亲密、想念、想见面，但不是正式表白。',
+          '- none：普通聊天、试探、玩笑、反讽，或没有足够证据。',
+          '不要根据角色设定替玩家补完意思，只看玩家这句话和最近对话。',
+          'confidence 低于 0.55 时输出 none。',
+          '',
+          npcProfile(npc, run),
+          '',
+          '最近对话：',
+          recent,
+        ].join('\n'),
+      },
+      {
+        role: 'user',
+        content: `玩家刚刚说：${String(playerText || '').slice(0, 500)}`,
+      },
+    ],
+  }
+}
+
 export function buildChatTriggeredMomentMessages(run, npc, trigger, playerText, npcReply) {
   return {
     messages: [

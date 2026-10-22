@@ -166,6 +166,7 @@ import {
 } from '../game-core/social.js'
 import {
   buildBackgroundMessageMessages,
+  buildChatIntentMessages,
   buildChatTriggeredForumMessages,
   buildChatTriggeredMomentMessages,
   buildForumNpcCommentMessages,
@@ -176,9 +177,10 @@ import {
   parseSocialText,
 } from '../game/social-prompts.js'
 import {
-  detectChatSocialTrigger,
+  detectChatSocialTrigger as detectChatSocialTriggerByKeyword,
   localChatForumPost,
   localChatMomentText,
+  parseChatIntentResult,
   shouldNpcPostAboutChat,
   shouldNpcPostForumAboutChat,
 } from '../game-core/social-triggers.js'
@@ -1854,7 +1856,7 @@ export const useGameStore = defineStore('game', {
       return result
     },
 
-    async requestLlm(messages, timeout = 60000) {
+    async requestLlm(messages, timeout = 60000, temperature = 0.85) {
       if (!this.run) return { ok: false, error: '还没有远征' }
       this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
       if (this.run.llm.calls >= this.run.llm.maxCalls) {
@@ -1863,7 +1865,7 @@ export const useGameStore = defineStore('game', {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), timeout)
       try {
-        const text = await streamNpcChat(messages, () => {}, controller.signal)
+        const text = await streamNpcChat(messages, () => {}, controller.signal, temperature)
         if (!text?.trim()) return { ok: false, error: '模型没有返回内容' }
         this.run.llm.calls += 1
         return { ok: true, text }
@@ -2197,21 +2199,38 @@ export const useGameStore = defineStore('game', {
       return { ok: true, enhanced }
     },
 
+    async detectChatTrigger(npc, text, history = [], useLlm = true) {
+      if (!npc || !text) return null
+      if (useLlm) {
+        const result = await this.requestLlm(
+          buildChatIntentMessages(this.run, npc, text, history).messages,
+          35000,
+          0.1
+        )
+        if (result.ok) {
+          const parsed = parseChatIntentResult(result.text)
+          if (parsed.valid) return parsed.trigger
+        }
+      }
+      const fallback = detectChatSocialTriggerByKeyword(npc, text)
+      return fallback || null
+    },
+
     async sendNpcChat(npcId, text, useLlm = true) {
       const content = String(text || '').trim()
       if (!this.run || !content) return { ok: false }
       const npc = this.run.npcs?.[npcId]
       if (!npc || !npc.alive) return { ok: false, message: '他无法回应' }
 
-      const trigger = detectChatSocialTrigger(npc, content)
+      if (!this.run.npcChats) this.run.npcChats = {}
+      const chats = this.run.npcChats[npcId] || (this.run.npcChats[npcId] = [])
+      const history = [...chats]
+      const trigger = await this.detectChatTrigger(npc, content, history, useLlm)
       if (trigger?.type === 'breakup' && npc.lover) {
         const broken = breakUpWithNpc(this.run, npcId)
         if (broken.ok) addLog(this.run, broken.text, 'story')
       }
 
-      if (!this.run.npcChats) this.run.npcChats = {}
-      const chats = this.run.npcChats[npcId] || (this.run.npcChats[npcId] = [])
-      const history = [...chats]
       chats.push({ role: 'user', text: content, day: this.run.day })
       if (chats.length > 400) chats.splice(0, chats.length - 400)
       this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }

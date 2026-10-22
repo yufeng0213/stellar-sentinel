@@ -3,11 +3,11 @@
  * 只把消息发给本地服务端代理，API Key 不会进入前端。
  */
 
-export async function streamNpcChat(messages, onDelta, signal) {
+export async function streamNpcChat(messages, onDelta, signal, temperature = 0.85) {
   const response = await fetch('./api/llm/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ messages, temperature: 0.85 }),
+    body: JSON.stringify({ messages, temperature }),
     signal,
   })
 

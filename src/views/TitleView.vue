@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.90.0 · CHAT ECHOES</dd>
+            <dd class="mono">0.91.0 · INTENT ENGINE</dd>
           </div>
         </dl>
       </section>
