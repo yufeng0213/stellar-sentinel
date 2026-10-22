@@ -21,6 +21,13 @@ export function useNpcPage() {
     name: 'npc',
     params: { runId: runId.value, npcId: npcId.value },
   }))
+  const backMessages = computed(() => ({
+    name: 'comms-messages',
+    params: { runId: runId.value },
+  }))
+  const chatBack = computed(() => (
+    route.query.from === 'messages' ? backMessages.value : backNpc.value
+  ))
 
   const axisPercent = (value) => Math.max(0, Math.min(100, Number(value) || 0))
 
@@ -34,6 +41,8 @@ export function useNpcPage() {
     tags,
     backComms,
     backNpc,
+    backMessages,
+    chatBack,
     axisPercent,
   }
 }

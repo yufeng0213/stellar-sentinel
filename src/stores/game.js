@@ -2305,7 +2305,7 @@ export const useGameStore = defineStore('game', {
       if (useLlm) {
         const result = await this.requestLlm(
           buildChatIntentMessages(this.run, npc, text, history).messages,
-          35000,
+          12000,
           0.1
         )
         if (result.ok) {
@@ -2326,19 +2326,19 @@ export const useGameStore = defineStore('game', {
       if (!this.run.npcChats) this.run.npcChats = {}
       const chats = this.run.npcChats[npcId] || (this.run.npcChats[npcId] = [])
       const history = [...chats]
+      chats.push({ role: 'user', text: content, day: this.run.day })
+      if (chats.length > 400) chats.splice(0, chats.length - 400)
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
+      chats.push({ role: 'npc', text: '正在输入…', streaming: true, day: this.run.day })
+      const placeholder = chats[chats.length - 1]
+      // 先把玩家消息和“正在输入”占位写进响应式状态，避免意图识别期间界面像卡死。
+      this.save()
+
       const trigger = await this.detectChatTrigger(npc, content, history, useLlm)
       if (trigger?.type === 'breakup' && npc.lover) {
         const broken = breakUpWithNpc(this.run, npcId)
         if (broken.ok) addLog(this.run, broken.text, 'story')
       }
-
-      chats.push({ role: 'user', text: content, day: this.run.day })
-      if (chats.length > 400) chats.splice(0, chats.length - 400)
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
-      this.save()
-
-      chats.push({ role: 'npc', text: '', streaming: true, day: this.run.day })
-      const placeholder = chats[chats.length - 1]
       let full = ''
       let fallback = false
       let errorMessage = ''

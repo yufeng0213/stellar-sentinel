@@ -4,7 +4,7 @@ import { REGIONS } from '../game-core/data.js'
 import { factionName } from '../game-core/npc.js'
 import { useNpcPage } from '../composables/useNpcPage.js'
 
-const { game, run, npc, backNpc } = useNpcPage()
+const { game, run, npc, chatBack } = useNpcPage()
 const chatInput = ref('')
 const chatLog = ref(null)
 const llmReady = ref(null)
@@ -40,11 +40,11 @@ function scroll() {
 async function send() {
   const text = chatInput.value.trim()
   if (!text || !npc.value || streaming.value) return
-  if (llmReady.value === null) await checkLlm()
+  if (llmReady.value === null) checkLlm()
   chatInput.value = ''
   await nextTick()
   scroll()
-  const result = await game.sendNpcChat(npc.value.id, text, llmReady.value === true)
+  const result = await game.sendNpcChat(npc.value.id, text, llmReady.value !== false)
   await nextTick()
   scroll()
   if (result?.fallback) {
@@ -57,7 +57,7 @@ async function send() {
   <div v-if="npc && run" class="run-page chat-page">
     <section class="panel chat-head">
       <div class="chat-id">
-        <RouterLink :to="backNpc" class="back-link">←</RouterLink>
+        <RouterLink :to="chatBack" class="back-link">←</RouterLink>
         <span class="npc-ava">{{ npc.name.slice(0, 1) }}</span>
         <div>
           <p class="kicker">{{ factionName(npc.faction) }} · {{ REGIONS[npc.home].name }}</p>

@@ -36,18 +36,24 @@ if (node) {
 }
 
 const pressureRun = createRun(randomDraft(), 'COMBAT-PRESSURE-TEST')
-const pressureNode = Object.values(pressureRun.map.nodes).find((item) => item.type === 'battle')
-if (pressureNode) {
-  const battle = createBattle(pressureRun, { ...pressureNode, id: 'pressure-node', act: 1 })
-  battle.round = 7
-  battle.enemies = [battle.enemies[0]]
-  battle.enemies[0].intent = { type: 'attack', value: 5 }
-  battle.guard = 0
-  pressureRun.player.hp = 100
-  pressureRun.player.hpMax = 100
-  endTurn(battle, pressureRun)
-  check(pressureRun.player.hp <= 93, '长回合没有施加战斗压力')
+const pressureNode = {
+  id: 'pressure-node',
+  type: 'battle',
+  region: 'ruins',
+  act: 1,
+  title: '压力测试',
+  enemy: { name: '压力测试体', hp: 40, morale: 20, attack: 5, traits: [] },
 }
+pressureRun.map.nodes[pressureNode.id] = pressureNode
+const pressureBattle = createBattle(pressureRun, pressureNode)
+pressureBattle.round = 7
+pressureBattle.enemies = [pressureBattle.enemies[0]]
+pressureBattle.enemies[0].intent = { type: 'attack', value: 5 }
+pressureBattle.guard = 0
+pressureRun.player.hp = 100
+pressureRun.player.hpMax = 100
+endTurn(pressureBattle, pressureRun)
+check(pressureRun.player.hp <= 93, '长回合没有施加战斗压力')
 
 console.log(JSON.stringify({ ok: errors.length === 0, errors }, null, 2))
 if (errors.length) process.exit(1)

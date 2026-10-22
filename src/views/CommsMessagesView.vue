@@ -32,7 +32,7 @@ function time(npc) {
 
 function openChat(npc) {
   game.markNpcRead(npc.id)
-  router.push({ name: 'npc-chat', params: { runId: runId.value, npcId: npc.id } })
+  router.push({ name: 'npc-chat', params: { runId: runId.value, npcId: npc.id }, query: { from: 'messages' } })
 }
 
 function pin(npc) {
