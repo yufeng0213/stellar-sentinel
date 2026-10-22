@@ -35,25 +35,25 @@ export function buildNpcMessages(run, npc, history = [], playerText = '') {
   const region = REGIONS[npc.home]
   const currentRegion = REGIONS[run.map.nodes[run.location]?.region] || region
   const memory = (npc.memory || [])
-    .slice(0, 12)
+    .slice(0, 24)
     .map((item) => `- D${item.day}：${item.text}`)
     .join('\n') || '- 还没有值得记住的事。'
-  const longMemory = longMemoryText(npc, 6)
+  const longMemory = longMemoryText(npc, 12)
   const loreText = (npc.lore?.entries || [])
-    .slice(-12)
+    .slice(-24)
     .map((entry) => `- ${entry.tierName || entry.tier} / ${entry.slotLabel || entry.slot}：${entry.text}`)
     .join('\n') || '- 暂无档案。'
   const worldText = (run.worldEvents || [])
-    .slice(0, 24)
+    .slice(0, 40)
     .map((event) => `- D${event.day}：${event.text}`)
     .join('\n') || '- 星区暂时安静。'
   const inboxText = (run.inbox || [])
-    .slice(-10)
+    .slice(-20)
     .map((event) => `- D${event.day || run.day} [${event.type}/${event.status}] ${event.title || ''}：${event.text || ''}`)
     .join('\n') || '- 没有新的联系人消息。'
   const questText = (run.quests || [])
     .filter((quest) => quest.status === 'active')
-    .slice(-8)
+    .slice(-16)
     .map((quest) => `- ${quest.title}：前往「${quest.nodeTitle || quest.nodeId}」，期限 D${quest.deadline}`)
     .join('\n') || '- 没有进行中的约定。'
   const partyText = (run.party || [])
@@ -64,7 +64,7 @@ export function buildNpcMessages(run, npc, history = [], playerText = '') {
     .map(([key, value]) => `${FACTIONS[key]?.name || key} ${value}`)
     .join('，') || '暂无记录'
   const logText = (run.log || [])
-    .slice(0, 20)
+    .slice(0, 40)
     .map((entry) => `- ${entry.t || `D${entry.day || run.day}`}：${entry.text}`)
     .join('\n') || '- 暂无行动记录。'
   const storyText = run.story
@@ -159,11 +159,11 @@ export function buildNpcMessages(run, npc, history = [], playerText = '') {
   const messages = [{ role: 'system', content: system }]
   history
     .filter((message) => message.role === 'user' || message.role === 'npc')
-    .slice(-100)
+    .slice(-1000)
     .forEach((message) => {
       messages.push({
         role: message.role === 'user' ? 'user' : 'assistant',
-        content: String(message.text || '').slice(0, 6000),
+        content: String(message.text || '').slice(0, 12000),
       })
     })
   messages.push({ role: 'user', content: String(playerText || '').slice(0, 6000) })

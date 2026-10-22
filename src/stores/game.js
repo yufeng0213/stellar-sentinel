@@ -2119,7 +2119,7 @@ export const useGameStore = defineStore('game', {
       const chats = this.run.npcChats[npcId] || (this.run.npcChats[npcId] = [])
       const history = [...chats]
       chats.push({ role: 'user', text: content, day: this.run.day })
-      if (chats.length > 30) chats.splice(0, chats.length - 30)
+      if (chats.length > 400) chats.splice(0, chats.length - 400)
       this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
       this.save()
 

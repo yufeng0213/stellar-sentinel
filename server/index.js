@@ -25,11 +25,12 @@ const app = express()
 app.disable('x-powered-by')
 app.use(express.json({ limit: '32mb' }))
 
-// DeepSeek 支持百万级上下文。这里给足历史与单条内容预算，
-// 同时保留一个很高的硬上限，避免异常请求把上游打爆。
-const LLM_MAX_MESSAGES = 120
-const LLM_MAX_MESSAGE_CHARS = 400000
-const LLM_MAX_CONTEXT_CHARS = 900000
+// 上下文预算可以通过环境变量调高。这里不做“无限”承诺：
+// 上游模型仍有上下文窗口，超过窗口会直接失败，所以保留一个很高的安全上限。
+// 默认尽量保留完整历史，只有真正超过上限时才从最旧的消息开始裁。
+const LLM_MAX_MESSAGES = Number(process.env.LLM_MAX_MESSAGES) || 2000
+const LLM_MAX_MESSAGE_CHARS = Number(process.env.LLM_MAX_MESSAGE_CHARS) || 1000000
+const LLM_MAX_CONTEXT_CHARS = Number(process.env.LLM_MAX_CONTEXT_CHARS) || 2000000
 
 if (BASE_PATH) {
   app.get(BASE_PATH, (req, res, next) => {
@@ -88,11 +89,13 @@ app.post('/api/llm/chat', async (req, res) => {
   const allowed = new Set(['system', 'user', 'assistant'])
   const incoming = (Array.isArray(req.body?.messages) ? req.body.messages : [])
     .filter((message) => message && allowed.has(message.role) && typeof message.content === 'string' && message.content.trim())
-    .slice(-LLM_MAX_MESSAGES)
     .map((message) => ({ role: message.role, content: message.content.slice(0, LLM_MAX_MESSAGE_CHARS) }))
 
+  // 先保住所有 system，再给历史留尽可能多的位置。
   const systemMessages = incoming.filter((message) => message.role === 'system')
-  const conversation = incoming.filter((message) => message.role !== 'system')
+  const conversation = incoming
+    .filter((message) => message.role !== 'system')
+    .slice(-Math.max(1, LLM_MAX_MESSAGES - systemMessages.length))
   const messages = [...systemMessages]
   let usedChars = messages.reduce((sum, message) => sum + message.content.length, 0)
   const kept = []
