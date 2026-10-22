@@ -58,6 +58,7 @@ function doInviteBastion() {
 function doSteal() {
   if (!npc.value) return
   const result = game.stealNpc(npc.value.id)
+  if (result.miniGame) return
   reply.value = result.text || result.message || ''
   if (result.ok) {
     if (result.fight) game.notify('被发现了，对方动手了', 'bad')

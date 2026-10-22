@@ -74,7 +74,7 @@ function rollSteal(run, dc) {
   }
 }
 
-export function stealFromNpc(run, npcId) {
+export function stealFromNpc(run, npcId, options = {}) {
   const npc = run.npcs?.[npcId]
   if (!npc || !npc.alive) return { ok: false, message: '找不到这个人' }
   if (npc.stolenDay === run.day) return { ok: false, message: '今天已经试过了，再动手会被盯上' }
@@ -82,6 +82,11 @@ export function stealFromNpc(run, npcId) {
   npc.stolenDay = run.day
   const dc = 12 + (npc.relation.trust < 25 ? 1 : 0) + (npc.personality.curiosity > 65 ? 2 : 0) + (npc.hostile ? 3 : 0)
   const check = rollSteal(run, dc)
+  if (options.forceSuccess) check.success = true
+  if (options.forceFailure) {
+    check.success = false
+    check.fumble = false
+  }
   const rollText = `敏捷 d20(${check.die}) + ${check.bonus} = ${check.total}｜DC ${dc}`
 
   if (check.success) {
@@ -157,7 +162,7 @@ export function stealFromNpc(run, npcId) {
   }
 }
 
-export function stealFromShop(run, nodeId, index) {
+export function stealFromShop(run, nodeId, index, options = {}) {
   const node = getNode(run, nodeId)
   if (!node || node.type !== 'shop') return { ok: false, message: '这里不是交易点' }
   if (run.location !== nodeId) return { ok: false, message: '先抵达节点' }
@@ -172,6 +177,11 @@ export function stealFromShop(run, nodeId, index) {
   const dc = 12 + (region === 'rift' ? 3 : region === 'silence' ? 3 : region === 'mine' ? 2 : 1) +
     (offer.kind === 'gear' ? 2 : 0)
   const check = rollSteal(run, dc)
+  if (options.forceSuccess) check.success = true
+  if (options.forceFailure) {
+    check.success = false
+    check.fumble = false
+  }
   const rollText = `敏捷 d20(${check.die}) + ${check.bonus} = ${check.total}｜DC ${dc}`
 
   if (check.success) {

@@ -180,6 +180,7 @@ export function createRun(draft, seedInput) {
     factionDebts: createFactionDebts(),
     factionFavorMissions: {},
     social: createSocialState(),
+    pendingMiniGame: null,
     jealousyChains: [],
     controlReactionEvents: [],
     wanted: createWantedState(),
@@ -298,7 +299,7 @@ function rollCheck(run, label, attrKey, dc, bonus = 0) {
   return { roll, attr, total, crit, fumble, success, rng }
 }
 
-export function gather(run, nodeId) {
+export function gather(run, nodeId, options = {}) {
   const node = getNode(run, nodeId)
   if (!node || node.type !== 'gather') return { ok: false, message: '这里没有可采集的东西' }
   if (run.location !== nodeId) return { ok: false, message: '先抵达节点' }
@@ -312,6 +313,11 @@ export function gather(run, nodeId) {
 
   const bonus = traitBonus(run, 'gather') + roleGatherBonus(run) + nightMod(run)
   const check = rollCheck(run, `采集 · ${node.title}`, node.attr, node.dc, bonus)
+  if (options.forceSuccess) check.success = true
+  if (options.forceFailure) {
+    check.success = false
+    check.total = 0
+  }
 
   const rng = actionRng(run)
   const gains = {}

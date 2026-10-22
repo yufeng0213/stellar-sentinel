@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game.js'
 import BottomNav from '../components/BottomNav.vue'
+import MiniGameOverlay from '../components/MiniGameOverlay.vue'
 import SoundToggle from '../components/SoundToggle.vue'
 
 const game = useGameStore()
@@ -83,6 +84,7 @@ function exitRun() {
     </main>
 
     <BottomNav v-if="run && !isBattle && !isStory && !isDate" />
+    <MiniGameOverlay v-if="run" />
   </div>
 </template>
 

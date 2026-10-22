@@ -184,6 +184,11 @@ import {
   shouldNpcPostAboutChat,
   shouldNpcPostForumAboutChat,
 } from '../game-core/social-triggers.js'
+import {
+  challengeFor,
+  miniGameSuccess,
+  shouldOfferMiniGame,
+} from '../game-core/minigames.js'
 import { stealFromNpc, stealFromShop } from '../game-core/steal.js'
 import { streamNpcChat } from '../game/llm.js'
 import { buildLoreMessages, localLore, loreTarget, stripLore } from '../game/lore.js'
@@ -426,12 +431,91 @@ export const useGameStore = defineStore('game', {
       return result
     },
 
+    queueMiniGame(kind, context = {}) {
+      if (!this.run || !shouldOfferMiniGame(this.run, kind)) return null
+      const challenge = challengeFor(this.run, { kind, ...context })
+      this.run.pendingMiniGame = challenge
+      this.save()
+      return challenge
+    },
+
     gatherAt(nodeId) {
+      if (!this.run) return { ok: false }
+      const node = this.run.map.nodes?.[nodeId]
+      if (!node || node.type !== 'gather') return { ok: false, message: '这里没有可采集的东西' }
+      if (this.run.location !== nodeId) return { ok: false, message: '先抵达节点' }
+      if (this.run.ap < 1) return { ok: false, message: '行动点不足' }
+      if (nodeRemaining(this.run, node) <= 0) return { ok: false, message: '这个节点已经被采空' }
+      const challenge = this.queueMiniGame('gather', { nodeId })
+      if (challenge) return { ok: true, miniGame: challenge, deferred: true }
+      return this.resolveGather(nodeId)
+    },
+
+    resolveGather(nodeId) {
       if (!this.run) return { ok: false }
       const result = gather(this.run, nodeId)
       if (result.ok) this.save()
       else this.notify(result.message, 'bad')
       return result
+    },
+
+    completeMiniGame({ score = 0, aborted = false } = {}) {
+      if (!this.run?.pendingMiniGame) return { ok: false, message: '没有待完成的小游戏' }
+      const challenge = this.run.pendingMiniGame
+      const success = !aborted && miniGameSuccess(challenge, score)
+      const context = challenge.context || {}
+      this.run.pendingMiniGame = null
+      let result = null
+
+      if (context.kind === 'gather') {
+        result = gather(this.run, context.nodeId, {
+          forceSuccess: success,
+          forceFailure: !success,
+        })
+        if (result.ok) {
+          if (success && result.gains && Object.keys(result.gains).length) {
+            this.notify(
+              Object.entries(result.gains).map(([key, count]) => `${ITEMS[key]?.name || key} ×${count}`).join('、'),
+              'good'
+            )
+          } else {
+            this.notify('小游戏失败，这次采集落空了', 'bad')
+          }
+        }
+      } else if (context.kind === 'steal_shop') {
+        result = stealFromShop(this.run, context.nodeId, context.index, {
+          forceSuccess: success,
+          forceFailure: !success,
+        })
+        if (result?.ok) {
+          this.notify(
+            result.success ? '小游戏成功，顺手牵羊得手' : '小游戏失败，摊主发现了你',
+            result.success ? 'good' : 'bad'
+          )
+        }
+      } else if (context.kind === 'steal_npc') {
+        result = stealFromNpc(this.run, context.npcId, {
+          forceSuccess: success,
+          forceFailure: !success,
+        })
+        if (result?.ok) {
+          if (result.fight) result.battleNodeId = this.startNpcBattle(context.npcId, '偷窃败露')
+          this.notify(
+            result.success ? '小游戏成功，扒窃得手' : '小游戏失败，被发现了',
+            result.success ? 'good' : 'bad'
+          )
+        }
+      }
+
+      if (result && !result.ok) this.notify(result.message || '行动失败', 'bad')
+      this.save()
+      return {
+        ok: Boolean(result?.ok),
+        success,
+        challenge,
+        result,
+        score,
+      }
     },
 
     resolveEventAt(nodeId) {
@@ -469,6 +553,11 @@ export const useGameStore = defineStore('game', {
 
     stealNpc(npcId) {
       if (!this.run) return { ok: false }
+      const npc = this.run.npcs?.[npcId]
+      if (!npc || !npc.alive) return { ok: false, message: '找不到这个人' }
+      if (npc.stolenDay === this.run.day) return { ok: false, message: '今天已经试过了，再动手会被盯上' }
+      const challenge = this.queueMiniGame('steal_npc', { npcId })
+      if (challenge) return { ok: true, miniGame: challenge, deferred: true }
       const result = stealFromNpc(this.run, npcId)
       if (result.ok) {
         if (result.fight) result.battleNodeId = this.startNpcBattle(npcId, '偷窃败露')
@@ -538,6 +627,15 @@ export const useGameStore = defineStore('game', {
 
     stealShopAt(nodeId, index) {
       if (!this.run) return { ok: false }
+      const node = this.run.map.nodes?.[nodeId]
+      if (!node || node.type !== 'shop') return { ok: false, message: '这里不是交易点' }
+      if (this.run.location !== nodeId) return { ok: false, message: '先抵达节点' }
+      const raw = node.stock?.[index]
+      if (!raw) return { ok: false, message: '没有这件商品' }
+      const offer = typeof raw === 'string' ? { stock: 1 } : raw
+      if (offer.stock <= 0) return { ok: false, message: '已经卖完了' }
+      const challenge = this.queueMiniGame('steal_shop', { nodeId, index })
+      if (challenge) return { ok: true, miniGame: challenge, deferred: true }
       const result = stealFromShop(this.run, nodeId, index)
       if (result.ok) this.save()
       else this.notify(result.message, 'bad')

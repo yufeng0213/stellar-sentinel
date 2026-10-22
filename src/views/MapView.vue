@@ -216,7 +216,7 @@ function closeSheet() {
 function doGather() {
   if (!selected.value) return
   const result = game.gatherAt(selected.value.id)
-  if (!result.ok) return
+  if (!result.ok || result.miniGame) return
   if (result.gains && Object.keys(result.gains).length) {
     game.notify(Object.keys(result.gains).map((key) => `${ITEMS[key].name} ×${result.gains[key]}`).join('、'), 'good')
   } else {
@@ -316,7 +316,7 @@ function priceOf(offer) {
 function doSteal(index) {
   if (!selected.value) return
   const result = game.stealShopAt(selected.value.id, index)
-  if (result.ok) {
+  if (result.ok && !result.miniGame) {
     shopResult.value = result.text
     game.notify(result.success ? '顺手牵羊成功' : '被摊主发现了', result.success ? 'good' : 'bad')
   }
