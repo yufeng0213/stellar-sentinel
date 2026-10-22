@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.96.0 · PHONE COMMS</dd>
+            <dd class="mono">0.97.0 · UNLIMITED LLM</dd>
           </div>
         </dl>
       </section>

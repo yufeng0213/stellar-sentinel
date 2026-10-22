@@ -11,10 +11,6 @@ const llmReady = ref(null)
 
 const messages = computed(() => (npc.value ? run.value?.npcChats?.[npc.value.id] || [] : []))
 const streaming = computed(() => messages.value.some((message) => message.streaming))
-const remaining = computed(() => {
-  const llm = run.value?.llm
-  return llm ? Math.max(0, llm.maxCalls - llm.calls) : 0
-})
 
 onMounted(() => {
   if (npc.value) game.markNpcRead(npc.value.id)
@@ -99,7 +95,7 @@ async function send() {
           {{ streaming ? '…' : '发送' }}
         </button>
       </div>
-      <p class="chat-budget">本局剩余模型调用 {{ remaining }} 次</p>
+      <p class="chat-budget">已调用模型 {{ run.llm?.calls || 0 }} 次</p>
     </footer>
   </div>
 </template>

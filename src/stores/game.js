@@ -298,7 +298,10 @@ export const useGameStore = defineStore('game', {
         if (!Array.isArray(npc.longMemory)) npc.longMemory = []
       })
       if (!stored.npcChats) stored.npcChats = {}
-      if (!stored.llm) stored.llm = { calls: 0, maxCalls: 500 }
+      if (!stored.llm) stored.llm = { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
+      if (!stored.llm.maxCalls || stored.llm.maxCalls < Number.MAX_SAFE_INTEGER) {
+        stored.llm.maxCalls = Number.MAX_SAFE_INTEGER
+      }
       if (!Array.isArray(stored.inbox)) stored.inbox = []
       if (!Array.isArray(stored.quests)) stored.quests = []
       if (!stored.eventCooldowns || typeof stored.eventCooldowns !== 'object') stored.eventCooldowns = {}
@@ -361,7 +364,7 @@ export const useGameStore = defineStore('game', {
         return { ok: true, text: this.run.story.opening.text, source: 'llm', cached: true }
       }
 
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
       let text = ''
       let source = 'local'
       let error = ''
@@ -1199,7 +1202,7 @@ export const useGameStore = defineStore('game', {
         return result
       }
 
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
       let name = ''
       let source = 'local'
       let error = ''
@@ -1262,7 +1265,7 @@ export const useGameStore = defineStore('game', {
         return { ok: true, text: local, source: 'local' }
       }
 
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
       let text = ''
       let source = 'local'
       let error = ''
@@ -1490,7 +1493,7 @@ export const useGameStore = defineStore('game', {
       const target = loreTarget(npc, tierId)
       if (!target.ok) return target
 
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
       let text = ''
       let source = 'local'
       let error = ''
@@ -1841,7 +1844,7 @@ export const useGameStore = defineStore('game', {
       const npc = this.run.npcs?.[event.npcId]
       if (!npc) return { ok: false, message: '联系人已经不在了' }
 
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
       let text = ''
       let source = 'local'
       let error = ''
@@ -1956,7 +1959,7 @@ export const useGameStore = defineStore('game', {
 
     async requestLlm(messages, timeout = 60000, temperature = 0.85) {
       if (!this.run) return { ok: false, error: '还没有远征' }
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
       if (this.run.llm.calls >= this.run.llm.maxCalls) {
         return { ok: false, error: '本局模型调用预算已用完' }
       }
@@ -2331,7 +2334,7 @@ export const useGameStore = defineStore('game', {
 
       chats.push({ role: 'user', text: content, day: this.run.day })
       if (chats.length > 400) chats.splice(0, chats.length - 400)
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
       this.save()
 
       chats.push({ role: 'npc', text: '', streaming: true, day: this.run.day })

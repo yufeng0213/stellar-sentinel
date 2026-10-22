@@ -82,8 +82,10 @@ export function validateRun(input) {
   if (!Array.isArray(data.worldEvents)) data.worldEvents = []
   if (!data.nodeState || typeof data.nodeState !== 'object') data.nodeState = {}
   if (!data.npcChats || typeof data.npcChats !== 'object') data.npcChats = {}
-  if (!data.llm || typeof data.llm !== 'object') data.llm = { calls: 0, maxCalls: 500 }
-  if (data.llm.maxCalls === 120) data.llm.maxCalls = 500
+  if (!data.llm || typeof data.llm !== 'object') data.llm = { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER }
+  if (!data.llm.maxCalls || data.llm.maxCalls < Number.MAX_SAFE_INTEGER) {
+    data.llm.maxCalls = Number.MAX_SAFE_INTEGER
+  }
   if (!Array.isArray(data.inbox)) data.inbox = []
   if (!Array.isArray(data.quests)) data.quests = []
   if (!data.eventCooldowns || typeof data.eventCooldowns !== 'object') data.eventCooldowns = {}

@@ -202,7 +202,7 @@ export function createRun(draft, seedInput) {
     log: [],
     flags: {},
     npcChats: {},
-    llm: { calls: 0, maxCalls: 500 },
+    llm: { calls: 0, maxCalls: Number.MAX_SAFE_INTEGER },
     inbox: [],
     eventCooldowns: {},
     eventPity: {},
