@@ -17,7 +17,11 @@ const items = [
   { key: 'character', label: '角色' },
 ]
 
-const commsRoutes = ['comms', 'comms-section', 'npc', 'npc-lore', 'npc-memory', 'npc-gift', 'npc-chat', 'npc-story', 'npc-network', 'npc-trade']
+const commsRoutes = [
+  'comms', 'comms-messages', 'comms-inbox', 'comms-social', 'comms-forum', 'comms-forum-post',
+  'comms-roster', 'comms-network', 'comms-events', 'comms-section',
+  'npc', 'npc-lore', 'npc-memory', 'npc-gift', 'npc-chat', 'npc-story', 'npc-network', 'npc-trade',
+]
 
 function isOn(key) {
   if (key === 'comms') return commsRoutes.includes(route.name)

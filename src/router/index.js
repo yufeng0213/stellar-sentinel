@@ -22,7 +22,15 @@ import CityGateView from '../views/CityGateView.vue'
 import MapView from '../views/MapView.vue'
 import InventoryView from '../views/InventoryView.vue'
 import ForgeView from '../views/ForgeView.vue'
-import CommsView from '../views/CommsView.vue'
+import CommsHomeView from '../views/CommsHomeView.vue'
+import CommsMessagesView from '../views/CommsMessagesView.vue'
+import CommsInboxView from '../views/CommsInboxView.vue'
+import CommsSocialView from '../views/CommsSocialView.vue'
+import CommsForumView from '../views/CommsForumView.vue'
+import CommsForumPostView from '../views/CommsForumPostView.vue'
+import CommsRosterView from '../views/CommsRosterView.vue'
+import CommsNetworkView from '../views/CommsNetworkView.vue'
+import CommsEventsView from '../views/CommsEventsView.vue'
 import CharacterView from '../views/CharacterView.vue'
 import CalibrationView from '../views/CalibrationView.vue'
 import BastionView from '../views/BastionView.vue'
@@ -78,12 +86,32 @@ const router = createRouter({
         { path: 'inventory', name: 'inventory', component: InventoryView },
         { path: 'deck', name: 'deck', component: DeckView },
         { path: 'forge', name: 'forge', component: ForgeView },
+        { path: 'comms', name: 'comms', component: CommsHomeView },
+        { path: 'comms/messages', name: 'comms-messages', component: CommsMessagesView },
+        { path: 'comms/inbox', name: 'comms-inbox', component: CommsInboxView },
+        { path: 'comms/social', name: 'comms-social', component: CommsSocialView },
+        { path: 'comms/forum', name: 'comms-forum', component: CommsForumView },
+        { path: 'comms/forum/:postId', name: 'comms-forum-post', component: CommsForumPostView },
+        { path: 'comms/roster', name: 'comms-roster', component: CommsRosterView },
+        { path: 'comms/network', name: 'comms-network', component: CommsNetworkView },
+        { path: 'comms/events', name: 'comms-events', component: CommsEventsView },
         {
-          path: 'comms',
-          name: 'comms',
-          redirect: (to) => ({ name: 'comms-section', params: { runId: to.params.runId, section: 'messages' } }),
+          path: 'comms/:section',
+          name: 'comms-section',
+          redirect: (to) => {
+            const map = {
+              messages: 'comms-messages',
+              inbox: 'comms-inbox',
+              moments: 'comms-social',
+              social: 'comms-social',
+              forum: 'comms-forum',
+              roster: 'comms-roster',
+              network: 'comms-network',
+              events: 'comms-events',
+            }
+            return { name: map[to.params.section] || 'comms', params: { runId: to.params.runId } }
+          },
         },
-        { path: 'comms/:section', name: 'comms-section', component: CommsView },
         { path: 'npc/:npcId', name: 'npc', component: NpcView },
         { path: 'npc/:npcId/lore', name: 'npc-lore', component: NpcLoreView },
         { path: 'npc/:npcId/memory', name: 'npc-memory', component: NpcMemoryView },

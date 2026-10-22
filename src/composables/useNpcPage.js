@@ -14,8 +14,8 @@ export function useNpcPage() {
   const tags = computed(() => tagDefsFor(npc.value?.tags || []))
 
   const backComms = computed(() => ({
-    name: 'comms-section',
-    params: { runId: runId.value, section: 'roster' },
+    name: 'comms-roster',
+    params: { runId: runId.value },
   }))
   const backNpc = computed(() => ({
     name: 'npc',
