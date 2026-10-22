@@ -406,6 +406,13 @@ function buildEvent(run, rng, npc, type, weekly = false) {
       { id: 'decline', label: '现在还不方便' },
     ]
   } else if (type === 'bond') {
+    const definition = stageEventFor(npc)
+    if (!definition) return null
+    base.title = definition.title
+    base.text = definition.text
+    base.payload = { stageEventId: definition.id }
+    base.choices = definition.choices.map((choice) => ({ id: choice.id, label: choice.label }))
+  } else if (type === 'message') {
     base.title = `${npc.name} 发来一条信息`
     base.text = messageText(npc)
     base.choices = [
@@ -547,6 +554,20 @@ function expireInbox(run) {
   })
 }
 
+function makeRoomForDailyEvents(run, max = 9) {
+  const pending = () => (run.inbox || [])
+    .filter((event) => event.status === 'pending')
+    .sort((a, b) => (a.day || 0) - (b.day || 0))
+  let list = pending()
+  while (list.length >= max) {
+    const oldest = list[0]
+    oldest.status = 'expired'
+    oldest.resolvedDay = run.day
+    oldest.result = '你一直没有回应这件事。'
+    list = pending()
+  }
+}
+
 function expireQuests(run) {
   ;(run.quests || []).forEach((quest) => {
     if (quest.status !== 'active' || quest.deadline >= run.day) return
@@ -646,6 +667,7 @@ export function generateNpcEvents(run, options = {}) {
 
   const jealousy = processJealousyConfrontation(run)
   if (jealousy?.event) run.inbox.unshift(jealousy.event)
+  makeRoomForDailyEvents(run)
   const rng = createRng(`${run.seed}:npc-events:${run.day}`)
   const created = jealousy?.event ? [jealousy.event] : []
   const dueWeekly = run.day % 7 === 0
@@ -665,7 +687,7 @@ export function generateNpcEvents(run, options = {}) {
     }
   }
 
-  if (pendingCount < 6) {
+  if (pendingCount < 9) {
     const daily = candidates(run, rng, false)
     // 好感期不能靠随机错过：只要有人停在好感，下一次结算先给他一次试探。
     const pendingBond = run.inbox.some((event) => event.status === 'pending' && event.type === 'bond')
@@ -705,7 +727,9 @@ export function generateNpcEvents(run, options = {}) {
       }
     }
     const eventBonus = expeditionEffects(run).eventBonus || 0
-    const count = (daily.length && rng.chance(0.35) ? 2 : daily.length ? 1 : 0) + eventBonus
+    const baseCount = (daily.length && rng.chance(0.35) ? 2 : daily.length ? 1 : 0) + eventBonus
+    // 积压较多时，每天仍生成一条，但不再一次堆两条。
+    const count = pendingCount >= 6 ? Math.min(1, baseCount) : baseCount
     for (let index = 0; index < count; index += 1) {
       const pool = daily.filter((item) => (
         !usedNpc.has(item.npc.id) &&
@@ -720,6 +744,25 @@ export function generateNpcEvents(run, options = {}) {
       usedNpc.add(picked.npc.id)
       usedTypes.add(picked.type)
       created.push(event)
+    }
+  }
+
+  // 有些日子所有候选都被冷却/关系状态挡住。至少留一条轻量消息，
+  // 避免玩家连续几天打开结算却看不到任何 NPC 动态。
+  if (!created.length) {
+    const fallbackNpc = Object.values(run.npcs || {}).find((npc) => (
+      npc.alive &&
+      npc.active !== false &&
+      npc.tier !== 'background' &&
+      !npc.life?.leftCity
+    ))
+    if (fallbackNpc) {
+      const fallback = buildEvent(run, rng, fallbackNpc, 'message')
+      if (fallback) {
+        run.inbox.unshift(fallback)
+        markCooldown(run, fallbackNpc, 'message')
+        created.push(fallback)
+      }
     }
   }
 

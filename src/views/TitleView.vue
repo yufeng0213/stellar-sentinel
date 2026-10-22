@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.83.0 · NPC INITIATIVE</dd>
+            <dd class="mono">0.84.0 · DAILY FLOW</dd>
           </div>
         </dl>
       </section>
