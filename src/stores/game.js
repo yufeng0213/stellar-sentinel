@@ -142,7 +142,29 @@ import {
   sellToNpc,
   talkToNpc,
 } from '../game-core/npc.js'
-import { exchangeContact, markNpcRead as markNpcReadCore } from '../game-core/npc-contact.js'
+import {
+  contactList,
+  deleteContact as deleteContactCore,
+  exchangeContact,
+  markNpcRead as markNpcReadCore,
+  toggleContactMute,
+  toggleContactPin,
+} from '../game-core/npc-contact.js'
+import {
+  addForumComment,
+  ensureSocial,
+  ensureForumSeed,
+  localForumReply,
+  localForumPost,
+  localMomentFor,
+} from '../game-core/social.js'
+import {
+  buildBackgroundMessageMessages,
+  buildForumPostMessages,
+  buildForumReplyMessages,
+  buildMomentMessages,
+  parseSocialText,
+} from '../game/social-prompts.js'
 import { stealFromNpc, stealFromShop } from '../game-core/steal.js'
 import { streamNpcChat } from '../game/llm.js'
 import { buildLoreMessages, localLore, loreTarget, stripLore } from '../game/lore.js'
@@ -252,7 +274,7 @@ export const useGameStore = defineStore('game', {
         if (!Array.isArray(npc.longMemory)) npc.longMemory = []
       })
       if (!stored.npcChats) stored.npcChats = {}
-      if (!stored.llm) stored.llm = { calls: 0, maxCalls: 120 }
+      if (!stored.llm) stored.llm = { calls: 0, maxCalls: 500 }
       if (!Array.isArray(stored.inbox)) stored.inbox = []
       if (!Array.isArray(stored.quests)) stored.quests = []
       if (!stored.eventCooldowns || typeof stored.eventCooldowns !== 'object') stored.eventCooldowns = {}
@@ -280,6 +302,7 @@ export const useGameStore = defineStore('game', {
       ensureFactionDebts(stored)
       ensureFactionFavorMissions(stored)
       ensureControlReactionEvents(stored)
+      ensureSocial(stored)
       ensureWanted(stored)
       Object.values(stored.npcChats).forEach((messages) => {
         messages.forEach((message) => {
@@ -314,7 +337,7 @@ export const useGameStore = defineStore('game', {
         return { ok: true, text: this.run.story.opening.text, source: 'llm', cached: true }
       }
 
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 120 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
       let text = ''
       let source = 'local'
       let error = ''
@@ -1059,7 +1082,7 @@ export const useGameStore = defineStore('game', {
         return result
       }
 
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 120 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
       let name = ''
       let source = 'local'
       let error = ''
@@ -1122,7 +1145,7 @@ export const useGameStore = defineStore('game', {
         return { ok: true, text: local, source: 'local' }
       }
 
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 120 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
       let text = ''
       let source = 'local'
       let error = ''
@@ -1350,7 +1373,7 @@ export const useGameStore = defineStore('game', {
       const target = loreTarget(npc, tierId)
       if (!target.ok) return target
 
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 120 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
       let text = ''
       let source = 'local'
       let error = ''
@@ -1691,7 +1714,7 @@ export const useGameStore = defineStore('game', {
       const npc = this.run.npcs?.[event.npcId]
       if (!npc) return { ok: false, message: '联系人已经不在了' }
 
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 120 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
       let text = ''
       let source = 'local'
       let error = ''
@@ -1783,6 +1806,156 @@ export const useGameStore = defineStore('game', {
       this.save()
     },
 
+    pinNpcContact(npcId) {
+      if (!this.run) return { ok: false }
+      const result = toggleContactPin(this.run, npcId)
+      if (result.ok) this.save()
+      return result
+    },
+
+    muteNpcContact(npcId) {
+      if (!this.run) return { ok: false }
+      const result = toggleContactMute(this.run, npcId)
+      if (result.ok) this.save()
+      return result
+    },
+
+    removeNpcContact(npcId) {
+      if (!this.run) return { ok: false }
+      const result = deleteContactCore(this.run, npcId)
+      if (result.ok) this.save()
+      return result
+    },
+
+    async requestLlm(messages, timeout = 60000) {
+      if (!this.run) return { ok: false, error: '还没有远征' }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
+      if (this.run.llm.calls >= this.run.llm.maxCalls) {
+        return { ok: false, error: '本局模型调用预算已用完' }
+      }
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), timeout)
+      try {
+        const text = await streamNpcChat(messages, () => {}, controller.signal)
+        if (!text?.trim()) return { ok: false, error: '模型没有返回内容' }
+        this.run.llm.calls += 1
+        return { ok: true, text }
+      } catch (error) {
+        return { ok: false, error: error.name === 'AbortError' ? '模型响应超时' : error.message }
+      } finally {
+        clearTimeout(timer)
+      }
+    },
+
+    likeSocialMoment(momentId) {
+      if (!this.run) return
+      ensureSocial(this.run)
+      const moment = this.run.social.moments.find((item) => item.id === momentId)
+      if (!moment) return
+      moment.likes = (moment.likes || 0) + 1
+      this.save()
+    },
+
+    async generateSocialMoments(useLlm = true) {
+      if (!this.run) return { ok: false }
+      ensureSocial(this.run)
+      const contacts = contactList(this.run).filter((npc) => !npc.muted)
+      const chosen = contacts.slice(0, 2)
+      const created = []
+      for (const npc of chosen) {
+        if (this.run.social.moments.some((moment) => moment.day === this.run.day && moment.npcId === npc.id)) continue
+        const local = localMomentFor(npc, this.run)
+        let source = 'local'
+        if (useLlm) {
+          const result = await this.requestLlm(buildMomentMessages(this.run, npc).messages, 45000)
+          if (result.ok) {
+            const parsed = parseSocialText(result.text, local.text)
+            local.text = parsed.text
+            local.tags = parsed.tags.length ? parsed.tags : local.tags
+            source = 'llm'
+          }
+        }
+        local.source = source
+        this.run.social.moments.unshift(local)
+        created.push(local)
+      }
+      if (this.run.social.moments.length > 40) this.run.social.moments.length = 40
+      this.run.social.lastMomentDay = this.run.day
+      this.save()
+      return { ok: true, created, source: created.some((moment) => moment.source === 'llm') ? 'llm' : 'local' }
+    },
+
+    async refreshForumPost(useLlm = true) {
+      if (!this.run) return { ok: false }
+      ensureSocial(this.run)
+      ensureForumSeed(this.run)
+      const post = localForumPost(this.run)
+      let source = 'local'
+      if (useLlm) {
+        const result = await this.requestLlm(buildForumPostMessages(this.run).messages, 45000)
+        if (result.ok) {
+          const parsed = parseSocialText(result.text, post.body)
+          post.body = parsed.text
+          if (parsed.tags.length) post.tags = parsed.tags
+          source = 'llm'
+        }
+      }
+      post.source = source
+      this.save()
+      return { ok: true, post, source }
+    },
+
+    async replyForumPost(postId, text, useLlm = true) {
+      if (!this.run) return { ok: false }
+      ensureSocial(this.run)
+      const content = String(text || '').trim()
+      if (!content) return { ok: false, message: '回复不能为空' }
+      const post = this.run.social.forumPosts.find((item) => item.id === postId)
+      if (!post) return { ok: false, message: '帖子已经不存在' }
+      const social = ensureSocial(this.run)
+      addForumComment(this.run, postId, {
+        id: `forum-comment-${this.run.day}-${++social.commentSeq}`,
+        authorType: 'player',
+        authorName: '你',
+        text: content.slice(0, 240),
+        day: this.run.day,
+      })
+      const npc = contactList(this.run).find((item) => item.id !== post.authorId) || null
+      let reply = localForumReply(this.run, post, content)
+      if (useLlm && npc) {
+        const result = await this.requestLlm(
+          buildForumReplyMessages(this.run, post, content, npc).messages,
+          45000
+        )
+        if (result.ok) {
+          const parsed = parseSocialText(result.text, reply.text)
+          reply = { ...reply, text: parsed.text, authorType: 'npc', authorId: npc.id, authorName: npc.name, source: 'llm' }
+        }
+      }
+      addForumComment(this.run, postId, reply)
+      this.save()
+      return { ok: true, reply, source: reply.source || 'local' }
+    },
+
+    async enhanceBackgroundMessages(useLlm = true) {
+      if (!this.run) return { ok: false }
+      if (!useLlm) return { ok: true, enhanced: 0 }
+      let enhanced = 0
+      for (const npc of contactList(this.run).filter((item) => !item.muted).slice(0, 3)) {
+        const chats = this.run.npcChats?.[npc.id] || []
+        const message = [...chats].reverse().find((item) => item.background && !item.llm && !item.streaming)
+        if (!message) continue
+        const result = await this.requestLlm(buildBackgroundMessageMessages(this.run, npc).messages, 35000)
+        if (!result.ok) continue
+        const parsed = parseSocialText(result.text, message.text)
+        message.text = parsed.text
+        message.llm = true
+        enhanced += 1
+      }
+      if (enhanced) this.save()
+      return { ok: true, enhanced }
+    },
+
     async sendNpcChat(npcId, text, useLlm = true) {
       const content = String(text || '').trim()
       if (!this.run || !content) return { ok: false }
@@ -1794,7 +1967,7 @@ export const useGameStore = defineStore('game', {
       const history = [...chats]
       chats.push({ role: 'user', text: content, day: this.run.day })
       if (chats.length > 30) chats.splice(0, chats.length - 30)
-      this.run.llm = this.run.llm || { calls: 0, maxCalls: 120 }
+      this.run.llm = this.run.llm || { calls: 0, maxCalls: 500 }
       this.save()
 
       chats.push({ role: 'npc', text: '', streaming: true, day: this.run.day })

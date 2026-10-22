@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { REGIONS, ITEMS } from '../game-core/data.js'
 import {
@@ -13,6 +13,8 @@ import { TAG_CATEGORIES, tagDefsFor } from '../game-core/npc-tags.js'
 import { contactList, lastNpcMessage, unreadCount } from '../game-core/npc-contact.js'
 import { EVENT_TYPES } from '../game-core/npc-events.js'
 import { loreStatusFor } from '../game/lore.js'
+import SocialMoments from '../components/SocialMoments.vue'
+import SocialForum from '../components/SocialForum.vue'
 import { useGameStore } from '../stores/game.js'
 
 const game = useGameStore()
@@ -33,6 +35,8 @@ const section = computed(() => String(route.params.section || 'messages'))
 const sectionMeta = computed(() => ({
   inbox: { kicker: 'INBOX', title: '收件箱', hint: '每天结束会有人来找你。每周会有一件更大的事。' },
   messages: { kicker: 'MESSAGES', title: '对话', hint: '交换过联系方式的人会留在这里。红点是还没读的消息。' },
+  moments: { kicker: 'SOCIAL', title: '社交圈', hint: '你认识的人在过自己的日子。' },
+  forum: { kicker: 'FORUM', title: '论坛', hint: '空港、矿脉站和边境的消息会先出现在这里。' },
   roster: { kicker: 'ROSTER', title: '名册', hint: '每个人都有自己的标签、日程与关系网。' },
   network: { kicker: 'NETWORK', title: '关系网', hint: 'NPC 之间的关系会随每日行动漂移。' },
   events: { kicker: 'EVENTS', title: '世界动态', hint: '你不在场时，星区也在继续运转。' },
@@ -49,6 +53,10 @@ const loreTierId = ref('public')
 const loreBusy = ref(false)
 const loreError = ref('')
 const narratingId = ref('')
+
+onMounted(() => {
+  game.enhanceBackgroundMessages(true)
+})
 
 const selected = computed(() => {
   const found = npcs.value.find((npc) => npc.id === selectedId.value)
@@ -138,6 +146,19 @@ function openChat(npc) {
   if (!npc || !run.value) return
   game.markNpcRead(npc.id)
   router.push({ name: 'npc-chat', params: { runId: run.value.id, npcId: npc.id } })
+}
+
+function pinContact(npc) {
+  game.pinNpcContact(npc.id)
+}
+
+function muteContact(npc) {
+  game.muteNpcContact(npc.id)
+}
+
+function removeContact(npc) {
+  if (!window.confirm(`删除与 ${npc.name} 的对话？`)) return
+  game.removeNpcContact(npc.id)
 }
 
 function chatPreview(npc) {
@@ -336,6 +357,14 @@ async function narrateEvent(event) {
         <span v-if="unreadTotal" class="tab-count">{{ unreadTotal }}</span>
       </RouterLink>
       <RouterLink
+        :to="{ name: 'comms-section', params: { runId: run.id, section: 'moments' } }"
+        :class="{ 'is-on': section === 'moments' }"
+      >社交圈</RouterLink>
+      <RouterLink
+        :to="{ name: 'comms-section', params: { runId: run.id, section: 'forum' } }"
+        :class="{ 'is-on': section === 'forum' }"
+      >论坛</RouterLink>
+      <RouterLink
         :to="{ name: 'comms-section', params: { runId: run.id, section: 'roster' } }"
         :class="{ 'is-on': section === 'roster' }"
       >名册</RouterLink>
@@ -426,27 +455,39 @@ async function narrateEvent(event) {
         <span class="tag amber">{{ contacts.length }} 个联系人</span>
       </div>
       <div v-if="contacts.length" class="contact-list">
-        <button
+        <div
           v-for="npc in contacts"
           :key="npc.id"
-          type="button"
           class="contact-row"
-          :class="{ 'has-unread': npc.unread > 0 }"
-          @click="openChat(npc)"
+          :class="{ 'has-unread': npc.unread > 0, 'is-pinned': npc.pinned, 'is-muted': npc.muted }"
         >
-          <span class="contact-ava">{{ npc.name.slice(0, 1) }}</span>
-          <span class="contact-main">
-            <span class="contact-line">
-              <b>{{ npc.name }}</b>
-              <em>{{ chatTime(npc) }}</em>
+          <button type="button" class="contact-open" @click="openChat(npc)">
+            <span class="contact-ava">{{ npc.name.slice(0, 1) }}</span>
+            <span class="contact-main">
+              <span class="contact-line">
+                <b>{{ npc.name }}<span v-if="npc.pinned" class="pin-mark">置顶</span><span v-if="npc.muted" class="pin-mark muted">免打扰</span></b>
+                <em>{{ chatTime(npc) }}</em>
+              </span>
+              <span class="contact-preview">{{ chatPreview(npc) }}</span>
             </span>
-            <span class="contact-preview">{{ chatPreview(npc) }}</span>
+            <span v-if="npc.unread && !npc.muted" class="unread-dot">{{ npc.unread > 9 ? '9+' : npc.unread }}</span>
+          </button>
+          <span class="contact-actions">
+            <button type="button" class="contact-action" :title="npc.pinned ? '取消置顶' : '置顶'" @click="pinContact(npc)">
+              {{ npc.pinned ? '取消置顶' : '置顶' }}
+            </button>
+            <button type="button" class="contact-action" :title="npc.muted ? '关闭免打扰' : '免打扰'" @click="muteContact(npc)">
+              {{ npc.muted ? '取消免打扰' : '免打扰' }}
+            </button>
+            <button type="button" class="contact-action danger" title="删除联系人" @click="removeContact(npc)">删除</button>
           </span>
-          <span v-if="npc.unread" class="unread-dot">{{ npc.unread > 9 ? '9+' : npc.unread }}</span>
-        </button>
+        </div>
       </div>
       <p v-else class="empty">还没有联系人。去酒馆找坐在窗边的人聊聊，交换联系方式。</p>
     </section>
+
+    <SocialMoments v-else-if="section === 'moments'" />
+    <SocialForum v-else-if="section === 'forum'" />
 
     <section v-if="section === 'roster'" class="panel roster-panel">
       <div class="roster-grid">
@@ -916,15 +957,23 @@ async function narrateEvent(event) {
 .messages-head h3 { margin-top: 2px; font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 400; }
 .messages-head p { margin-top: 3px; }
 .contact-list { display: flex; flex-direction: column; gap: 5px; }
-.contact-row { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(5, 10, 16, .45); color: var(--ink); text-align: left; cursor: pointer; }
+.contact-row { display: flex; align-items: stretch; gap: 4px; border: 1px solid var(--line); border-radius: 10px; background: rgba(5, 10, 16, .45); }
 .contact-row:hover { border-color: rgba(124, 231, 255, .3); background: rgba(124, 231, 255, .035); }
 .contact-row.has-unread { border-color: rgba(255, 138, 138, .28); }
+.contact-row.is-muted { opacity: .68; }
+.contact-open { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; padding: 9px 4px 9px 10px; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
 .contact-ava { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border: 1px solid rgba(124, 231, 255, .28); border-radius: 50%; color: var(--cyan); }
 .contact-main { flex: 1; min-width: 0; }
 .contact-line { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .contact-line b { font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
 .contact-line em { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-style: normal; }
+.pin-mark { margin-left: 5px; color: var(--amber); font-family: var(--mono); font-size: max(var(--ui-min), calc(7px * var(--ui-scale))); font-weight: 400; }
+.pin-mark.muted { color: var(--dim); }
 .contact-preview { display: block; margin-top: 2px; overflow: hidden; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); text-overflow: ellipsis; white-space: nowrap; }
+.contact-actions { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 5px 7px 5px 0; }
+.contact-action { padding: 1px 4px; border: 0; background: transparent; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(7px * var(--ui-scale))); cursor: pointer; }
+.contact-action:hover { color: var(--cyan); }
+.contact-action.danger:hover { color: var(--red); }
 .unread-dot { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--red); color: #090b0f; font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-weight: 600; }
 .roster-panel { padding: 12px; }
 .roster-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }

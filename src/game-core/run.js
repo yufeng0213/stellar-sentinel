@@ -29,6 +29,7 @@ import { createExpeditionState, expeditionEffects } from './expedition.js'
 import { generateDungeonName, resetDungeon } from './dungeon.js'
 import { createReputationState } from './faction.js'
 import { gearTierFor, rollGearAffixes } from './gear.js'
+import { createSocialState } from './social.js'
 import { createStoryState } from './story.js'
 import { createWantedState } from './wanted.js'
 
@@ -178,6 +179,7 @@ export function createRun(draft, seedInput) {
     arrest: createArrestState(),
     factionDebts: createFactionDebts(),
     factionFavorMissions: {},
+    social: createSocialState(),
     jealousyChains: [],
     controlReactionEvents: [],
     wanted: createWantedState(),
@@ -199,7 +201,7 @@ export function createRun(draft, seedInput) {
     log: [],
     flags: {},
     npcChats: {},
-    llm: { calls: 0, maxCalls: 120 },
+    llm: { calls: 0, maxCalls: 500 },
     inbox: [],
     eventCooldowns: {},
     eventPity: {},

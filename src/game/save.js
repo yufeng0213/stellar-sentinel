@@ -21,6 +21,7 @@ import { ensureArrest } from '../game-core/arrest.js'
 import { ensureFactionDebts } from '../game-core/faction-debt.js'
 import { ensureFactionFavorMissions } from '../game-core/faction-favor-chain.js'
 import { ensureControlReactionEvents } from '../game-core/control-reactions.js'
+import { ensureSocial } from '../game-core/social.js'
 import { ensurePatrolCheck } from '../game-core/patrol.js'
 import { ensureWanted } from '../game-core/wanted.js'
 import { ensureReputation } from '../game-core/faction.js'
@@ -81,7 +82,8 @@ export function validateRun(input) {
   if (!Array.isArray(data.worldEvents)) data.worldEvents = []
   if (!data.nodeState || typeof data.nodeState !== 'object') data.nodeState = {}
   if (!data.npcChats || typeof data.npcChats !== 'object') data.npcChats = {}
-  if (!data.llm || typeof data.llm !== 'object') data.llm = { calls: 0, maxCalls: 120 }
+  if (!data.llm || typeof data.llm !== 'object') data.llm = { calls: 0, maxCalls: 500 }
+  if (data.llm.maxCalls === 120) data.llm.maxCalls = 500
   if (!Array.isArray(data.inbox)) data.inbox = []
   if (!Array.isArray(data.quests)) data.quests = []
   if (!data.eventCooldowns || typeof data.eventCooldowns !== 'object') data.eventCooldowns = {}
@@ -110,6 +112,7 @@ export function validateRun(input) {
   ensureFactionDebts(data)
   ensureFactionFavorMissions(data)
   ensureControlReactionEvents(data)
+  ensureSocial(data)
   ensureWanted(data)
   if (!data.story.flags || typeof data.story.flags !== 'object') data.story.flags = {}
 

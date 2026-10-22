@@ -14,6 +14,7 @@ import { PERSONA_EVENTS, personaEventFor } from './npc-persona-events.js'
 import { QUARREL_LINES, RECONCILE_LINES, RIVALRY_LINES } from './npc-conflict-events.js'
 import { processJealousyConfrontation, resolveJealousyReport } from './npc-jealousy.js'
 import { sendBackgroundMessages } from './npc-contact.js'
+import { tickSocial } from './social.js'
 import { createPromise, expirePromises, giftForNpc, openPromises } from './npc-promises.js'
 import { STAGE_EVENTS, stageEventFor } from './npc-stage-events.js'
 import { clearQuarrel, markAmbiguous, noteNpcInteraction, relationStageOf } from './npc-stages.js'
@@ -786,6 +787,7 @@ export function generateNpcEvents(run, options = {}) {
   if (created.some((event) => event.type === 'quest')) run.eventPity.quest = run.day
   if (run.inbox.length > 12) run.inbox.length = 12
   sendBackgroundMessages(run)
+  tickSocial(run)
   return created
 }
 

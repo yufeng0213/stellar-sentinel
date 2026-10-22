@@ -41,7 +41,13 @@ export function contactList(run) {
     !npc.life?.leftCity &&
     isContact(run, npc) &&
     (npc.contact === true || npc.active !== false)
-  ))
+  )).sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1
+    const aDay = lastNpcMessage(run, a.id)?.day || 0
+    const bDay = lastNpcMessage(run, b.id)?.day || 0
+    if (aDay !== bDay) return bDay - aDay
+    return a.name.localeCompare(b.name, 'zh-CN')
+  })
 }
 
 export function exchangeContact(run, npcId) {
@@ -71,7 +77,36 @@ export function lastNpcMessage(run, npcId) {
 }
 
 export function unreadCount(run) {
-  return contactList(run).reduce((sum, npc) => sum + (npc.unread || 0), 0)
+  return contactList(run)
+    .filter((npc) => !npc.muted)
+    .reduce((sum, npc) => sum + (npc.unread || 0), 0)
+}
+
+export function toggleContactPin(run, npcId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc) return { ok: false }
+  npc.pinned = !npc.pinned
+  return { ok: true, pinned: npc.pinned }
+}
+
+export function toggleContactMute(run, npcId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc) return { ok: false }
+  npc.muted = !npc.muted
+  if (npc.muted) npc.unread = 0
+  return { ok: true, muted: npc.muted }
+}
+
+export function deleteContact(run, npcId) {
+  const npc = run?.npcs?.[npcId]
+  if (!npc) return { ok: false }
+  npc.contact = false
+  npc.pinned = false
+  npc.muted = false
+  npc.unread = 0
+  npc.contactDeletedDay = run.day
+  if (run.npcChats) delete run.npcChats[npcId]
+  return { ok: true }
 }
 
 export function markNpcRead(run, npcId) {

@@ -6,10 +6,13 @@ import { randomDraft } from '../src/game-core/character.js'
 import { createRun } from '../src/game-core/run.js'
 import {
   contactList,
+  deleteContact,
   exchangeContact,
   lastNpcMessage,
   markNpcRead,
   sendBackgroundMessages,
+  toggleContactMute,
+  toggleContactPin,
   unreadCount,
 } from '../src/game-core/npc-contact.js'
 
@@ -40,6 +43,15 @@ if (npc) {
 
   markNpcRead(run, target.id)
   check(target.unread === 0 && unreadCount(run) === 0, '打开对话后未读没有清零')
+
+  toggleContactPin(run, npc.id)
+  check(contactList(run)[0].id === npc.id, '置顶联系人没有排在最前')
+  target.unread = 3
+  toggleContactMute(run, target.id)
+  check(target.muted === true && unreadCount(run) === 0, '免打扰没有屏蔽未读红点')
+  deleteContact(run, target.id)
+  check(!contactList(run).some((item) => item.id === target.id), '删除联系人后仍在通讯录')
+  check(!run.npcChats[target.id], '删除联系人后聊天记录没有清除')
 }
 
 console.log(JSON.stringify({
