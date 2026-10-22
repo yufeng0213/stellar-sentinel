@@ -9,7 +9,15 @@ import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { kvStore, storePath } from './store.js'
-import { publicConfig, saveConfig, streamChat, testConfig } from './llm.js'
+import {
+  activateProfile,
+  deleteProfile,
+  listModels,
+  publicConfig,
+  saveConfig,
+  streamChat,
+  testConfig,
+} from './llm.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -81,6 +89,36 @@ app.post('/api/llm/test', async (req, res) => {
     res.status(result.ok ? 200 : 400).json(result)
   } catch (error) {
     console.error('[llm] 连通性测试失败:', error.message)
+    res.status(500).json({ ok: false, message: error.message })
+  }
+})
+
+app.post('/api/llm/activate', async (req, res) => {
+  try {
+    const result = await activateProfile(req.body?.profileId)
+    res.status(result.ok ? 200 : 400).json(result)
+  } catch (error) {
+    console.error('[llm] 切换方案失败:', error.message)
+    res.status(500).json({ ok: false, message: '切换方案失败' })
+  }
+})
+
+app.delete('/api/llm/profiles/:profileId', async (req, res) => {
+  try {
+    const result = await deleteProfile(req.params.profileId)
+    res.status(result.ok ? 200 : 400).json(result)
+  } catch (error) {
+    console.error('[llm] 删除方案失败:', error.message)
+    res.status(500).json({ ok: false, message: '删除方案失败' })
+  }
+})
+
+app.post('/api/llm/models', async (req, res) => {
+  try {
+    const result = await listModels(req.body || {})
+    res.status(result.ok ? 200 : 400).json(result)
+  } catch (error) {
+    console.error('[llm] 拉取模型失败:', error.message)
     res.status(500).json({ ok: false, message: error.message })
   }
 })

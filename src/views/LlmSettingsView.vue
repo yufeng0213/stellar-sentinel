@@ -13,12 +13,35 @@ const config = reactive({
   keyPreview: '',
 })
 const providers = ref([])
+const profiles = ref([])
+const activeProfileId = ref('')
+const profileName = ref('默认方案')
+const isNewProfile = ref(false)
 const apiKey = ref('')
+const models = ref([])
 const loading = ref(false)
 const saving = ref(false)
+const modelsLoading = ref(false)
 const status = ref(null)
 
 const base = './api/llm'
+
+function applyConfig(data) {
+  if (!data) return
+  providers.value = data.providers || providers.value
+  profiles.value = data.profiles || profiles.value
+  activeProfileId.value = data.activeProfileId || ''
+  profileName.value = data.profileName || '默认方案'
+  Object.assign(config, {
+    provider: data.provider,
+    baseURL: data.baseURL,
+    model: data.model,
+    temperature: data.temperature,
+    hasKey: data.hasKey,
+    keyPreview: data.keyPreview,
+  })
+  apiKey.value = ''
+}
 
 async function load() {
   loading.value = true
@@ -26,15 +49,8 @@ async function load() {
     const response = await fetch(`${base}/config`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const data = await response.json()
-    providers.value = data.providers || []
-    Object.assign(config, {
-      provider: data.provider,
-      baseURL: data.baseURL,
-      model: data.model,
-      temperature: data.temperature,
-    })
-    config.hasKey = data.hasKey
-    config.keyPreview = data.keyPreview
+    applyConfig(data)
+    isNewProfile.value = false
     status.value = null
   } catch (error) {
     status.value = { kind: 'bad', text: `无法读取配置：${error.message}。请确认 API 服务已启动。` }
@@ -53,6 +69,38 @@ function changeProvider(event) {
   }
 }
 
+function newProfile() {
+  isNewProfile.value = true
+  activeProfileId.value = ''
+  profileName.value = '新方案'
+  apiKey.value = ''
+  models.value = []
+  status.value = { kind: 'loading', text: '正在编辑新方案，保存后会加入方案列表。' }
+}
+
+async function switchProfile(event) {
+  const profileId = event.target.value
+  if (!profileId || profileId === activeProfileId.value) return
+  saving.value = true
+  try {
+    const response = await fetch(`${base}/activate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ profileId }),
+    })
+    const data = await response.json()
+    if (!response.ok || !data.ok) throw new Error(data.message || `HTTP ${response.status}`)
+    applyConfig(data.config)
+    isNewProfile.value = false
+    models.value = []
+    status.value = { kind: 'ok', text: `已切换到「${profileName.value}」。` }
+  } catch (error) {
+    status.value = { kind: 'bad', text: `切换失败：${error.message}` }
+  } finally {
+    saving.value = false
+  }
+}
+
 async function save() {
   saving.value = true
   status.value = null
@@ -61,6 +109,9 @@ async function save() {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
+        profileId: isNewProfile.value ? undefined : activeProfileId.value,
+        createNew: isNewProfile.value,
+        name: profileName.value,
         provider: config.provider,
         baseURL: config.baseURL,
         model: config.model,
@@ -70,15 +121,63 @@ async function save() {
     })
     const data = await response.json()
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`)
-    providers.value = data.config.providers || providers.value
-    config.hasKey = data.config.hasKey
-    config.keyPreview = data.config.keyPreview
-    apiKey.value = ''
-    status.value = { kind: 'ok', text: '配置已保存到服务端。' }
+    applyConfig(data.config)
+    isNewProfile.value = false
+    status.value = { kind: 'ok', text: `方案「${profileName.value}」已保存并启用。` }
   } catch (error) {
     status.value = { kind: 'bad', text: `保存失败：${error.message}` }
   } finally {
     saving.value = false
+  }
+}
+
+async function removeProfile() {
+  if (!activeProfileId.value || profiles.value.length <= 1) return
+  if (!window.confirm(`删除方案「${profileName.value}」？`)) return
+  saving.value = true
+  try {
+    const response = await fetch(`${base}/profiles/${encodeURIComponent(activeProfileId.value)}`, {
+      method: 'DELETE',
+    })
+    const data = await response.json()
+    if (!response.ok || !data.ok) throw new Error(data.message || `HTTP ${response.status}`)
+    applyConfig(data.config)
+    models.value = []
+    status.value = { kind: 'ok', text: `方案已删除，当前使用「${profileName.value}」。` }
+  } catch (error) {
+    status.value = { kind: 'bad', text: `删除失败：${error.message}` }
+  } finally {
+    saving.value = false
+  }
+}
+
+async function fetchModels() {
+  modelsLoading.value = true
+  status.value = { kind: 'loading', text: '正在拉取模型列表…' }
+  try {
+    const response = await fetch(`${base}/models`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        provider: config.provider,
+        baseURL: config.baseURL,
+        apiKey: apiKey.value,
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok || !data.ok) throw new Error(data.message || `HTTP ${response.status}`)
+    models.value = data.models || []
+    status.value = {
+      kind: 'ok',
+      text: `拉到 ${models.value.length} 个模型${models.value.length ? '，可从输入框下拉选择' : ''}。`,
+    }
+    if (models.value.length && !models.value.some((model) => model.id === config.model)) {
+      config.model = models.value[0].id
+    }
+  } catch (error) {
+    status.value = { kind: 'bad', text: `拉取模型失败：${error.message}` }
+  } finally {
+    modelsLoading.value = false
   }
 }
 
@@ -137,6 +236,33 @@ onMounted(load)
           模型只负责对白、描述与行为提议，不参与数值判定。API Key 保存在服务端，不会回传到浏览器。
         </p>
 
+        <div class="profile-bar">
+          <label class="profile-select">
+            <span>配置方案</span>
+            <select :value="activeProfileId" :disabled="isNewProfile || saving" @change="switchProfile">
+              <option v-if="isNewProfile" value="">新方案（未保存）</option>
+              <option v-for="profile in profiles" :key="profile.id" :value="profile.id">
+                {{ profile.name }}{{ profile.hasKey ? '' : ' · 无 Key' }}
+              </option>
+            </select>
+          </label>
+          <label class="profile-name">
+            <span>方案名称</span>
+            <input v-model.trim="profileName" maxlength="40" placeholder="例如：主力模型 / 备用模型" />
+          </label>
+          <div class="profile-actions">
+            <button type="button" class="btn btn-sm" :disabled="saving" @click="newProfile">新建方案</button>
+            <button
+              type="button"
+              class="btn btn-sm"
+              :disabled="saving || isNewProfile || profiles.length <= 1"
+              @click="removeProfile"
+            >
+              删除
+            </button>
+          </div>
+        </div>
+
         <div class="form-grid">
           <label class="field">
             <span>Provider</span>
@@ -149,7 +275,22 @@ onMounted(load)
 
           <label class="field">
             <span>Model</span>
-            <input v-model.trim="config.model" placeholder="gpt-4o-mini" autocomplete="off" />
+            <div class="model-row">
+              <input
+                v-model.trim="config.model"
+                list="llm-model-list"
+                placeholder="gpt-4o-mini"
+                autocomplete="off"
+              />
+              <button type="button" class="btn btn-sm" :disabled="modelsLoading || saving" @click.prevent="fetchModels">
+                {{ modelsLoading ? '…' : '拉取' }}
+              </button>
+            </div>
+            <datalist id="llm-model-list">
+              <option v-for="model in models" :key="model.id" :value="model.id">{{ model.name }}</option>
+            </datalist>
+            <small v-if="models.length">已拉取 {{ models.length }} 个模型，可直接选择或手动输入。</small>
+            <small v-else>可直接输入模型名，或按当前 Provider 拉取。</small>
           </label>
 
           <label class="field span-2">
@@ -179,10 +320,13 @@ onMounted(load)
 
         <div class="actions">
           <button type="button" class="btn btn-primary" :disabled="saving" @click="save">
-            {{ saving ? '保存中…' : '保存配置' }}
+            {{ saving ? '保存中…' : isNewProfile ? '保存为新方案' : '保存并启用' }}
           </button>
-          <button type="button" class="btn" :disabled="status?.kind === 'loading'" @click="test">
+          <button type="button" class="btn" :disabled="status?.kind === 'loading' || saving" @click="test">
             测试连接
+          </button>
+          <button type="button" class="btn" :disabled="modelsLoading || saving" @click="fetchModels">
+            {{ modelsLoading ? '拉取中…' : '拉取模型' }}
           </button>
           <span class="api-state" :class="status?.kind">
             {{ loading ? '读取配置…' : '' }}
@@ -229,6 +373,28 @@ onMounted(load)
 .settings-panel { padding: 22px 24px 20px; }
 h1 { margin-top: 6px; font-size: max(var(--ui-min), calc(24px * var(--ui-scale))); font-weight: 300; letter-spacing: 0.1em; }
 .lede { margin-top: 6px; color: var(--muted); font-size: max(var(--ui-min), calc(12px * var(--ui-scale))); line-height: 1.8; }
+
+.profile-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid rgba(124, 231, 255, .18);
+  border-radius: 10px;
+  background: rgba(124, 231, 255, .025);
+}
+.profile-select, .profile-name { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.profile-select span, .profile-name span { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8.5px * var(--ui-scale))); }
+.profile-actions { display: flex; gap: 5px; }
+.model-row { display: flex; gap: 6px; }
+.model-row input { flex: 1; min-width: 0; }
+.model-row .btn { flex: none; }
+@media (max-width: 640px) {
+  .profile-bar { grid-template-columns: 1fr; align-items: stretch; }
+  .profile-actions { justify-content: flex-end; }
+}
 
 .form-grid {
   display: grid;

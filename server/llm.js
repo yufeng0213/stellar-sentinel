@@ -38,21 +38,82 @@ function maskKey(key) {
   return `${text.slice(0, 4)}****${text.slice(-4)}`
 }
 
+function makeProfileId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID().slice(0, 8)
+  return `p${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`
+}
+
+function profileFrom(source, fallback = {}) {
+  const provider = Object.prototype.hasOwnProperty.call(PROVIDER_HINTS, source.provider)
+    ? source.provider
+    : (fallback.provider || DEFAULTS.provider)
+  return {
+    id: source.id || fallback.id || makeProfileId(),
+    name: String(source.name || fallback.name || '未命名方案').trim().slice(0, 40) || '未命名方案',
+    provider,
+    baseURL: cleanBaseURL(source.baseURL ?? fallback.baseURL ?? DEFAULTS.baseURL) || DEFAULTS.baseURL,
+    model: String(source.model ?? fallback.model ?? DEFAULTS.model).trim() || DEFAULTS.model,
+    temperature: clamp(source.temperature ?? fallback.temperature, 0, 2, DEFAULTS.temperature),
+    apiKey: source.apiKey === undefined || source.apiKey === ''
+      ? (fallback.apiKey || '')
+      : String(source.apiKey).trim(),
+  }
+}
+
+function normalizeState(raw = {}) {
+  const state = raw && typeof raw === 'object' ? { ...raw } : {}
+  const legacy = profileFrom(state, { id: 'default', name: '默认方案' })
+  if (!Array.isArray(state.profiles) || !state.profiles.length) {
+    state.profiles = [legacy]
+  } else {
+    state.profiles = state.profiles.map((profile) => profileFrom(profile, legacy))
+  }
+  if (!state.activeProfileId || !state.profiles.some((profile) => profile.id === state.activeProfileId)) {
+    state.activeProfileId = state.profiles[0].id
+  }
+  const active = state.profiles.find((profile) => profile.id === state.activeProfileId) || state.profiles[0]
+  // 根字段继续表示当前激活方案，兼容原有 chat / test 读取。
+  state.provider = active.provider
+  state.baseURL = active.baseURL
+  state.model = active.model
+  state.temperature = active.temperature
+  state.apiKey = active.apiKey
+  return state
+}
+
 function readStored() {
   const stored = kvStore.get(CONFIG_KEY)
-  return stored && typeof stored === 'object' ? stored : {}
+  return normalizeState(stored && typeof stored === 'object' ? stored : {})
+}
+
+function publicProfile(profile, activeId) {
+  return {
+    id: profile.id,
+    name: profile.name,
+    provider: profile.provider,
+    baseURL: profile.baseURL,
+    model: profile.model,
+    temperature: profile.temperature,
+    hasKey: Boolean(profile.apiKey),
+    keyPreview: maskKey(profile.apiKey),
+    active: profile.id === activeId,
+  }
 }
 
 export function publicConfig() {
   const stored = readStored()
   const config = { ...DEFAULTS, ...stored }
+  const active = stored.profiles.find((profile) => profile.id === stored.activeProfileId) || stored.profiles[0]
   return {
     provider: config.provider,
     baseURL: config.baseURL,
     model: config.model,
     temperature: config.temperature,
-    hasKey: Boolean(stored.apiKey),
-    keyPreview: maskKey(stored.apiKey),
+    hasKey: Boolean(active?.apiKey),
+    keyPreview: maskKey(active?.apiKey),
+    activeProfileId: active?.id || '',
+    profileName: active?.name || '默认方案',
+    profiles: stored.profiles.map((profile) => publicProfile(profile, stored.activeProfileId)),
     providers: Object.keys(PROVIDER_HINTS).map((key) => ({
       key,
       label: PROVIDER_HINTS[key].label,
@@ -62,22 +123,116 @@ export function publicConfig() {
 }
 
 export async function saveConfig(payload = {}) {
-  const stored = readStored()
-  const provider = Object.prototype.hasOwnProperty.call(PROVIDER_HINTS, payload.provider)
-    ? payload.provider
-    : (stored.provider || DEFAULTS.provider)
+  const state = readStored()
+  const requestedId = payload.profileId || state.activeProfileId
+  const existing = state.profiles.find((profile) => profile.id === requestedId)
+  const baseFallback = existing || state.profiles.find((profile) => profile.id === state.activeProfileId) || state.profiles[0]
+  const fallback = payload.createNew ? { ...baseFallback, apiKey: '' } : baseFallback
+  const next = profileFrom({
+    ...fallback,
+    ...payload,
+    id: payload.createNew ? makeProfileId() : requestedId,
+    name: payload.name || (payload.createNew ? '新方案' : fallback.name),
+  }, fallback)
 
-  const next = {
-    provider,
-    baseURL: cleanBaseURL(payload.baseURL ?? stored.baseURL ?? DEFAULTS.baseURL) || DEFAULTS.baseURL,
-    model: String(payload.model ?? stored.model ?? DEFAULTS.model).trim() || DEFAULTS.model,
-    temperature: clamp(payload.temperature ?? stored.temperature, 0, 2, DEFAULTS.temperature),
-    // 空字符串表示“保持原 key 不变”
-    apiKey: payload.apiKey === undefined || payload.apiKey === '' ? (stored.apiKey || '') : String(payload.apiKey).trim(),
+  if (payload.createNew || !existing) {
+    state.profiles.push(next)
+  } else {
+    state.profiles = state.profiles.map((profile) => (profile.id === next.id ? next : profile))
   }
+  state.activeProfileId = next.id
+  state.provider = next.provider
+  state.baseURL = next.baseURL
+  state.model = next.model
+  state.temperature = next.temperature
+  state.apiKey = next.apiKey
 
-  await kvStore.set(CONFIG_KEY, next)
+  await kvStore.set(CONFIG_KEY, state)
   return publicConfig()
+}
+
+export async function activateProfile(profileId) {
+  const state = readStored()
+  const profile = state.profiles.find((item) => item.id === profileId)
+  if (!profile) return { ok: false, message: '方案不存在' }
+  state.activeProfileId = profile.id
+  state.provider = profile.provider
+  state.baseURL = profile.baseURL
+  state.model = profile.model
+  state.temperature = profile.temperature
+  state.apiKey = profile.apiKey
+  await kvStore.set(CONFIG_KEY, state)
+  return { ok: true, config: publicConfig() }
+}
+
+export async function deleteProfile(profileId) {
+  const state = readStored()
+  if (state.profiles.length <= 1) return { ok: false, message: '至少保留一个方案' }
+  const exists = state.profiles.some((profile) => profile.id === profileId)
+  if (!exists) return { ok: false, message: '方案不存在' }
+  state.profiles = state.profiles.filter((profile) => profile.id !== profileId)
+  if (state.activeProfileId === profileId) {
+    state.activeProfileId = state.profiles[0].id
+    const active = state.profiles[0]
+    state.provider = active.provider
+    state.baseURL = active.baseURL
+    state.model = active.model
+    state.temperature = active.temperature
+    state.apiKey = active.apiKey
+  }
+  await kvStore.set(CONFIG_KEY, state)
+  return { ok: true, config: publicConfig() }
+}
+
+export async function listModels(overrides = {}) {
+  const state = readStored()
+  const active = state.profiles.find((profile) => profile.id === state.activeProfileId) || state.profiles[0]
+  const provider = Object.prototype.hasOwnProperty.call(PROVIDER_HINTS, overrides.provider)
+    ? overrides.provider
+    : active.provider
+  const base = cleanBaseURL(overrides.baseURL || active.baseURL)
+  const apiKey = overrides.apiKey ? String(overrides.apiKey).trim() : active.apiKey
+  if (!base) return { ok: false, message: '缺少 Base URL' }
+  if (provider !== 'ollama' && !apiKey) return { ok: false, message: '缺少 API Key' }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  try {
+    let url
+    let headers = { 'content-type': 'application/json' }
+    if (provider === 'ollama') {
+      url = `${base}/api/tags`
+    } else if (provider === 'anthropic') {
+      url = `${base}/models`
+      headers = { ...headers, 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+    } else {
+      url = `${base}/models`
+      headers = { ...headers, authorization: `Bearer ${apiKey}` }
+    }
+    const response = await fetch(url, { headers, signal: controller.signal })
+    const text = await response.text()
+    if (!response.ok) return { ok: false, message: `拉取失败 HTTP ${response.status}：${text.slice(0, 160)}` }
+    let data = {}
+    try {
+      data = JSON.parse(text)
+    } catch {
+      return { ok: false, message: '模型列表返回的不是合法 JSON' }
+    }
+    const raw = provider === 'ollama' ? (data.models || []) : (data.data || data.models || [])
+    const models = raw
+      .map((item) => {
+        if (typeof item === 'string') return { id: item, name: item }
+        const id = item.id || item.name || item.model || ''
+        return id ? { id, name: item.name || id } : null
+      })
+      .filter(Boolean)
+    return { ok: true, models, provider }
+  } catch (error) {
+    const message = error.name === 'AbortError' ? '拉取超时（15 秒）' : error.message
+    return { ok: false, message: `拉取失败：${message}` }
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 function buildRequest(config) {
