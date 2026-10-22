@@ -80,7 +80,7 @@ function continueRun() {
           </div>
           <div>
             <dt>版本</dt>
-            <dd class="mono">0.93.0 · MINI GAMES</dd>
+            <dd class="mono">0.94.0 · MINI GAME LIBRARY</dd>
           </div>
         </dl>
       </section>

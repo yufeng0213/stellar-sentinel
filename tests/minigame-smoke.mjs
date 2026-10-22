@@ -3,7 +3,7 @@
  */
 
 import { randomDraft } from '../src/game-core/character.js'
-import { challengeFor, miniGameSuccess, shouldOfferMiniGame } from '../src/game-core/minigames.js'
+import { challengeFor, MINIGAME_TYPES, miniGameSuccess, shouldOfferMiniGame } from '../src/game-core/minigames.js'
 import { gather } from '../src/game-core/run.js'
 import { createRun } from '../src/game-core/run.js'
 
@@ -12,9 +12,14 @@ const check = (condition, label) => { if (!condition) errors.push(label) }
 
 const run = createRun(randomDraft(), 'MINIGAME-TEST')
 const challenge = challengeFor(run, { kind: 'steal_shop', nodeId: 'shop-1', index: 0 })
-check(challenge.game === 'blocks', '没有生成方块挑战')
-check(challenge.target >= 300, '扒窃目标过低')
-check(challenge.duration >= 21 && challenge.duration <= 45, '挑战时长越界')
+check(Boolean(MINIGAME_TYPES[challenge.game]), '生成了未注册的小游戏')
+check(Object.keys(MINIGAME_TYPES).length >= 7, '小游戏数量不足')
+check(challenge.target > 0, '扒窃目标无效')
+check(challenge.duration >= 20 && challenge.duration <= 55, '挑战时长越界')
+for (const [key, type] of Object.entries(MINIGAME_TYPES)) {
+  const sample = type.create({ int: () => 0, chance: () => true }, run, false)
+  check(sample.target > 0 && sample.duration >= 20, `${key} 目标/时长无效`)
+}
 check(!miniGameSuccess(challenge, challenge.target - 10), '未达目标却判定成功')
 check(miniGameSuccess(challenge, challenge.target), '达到目标却没有判定成功')
 check(shouldOfferMiniGame(run, 'steal_shop'), '商店扒窃没有触发小游戏')
