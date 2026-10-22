@@ -519,6 +519,8 @@ export function spawnCityNpc(run, cityId = 'dock', index = 0, options = {}) {
   const id = nextNpcId(run)
   const npc = makeNpc(run, rng, id, null, name)
   npc.visitor = Boolean(options.visitor)
+  npc.contact = !options.visitor
+  npc.unread = 0
   npc.cityId = cityId
   npc.active = true
   npc.tier = options.tier || 'active'

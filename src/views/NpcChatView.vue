@@ -17,6 +17,7 @@ const remaining = computed(() => {
 })
 
 onMounted(() => {
+  if (npc.value) game.markNpcRead(npc.value.id)
   checkLlm()
   nextTick(scroll)
 })

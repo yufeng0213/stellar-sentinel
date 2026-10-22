@@ -10,6 +10,7 @@ import {
   npcList,
 } from '../game-core/npc.js'
 import { TAG_CATEGORIES, tagDefsFor } from '../game-core/npc-tags.js'
+import { contactList, lastNpcMessage, unreadCount } from '../game-core/npc-contact.js'
 import { EVENT_TYPES } from '../game-core/npc-events.js'
 import { loreStatusFor } from '../game/lore.js'
 import { useGameStore } from '../stores/game.js'
@@ -20,15 +21,18 @@ const route = useRoute()
 
 const run = computed(() => game.run)
 const npcs = computed(() => (run.value ? npcList(run.value) : []))
+const contacts = computed(() => (run.value ? contactList(run.value) : []))
+const unreadTotal = computed(() => (run.value ? unreadCount(run.value) : 0))
 const tagsOf = (npc) => tagDefsFor(npc?.tags || [])
 const inbox = computed(() => (run.value?.inbox || []).filter((event) => event.status === 'pending'))
 const pendingInboxCount = computed(() => inbox.value.length)
 const weeklySummary = computed(() => run.value?.weekly?.summary || '')
 const activeQuests = computed(() => (run.value?.quests || []).filter((quest) => quest.status === 'active'))
 const loreInfo = computed(() => (selected.value ? loreStatusFor(selected.value, loreTierId.value) : null))
-const section = computed(() => String(route.params.section || 'roster'))
+const section = computed(() => String(route.params.section || 'messages'))
 const sectionMeta = computed(() => ({
   inbox: { kicker: 'INBOX', title: '收件箱', hint: '每天结束会有人来找你。每周会有一件更大的事。' },
+  messages: { kicker: 'MESSAGES', title: '对话', hint: '交换过联系方式的人会留在这里。红点是还没读的消息。' },
   roster: { kicker: 'ROSTER', title: '名册', hint: '每个人都有自己的标签、日程与关系网。' },
   network: { kicker: 'NETWORK', title: '关系网', hint: 'NPC 之间的关系会随每日行动漂移。' },
   events: { kicker: 'EVENTS', title: '世界动态', hint: '你不在场时，星区也在继续运转。' },
@@ -132,7 +136,18 @@ function closeDetail() {
 
 function openChat(npc) {
   if (!npc || !run.value) return
+  game.markNpcRead(npc.id)
   router.push({ name: 'npc-chat', params: { runId: run.value.id, npcId: npc.id } })
+}
+
+function chatPreview(npc) {
+  const message = lastNpcMessage(run.value, npc.id)
+  return message?.text || '还没有消息。'
+}
+
+function chatTime(npc) {
+  const message = lastNpcMessage(run.value, npc.id)
+  return message?.day ? `D${message.day}` : '新联系人'
 }
 
 function closeChat() {
@@ -314,6 +329,13 @@ async function narrateEvent(event) {
         <span v-if="pendingInboxCount" class="tab-count">{{ pendingInboxCount }}</span>
       </RouterLink>
       <RouterLink
+        :to="{ name: 'comms-section', params: { runId: run.id, section: 'messages' } }"
+        :class="{ 'is-on': section === 'messages' }"
+      >
+        对话
+        <span v-if="unreadTotal" class="tab-count">{{ unreadTotal }}</span>
+      </RouterLink>
+      <RouterLink
         :to="{ name: 'comms-section', params: { runId: run.id, section: 'roster' } }"
         :class="{ 'is-on': section === 'roster' }"
       >名册</RouterLink>
@@ -393,6 +415,37 @@ async function narrateEvent(event) {
           <em>D{{ quest.deadline }} 前</em>
         </div>
       </div>
+    </section>
+
+    <section v-if="section === 'messages'" class="panel messages-panel">
+      <div class="messages-head">
+        <div>
+          <h3>对话</h3>
+          <p class="hint">交换过联系方式的人会出现在这里。未读消息会亮红点。</p>
+        </div>
+        <span class="tag amber">{{ contacts.length }} 个联系人</span>
+      </div>
+      <div v-if="contacts.length" class="contact-list">
+        <button
+          v-for="npc in contacts"
+          :key="npc.id"
+          type="button"
+          class="contact-row"
+          :class="{ 'has-unread': npc.unread > 0 }"
+          @click="openChat(npc)"
+        >
+          <span class="contact-ava">{{ npc.name.slice(0, 1) }}</span>
+          <span class="contact-main">
+            <span class="contact-line">
+              <b>{{ npc.name }}</b>
+              <em>{{ chatTime(npc) }}</em>
+            </span>
+            <span class="contact-preview">{{ chatPreview(npc) }}</span>
+          </span>
+          <span v-if="npc.unread" class="unread-dot">{{ npc.unread > 9 ? '9+' : npc.unread }}</span>
+        </button>
+      </div>
+      <p v-else class="empty">还没有联系人。去酒馆找坐在窗边的人聊聊，交换联系方式。</p>
     </section>
 
     <section v-if="section === 'roster'" class="panel roster-panel">
@@ -858,6 +911,21 @@ async function narrateEvent(event) {
 .quest-row b { flex: 1; font-weight: 400; color: var(--ink); }
 .quest-row em { color: var(--amber); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-style: normal; }
 
+.messages-panel { padding: 12px; }
+.messages-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 3px 3px 10px; }
+.messages-head h3 { margin-top: 2px; font-size: max(var(--ui-min), calc(17px * var(--ui-scale))); font-weight: 400; }
+.messages-head p { margin-top: 3px; }
+.contact-list { display: flex; flex-direction: column; gap: 5px; }
+.contact-row { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(5, 10, 16, .45); color: var(--ink); text-align: left; cursor: pointer; }
+.contact-row:hover { border-color: rgba(124, 231, 255, .3); background: rgba(124, 231, 255, .035); }
+.contact-row.has-unread { border-color: rgba(255, 138, 138, .28); }
+.contact-ava { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border: 1px solid rgba(124, 231, 255, .28); border-radius: 50%; color: var(--cyan); }
+.contact-main { flex: 1; min-width: 0; }
+.contact-line { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.contact-line b { font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); font-weight: 500; }
+.contact-line em { color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-style: normal; }
+.contact-preview { display: block; margin-top: 2px; overflow: hidden; color: var(--muted); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); text-overflow: ellipsis; white-space: nowrap; }
+.unread-dot { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--red); color: #090b0f; font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); font-weight: 600; }
 .roster-panel { padding: 12px; }
 .roster-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .roster-card {

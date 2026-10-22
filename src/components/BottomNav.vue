@@ -1,8 +1,13 @@
 <script setup>
+import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { unreadCount } from '../game-core/npc-contact.js'
+import { useGameStore } from '../stores/game.js'
 
 const route = useRoute()
+const game = useGameStore()
 const runId = route.params.runId
+const unread = computed(() => (game.run ? unreadCount(game.run) : 0))
 
 const items = [
   { key: 'map', label: '星图' },
@@ -53,6 +58,27 @@ function isOn(key) {
         </template>
       </svg>
       <span>{{ item.label }}</span>
+      <span v-if="item.key === 'comms' && unread" class="nav-unread">{{ unread > 9 ? '9+' : unread }}</span>
     </RouterLink>
   </nav>
 </template>
+
+<style scoped>
+.bottom-nav a { position: relative; }
+.nav-unread {
+  position: absolute;
+  top: 2px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--red);
+  color: #090b0f;
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 700;
+}
+</style>

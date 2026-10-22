@@ -142,6 +142,7 @@ import {
   sellToNpc,
   talkToNpc,
 } from '../game-core/npc.js'
+import { exchangeContact, markNpcRead as markNpcReadCore } from '../game-core/npc-contact.js'
 import { stealFromNpc, stealFromShop } from '../game-core/steal.js'
 import { streamNpcChat } from '../game/llm.js'
 import { buildLoreMessages, localLore, loreTarget, stripLore } from '../game/lore.js'
@@ -1762,6 +1763,24 @@ export const useGameStore = defineStore('game', {
         this.save()
       }
       return nodeId
+    },
+
+    exchangeNpcContact(npcId) {
+      if (!this.run) return { ok: false }
+      const result = exchangeContact(this.run, npcId)
+      if (result.ok) {
+        this.notify(result.text, 'good')
+        this.save()
+      } else {
+        this.notify(result.message, 'bad')
+      }
+      return result
+    },
+
+    markNpcRead(npcId) {
+      if (!this.run) return
+      markNpcReadCore(this.run, npcId)
+      this.save()
     },
 
     async sendNpcChat(npcId, text, useLlm = true) {

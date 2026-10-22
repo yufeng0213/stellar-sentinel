@@ -34,6 +34,11 @@ function refresh() {
   const result = game.refreshCityVisitors()
   if (result.ok) game.notify(`新的访客来了 · ${result.cost} 信用点`, 'good')
 }
+
+function exchange(npc) {
+  const result = game.exchangeNpcContact(npc.id)
+  if (result.ok) game.notify(result.text, 'good')
+}
 </script>
 
 <template>
@@ -72,7 +77,18 @@ function refresh() {
           <span>信任 <b>{{ npc.relation.trust }}</b></span>
           <span>亲近 <b>{{ npc.relation.closeness }}</b></span>
         </div>
-        <span class="visitor-go">去聊两句 →</span>
+        <div class="visitor-actions">
+          <span class="visitor-go">去聊两句 →</span>
+          <button
+            v-if="!npc.contact"
+            type="button"
+            class="btn btn-sm visitor-contact"
+            @click.prevent.stop="exchange(npc)"
+          >
+            交换联系方式
+          </button>
+          <span v-else class="tag jade">已加通讯</span>
+        </div>
       </RouterLink>
       <div v-if="!visitors.length" class="panel empty">酒馆今天很安静。换一批访客试试。</div>
     </section>
@@ -101,7 +117,9 @@ function refresh() {
 .visitor-card p { margin-top: 2px; color: var(--dim); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
 .visitor-relations { display: flex; gap: 10px; margin-top: 12px; color: var(--dim); font-family: var(--mono); font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .visitor-relations b { color: var(--muted); font-weight: 500; }
-.visitor-go { display: block; margin-top: 12px; color: var(--amber); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.visitor-actions { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-top: 12px; }
+.visitor-go { color: var(--amber); font-family: var(--mono); font-size: max(var(--ui-min), calc(9px * var(--ui-scale))); }
+.visitor-contact { padding: 4px 7px; font-size: max(var(--ui-min), calc(8px * var(--ui-scale))); }
 .rumor-box { padding: 12px 16px; border-color: rgba(185, 164, 255, .22); background: rgba(185, 164, 255, .045); }
 .rumor-box p { margin-top: 4px; color: var(--muted); font-size: max(var(--ui-min), calc(11px * var(--ui-scale))); line-height: 1.7; }
 .tavern-note { color: var(--dim); font-size: max(var(--ui-min), calc(10px * var(--ui-scale))); text-align: center; }

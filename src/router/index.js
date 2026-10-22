@@ -81,7 +81,7 @@ const router = createRouter({
         {
           path: 'comms',
           name: 'comms',
-          redirect: (to) => ({ name: 'comms-section', params: { runId: to.params.runId, section: 'roster' } }),
+          redirect: (to) => ({ name: 'comms-section', params: { runId: to.params.runId, section: 'messages' } }),
         },
         { path: 'comms/:section', name: 'comms-section', component: CommsView },
         { path: 'npc/:npcId', name: 'npc', component: NpcView },
