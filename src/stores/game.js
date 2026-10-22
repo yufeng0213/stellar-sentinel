@@ -155,16 +155,20 @@ import {
   addMomentComment,
   ensureSocial,
   ensureForumSeed,
-  localForumReply,
+  forumCommentators,
+  localForumNpcComment,
   localForumPost,
   localMomentFor,
+  localMomentNpcComment,
   localMomentReply,
+  socialCommentators,
 } from '../game-core/social.js'
 import {
   buildBackgroundMessageMessages,
+  buildForumNpcCommentMessages,
   buildForumPostMessages,
-  buildForumReplyMessages,
   buildMomentCommentMessages,
+  buildMomentNpcCommentMessages,
   buildMomentMessages,
   parseSocialText,
 } from '../game/social-prompts.js'
@@ -1859,6 +1863,67 @@ export const useGameStore = defineStore('game', {
       this.save()
     },
 
+    async generateMomentComments(moment, useLlm = true, count = 2) {
+      if (!this.run || !moment) return []
+      if (moment.commentsGenerated || (moment.comments?.length || 0) >= 3) return []
+      const author = this.run.npcs?.[moment.npcId] || null
+      const commentators = socialCommentators(this.run, author, count)
+      const created = []
+      for (const item of commentators) {
+        let comment = localMomentNpcComment(this.run, moment, item.npc, item.tone)
+        if (useLlm) {
+          const result = await this.requestLlm(
+            buildMomentNpcCommentMessages(
+              this.run,
+              moment,
+              item.npc,
+              author,
+              item.tone,
+              [...(moment.comments || []), ...created]
+            ).messages,
+            45000
+          )
+          if (result.ok) {
+            const parsed = parseSocialText(result.text, comment.text)
+            comment = { ...comment, text: parsed.text, source: 'llm' }
+          }
+        }
+        addMomentComment(this.run, moment.id, comment)
+        created.push(comment)
+      }
+      moment.commentsGenerated = true
+      return created
+    },
+
+    async generateForumComments(post, useLlm = true, count = 2) {
+      if (!this.run || !post || post.commentsGenerated) return []
+      const commentators = forumCommentators(this.run, count)
+      const created = []
+      for (const item of commentators) {
+        let comment = localForumNpcComment(this.run, post, item.npc, item.tone)
+        if (useLlm) {
+          const result = await this.requestLlm(
+            buildForumNpcCommentMessages(
+              this.run,
+              post,
+              item.npc,
+              item.tone,
+              [...(post.comments || []), ...created]
+            ).messages,
+            45000
+          )
+          if (result.ok) {
+            const parsed = parseSocialText(result.text, comment.text)
+            comment = { ...comment, text: parsed.text, source: 'llm' }
+          }
+        }
+        addForumComment(this.run, post.id, comment)
+        created.push(comment)
+      }
+      post.commentsGenerated = true
+      return created
+    },
+
     async generateSocialMoments(useLlm = true) {
       if (!this.run) return { ok: false }
       ensureSocial(this.run)
@@ -1881,6 +1946,7 @@ export const useGameStore = defineStore('game', {
         }
         local.source = source
         if (!existing) this.run.social.moments.unshift(local)
+        await this.generateMomentComments(local, useLlm)
         created.push(local)
       }
       if (this.run.social.moments.length > 40) this.run.social.moments.length = 40
@@ -1918,6 +1984,29 @@ export const useGameStore = defineStore('game', {
         }
       }
       addMomentComment(this.run, momentId, reply)
+
+      const extra = socialCommentators(this.run, npc, 1).find((item) => item.npc.id !== npc?.id)
+      if (extra) {
+        let extraReply = localMomentNpcComment(this.run, moment, extra.npc, extra.tone)
+        if (useLlm) {
+          const result = await this.requestLlm(
+            buildMomentNpcCommentMessages(
+              this.run,
+              moment,
+              extra.npc,
+              npc,
+              extra.tone,
+              moment.comments || []
+            ).messages,
+            45000
+          )
+          if (result.ok) {
+            const parsed = parseSocialText(result.text, extraReply.text)
+            extraReply = { ...extraReply, text: parsed.text, source: 'llm' }
+          }
+        }
+        addMomentComment(this.run, momentId, extraReply)
+      }
       this.save()
       return { ok: true, reply, source: reply.source || 'local' }
     },
@@ -1941,6 +2030,7 @@ export const useGameStore = defineStore('game', {
         }
       }
       post.source = source
+      await this.generateForumComments(post, useLlm)
       if (source === 'llm') this.run.social.lastForumLlmDay = this.run.day
       this.save()
       return { ok: true, post, source }
@@ -1968,21 +2058,36 @@ export const useGameStore = defineStore('game', {
         text: content.slice(0, 240),
         day: this.run.day,
       })
-      const npc = contactList(this.run).find((item) => item.id !== post.authorId) || null
-      let reply = localForumReply(this.run, post, content)
-      if (useLlm && npc) {
-        const result = await this.requestLlm(
-          buildForumReplyMessages(this.run, post, content, npc).messages,
-          45000
-        )
-        if (result.ok) {
-          const parsed = parseSocialText(result.text, reply.text)
-          reply = { ...reply, text: parsed.text, authorType: 'npc', authorId: npc.id, authorName: npc.name, source: 'llm' }
+      const commentators = forumCommentators(this.run, 2)
+      const replies = []
+      for (const item of commentators) {
+        let reply = localForumNpcComment(this.run, post, item.npc, item.tone)
+        if (useLlm) {
+          const result = await this.requestLlm(
+            buildForumNpcCommentMessages(
+              this.run,
+              post,
+              item.npc,
+              item.tone,
+              post.comments || []
+            ).messages,
+            45000
+          )
+          if (result.ok) {
+            const parsed = parseSocialText(result.text, reply.text)
+            reply = { ...reply, text: parsed.text, source: 'llm' }
+          }
         }
+        addForumComment(this.run, postId, reply)
+        replies.push(reply)
       }
-      addForumComment(this.run, postId, reply)
       this.save()
-      return { ok: true, reply, source: reply.source || 'local' }
+      return {
+        ok: true,
+        reply: replies[0] || null,
+        replies,
+        source: replies.some((item) => item.source === 'llm') ? 'llm' : 'local',
+      }
     },
 
     async enhanceBackgroundMessages(useLlm = true) {

@@ -10,11 +10,15 @@ import {
   addMomentComment,
   ensureForumSeed,
   ensureSocial,
+  forumCommentators,
+  localForumNpcComment,
   localForumPost,
   localForumReply,
   localMomentFor,
+  localMomentNpcComment,
   localMomentReply,
   replaceMomentText,
+  socialCommentators,
   tickSocial,
 } from '../src/game-core/social.js'
 import { buildForumPostMessages, recentActionSummary } from '../src/game/social-prompts.js'
@@ -44,6 +48,14 @@ if (npc) {
   addMomentComment(run, moment.id, momentReply)
   check(updated.comments?.length === 2, '社交动态评论或回复没有写入')
   check(momentReply.authorType === 'npc', '社交动态回复作者错误')
+  const commentators = socialCommentators(run, npc, 2)
+  check(commentators.length > 0, '没有找到动态评论者')
+  if (commentators[0]) {
+    const otherComment = localMomentNpcComment(run, moment, commentators[0].npc, commentators[0].tone)
+    addMomentComment(run, moment.id, otherComment)
+    check(updated.comments.length >= 3, '第二个 NPC 评论没有写入')
+    check(otherComment.tone, 'NPC 评论没有情绪标记')
+  }
 }
 
 ensureForumSeed(run)
@@ -60,6 +72,12 @@ addForumComment(run, post.id, comment)
 check(post.comments.some((item) => item.id === comment.id), '论坛评论没有写入')
 const reply = localForumReply(run, post, comment.text)
 check(reply.text.length > 0, '论坛回复为空')
+const forumNpcs = forumCommentators(run, 2)
+check(forumNpcs.length > 0, '没有找到论坛评论者')
+if (forumNpcs[0]) {
+  addForumComment(run, post.id, localForumNpcComment(run, post, forumNpcs[0].npc, forumNpcs[0].tone))
+  check(post.comments.length >= 2, '论坛 NPC 评论没有写入')
+}
 run.log.unshift({ t: `D${run.day}`, text: '你在矿脉站击倒了一台旧战争机器。', kind: 'good' })
 const actionSummary = recentActionSummary(run)
 check(actionSummary.some((line) => line.includes('旧战争机器')), '最近行动没有进入论坛上下文')

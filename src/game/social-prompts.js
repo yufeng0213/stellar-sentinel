@@ -104,6 +104,77 @@ export function buildForumPostMessages(run) {
   }
 }
 
+const TONE_LABELS = {
+  friendly: '亲近、支持',
+  rival: '竞争、带刺',
+  jealous: '嫉妒、试探',
+  hostile: '敌意、怨恨',
+  neutral: '普通、观察',
+}
+
+function edgeLine(run, left, right) {
+  const edge = (run.npcEdges || []).find((item) => (
+    (item.a === left?.id && item.b === right?.id) || (item.a === right?.id && item.b === left?.id)
+  ))
+  if (!edge) return '他们之间没有登记关系。'
+  return `他们之间的关系：${edge.kind || '熟人'}，信任 ${edge.trust ?? 0}，rivalry ${edge.rivalry ?? 0}。`
+}
+
+export function buildMomentNpcCommentMessages(run, moment, commentator, author, tone, existingComments = []) {
+  return {
+    messages: [
+      {
+        role: 'system',
+        content: [
+          '你在为一个星际边境 RPG 写 NPC 在社交动态下的评论。',
+          '只输出一条中文评论，不要解释，不要加引号，不要写旁白。',
+          '评论要符合评论者的人设、派系、与作者的关系，以及指定的情绪。',
+          '可以针对动态本身，也可以回应已有评论；不要替玩家说话。',
+          `情绪：${TONE_LABELS[tone] || TONE_LABELS.neutral}`,
+          '控制在 50 个汉字以内。',
+          '',
+          `动态作者：\n${npcProfile(author, run)}`,
+          '',
+          edgeLine(run, commentator, author),
+          '',
+          `动态：${moment.text}`,
+          existingComments.length
+            ? `已有评论：\n- ${existingComments.map((item) => `${item.authorName}：${item.text}`).join('\n- ')}`
+            : '',
+        ].filter(Boolean).join('\n'),
+      },
+      { role: 'user', content: `写一条 ${commentator.name} 会留下的评论。` },
+    ],
+  }
+}
+
+export function buildForumNpcCommentMessages(run, post, commentator, tone, existingComments = []) {
+  return {
+    messages: [
+      {
+        role: 'system',
+        content: [
+          '你在为一个星际边境 RPG 写论坛帖子下的 NPC 评论。',
+          '只输出一条中文评论，不要解释，不要加引号，不要写旁白。',
+          '评论要符合评论者的人设、派系和指定情绪。',
+          '可以针对帖子，也可以回应已有评论；不要替玩家说话。',
+          `情绪：${TONE_LABELS[tone] || TONE_LABELS.neutral}`,
+          '控制在 60 个汉字以内。',
+          '',
+          npcProfile(commentator, run),
+          '',
+          `帖子标题：${post.title}`,
+          `帖子内容：${post.body}`,
+          existingComments.length
+            ? `已有评论：\n- ${existingComments.map((item) => `${item.authorName}：${item.text}`).join('\n- ')}`
+            : '',
+        ].filter(Boolean).join('\n'),
+      },
+      { role: 'user', content: '写一条这条帖子下的评论。' },
+    ],
+  }
+}
+
 export function buildMomentCommentMessages(run, moment, commentText, npc) {
   return {
     messages: [

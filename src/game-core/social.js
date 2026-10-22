@@ -130,6 +130,63 @@ export function addMoment(run, moment) {
   return moment
 }
 
+function edgeBetween(run, aId, bId) {
+  return (run.npcEdges || []).find((edge) => (
+    (edge.a === aId && edge.b === bId) || (edge.a === bId && edge.b === aId)
+  )) || null
+}
+
+function toneFor(run, npc, author, edge) {
+  if (npc?.tags?.includes('jealous') && author) return 'jealous'
+  if ((npc?.relation?.grievance || 0) >= 45) return 'hostile'
+  if ((edge?.rivalry || 0) >= 55) return 'rival'
+  if (npc?.lover && author && !author.lover) return 'jealous'
+  if ((edge?.trust || 0) >= 55 || (npc?.relation?.closeness || 0) >= 55) return 'friendly'
+  return 'neutral'
+}
+
+export function socialCommentators(run, author, count = 2) {
+  const authorNpc = typeof author === 'string' ? run?.npcs?.[author] : author
+  const pool = Object.values(run?.npcs || {}).filter((npc) => (
+    npc.alive &&
+    npc.active !== false &&
+    !npc.life?.leftCity &&
+    npc.id !== authorNpc?.id
+  ))
+  const linked = pool
+    .map((npc) => {
+      const edge = authorNpc ? edgeBetween(run, authorNpc.id, npc.id) : null
+      return { npc, edge, tone: toneFor(run, npc, authorNpc, edge) }
+    })
+    .sort((left, right) => {
+      const score = (item) => (
+        (item.tone === 'hostile' ? 5 : item.tone === 'rival' ? 4 : item.tone === 'jealous' ? 3 : item.tone === 'friendly' ? 2 : 1) * 100 +
+        (item.edge?.rivalry || 0) + (item.edge?.trust || 0) / 2
+      )
+      return score(right) - score(left)
+    })
+  const picked = []
+  const used = new Set()
+  for (const item of linked) {
+    if (picked.length >= count) break
+    if (used.has(item.npc.id)) continue
+    picked.push(item)
+    used.add(item.npc.id)
+  }
+  if (picked.length < count) {
+    pool.forEach((npc) => {
+      if (picked.length >= count || used.has(npc.id)) return
+      picked.push({ npc, edge: authorNpc ? edgeBetween(run, authorNpc.id, npc.id) : null, tone: 'neutral' })
+      used.add(npc.id)
+    })
+  }
+  return picked
+}
+
+export function forumCommentators(run, count = 2) {
+  return socialCommentators(run, null, count).map((item) => ({ ...item, tone: item.tone || 'neutral' }))
+}
+
 export function addMomentComment(run, momentId, comment) {
   const social = ensureSocial(run)
   const moment = social.moments.find((item) => item.id === momentId)
@@ -157,6 +214,40 @@ export function localMomentReply(run, moment, commentText, rng = createRng(`${ru
     text: rng.pick(replies),
     day: run.day,
     replyTo: commentText || null,
+  }
+}
+
+const NPC_COMMENT_LINES = {
+  friendly: ['这条我看到了。别太晚回空港。', '听起来还行。需要帮忙就说。', '你写这个的时候，心情应该不错。'],
+  rival: ['说得倒轻巧。事情没那么简单。', '你最好别把话说得太满。', '这条动态和上次你说的不太一样。'],
+  jealous: ['你发这条，是给谁看的？', '有些话不用写得这么明白。', '你最近好像很闲。'],
+  hostile: ['别把空港说得跟没事一样。', '你最好知道自己在写什么。', '这条我记住了。'],
+  neutral: ['路过。今天确实有点不寻常。', '空港最近消息很多。', '先看看再说。'],
+}
+
+export function localMomentNpcComment(run, moment, commentator, tone = 'neutral', rng = createRng(`${run.seed}:moment-npc-comment:${moment.id}:${commentator.id}`)) {
+  const lines = NPC_COMMENT_LINES[tone] || NPC_COMMENT_LINES.neutral
+  return {
+    id: `moment-comment-${run.day}-${++ensureSocial(run).commentSeq}`,
+    authorType: 'npc',
+    authorId: commentator.id,
+    authorName: commentator.name,
+    text: rng.pick(lines),
+    day: run.day,
+    tone,
+  }
+}
+
+export function localForumNpcComment(run, post, commentator, tone = 'neutral', rng = createRng(`${run.seed}:forum-npc-comment:${post.id}:${commentator.id}`)) {
+  const lines = NPC_COMMENT_LINES[tone] || NPC_COMMENT_LINES.neutral
+  return {
+    id: `forum-comment-${run.day}-${++ensureSocial(run).commentSeq}`,
+    authorType: 'npc',
+    authorId: commentator.id,
+    authorName: commentator.name,
+    text: rng.pick(lines),
+    day: run.day,
+    tone,
   }
 }
 
